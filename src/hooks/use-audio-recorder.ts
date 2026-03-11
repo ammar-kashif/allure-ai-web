@@ -110,7 +110,8 @@ export function useAudioRecorder() {
         const displayStream = await navigator.mediaDevices.getDisplayMedia({
           audio: true,
           video: true, // Required for Chrome to show the picker
-        })
+          systemAudio: "include", // Show "Share system audio" on Windows/ChromeOS
+        } as DisplayMediaStreamOptions)
         displayStreamRef = displayStream
 
         // Immediately stop video tracks — we only need audio
