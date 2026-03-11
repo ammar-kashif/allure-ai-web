@@ -29,12 +29,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. User can assign a recording to a project or leave it unassigned (unassigned recordings are private)
   4. After assignment, the recording is sent to the backend and processing status updates live (queued, processing, complete)
   5. Completed transcript displays with timestamps and speaker labels (Speaker 1, Speaker 2, etc.)
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
-- [ ] 01-03: TBD
+- [ ] 01-01-PLAN.md -- Project scaffolding, audio recording pipeline with crash recovery, global FAB
+- [ ] 01-02-PLAN.md -- SQLite database, Recording Hub UI, backend integration, status polling
+- [ ] 01-03-PLAN.md -- Transcript display with chat bubbles, recording detail page, end-to-end verification
 
 ### Phase 2: AI Extraction and Promotion
 **Goal**: Users can trigger AI extraction on a transcript and get structured outcomes (decisions, action items, requirements, blockers) with confidence scores and evidence links, then promote them into tasks and requirement records
