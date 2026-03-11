@@ -9,7 +9,7 @@ import {
 } from "@tanstack/react-query"
 
 import { apiClient } from "@/lib/api/client"
-import type { Recording, RecordingStatus } from "@/types/recording"
+import type { Recording, RecordingStatus, Transcript } from "@/types/recording"
 
 export function useRecordings(
   status?: RecordingStatus
@@ -59,6 +59,19 @@ export function useRecordingStatus(
       }
       return 3000
     },
+  })
+}
+
+export function useTranscript(
+  recordingId: string,
+  enabled: boolean
+): UseQueryResult<Transcript> {
+  return useQuery({
+    queryKey: ["transcript", recordingId],
+    queryFn: () =>
+      apiClient.get<Transcript>(`/api/recordings/${recordingId}/transcript`),
+    enabled: !!recordingId && enabled,
+    staleTime: Infinity,
   })
 }
 
