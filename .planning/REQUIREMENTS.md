@@ -9,19 +9,19 @@ Requirements for FYP demo. Each maps to roadmap phases.
 
 ### Recording
 
-- [ ] **REC-01**: User can start recording with one tap from any screen (global record button)
-- [ ] **REC-02**: Browser captures laptop microphone audio via Web Audio API
-- [ ] **REC-03**: Recording auto-saves to filesystem with crash recovery
-- [ ] **REC-04**: Recording Hub displays all recordings with status (Unassigned, Processing, Ready)
-- [ ] **REC-05**: User can assign a recording to a project (create new or attach existing session)
-- [ ] **REC-06**: Unassigned recordings are private to the creating user
+- [x] **REC-01**: User can start recording with one tap from any screen (global record button)
+- [x] **REC-02**: Browser captures laptop microphone audio via Web Audio API
+- [x] **REC-03**: Recording auto-saves to filesystem with crash recovery
+- [x] **REC-04**: Recording Hub displays all recordings with status (Unassigned, Processing, Ready)
+- [x] **REC-05**: User can assign a recording to a project (create new or attach existing session)
+- [x] **REC-06**: Unassigned recordings are private to the creating user
 
 ### Transcription
 
-- [ ] **STT-01**: Recording is sent to Python backend for Whisper STT processing
-- [ ] **STT-02**: Transcript includes timestamps for each utterance
-- [ ] **STT-03**: Transcript includes speaker diarization labels (Speaker 1, Speaker 2, etc.)
-- [ ] **STT-04**: Processing status updates display in real-time (queued → processing → complete)
+- [x] **STT-01**: Recording is sent to Python backend for Whisper STT processing
+- [x] **STT-02**: Transcript includes timestamps for each utterance
+- [x] **STT-03**: Transcript includes speaker diarization labels (Speaker 1, Speaker 2, etc.)
+- [x] **STT-04**: Processing status updates display in real-time (queued → processing → complete)
 
 ### Extraction
 
@@ -119,16 +119,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REC-01 | Phase 1 | Pending |
-| REC-02 | Phase 1 | Pending |
-| REC-03 | Phase 1 | Pending |
-| REC-04 | Phase 1 | Pending |
-| REC-05 | Phase 1 | Pending |
-| REC-06 | Phase 1 | Pending |
-| STT-01 | Phase 1 | Pending |
-| STT-02 | Phase 1 | Pending |
-| STT-03 | Phase 1 | Pending |
-| STT-04 | Phase 1 | Pending |
+| REC-01 | Phase 1 | Complete |
+| REC-02 | Phase 1 | Complete |
+| REC-03 | Phase 1 | Complete |
+| REC-04 | Phase 1 | Complete |
+| REC-05 | Phase 1 | Complete |
+| REC-06 | Phase 1 | Complete |
+| STT-01 | Phase 1 | Complete |
+| STT-02 | Phase 1 | Complete |
+| STT-03 | Phase 1 | Complete |
+| STT-04 | Phase 1 | Complete |
 | EXT-01 | Phase 2 | Pending |
 | EXT-02 | Phase 2 | Pending |
 | EXT-03 | Phase 2 | Pending |

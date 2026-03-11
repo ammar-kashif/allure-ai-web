@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 5 plans
 
 Plans:
-- [ ] 01-00-PLAN.md -- Wave 0: Test infrastructure, vitest config, test skeleton files
+- [x] 01-00-PLAN.md -- Wave 0: Test infrastructure, vitest config, test skeleton files
 - [ ] 01-01-PLAN.md -- Project scaffolding, audio recording pipeline with crash recovery, global FAB
 - [ ] 01-02-PLAN.md -- SQLite database, API routes, TanStack Query hooks
 - [ ] 01-03-PLAN.md -- Recording Hub UI with table, tabs, project assignment
@@ -87,7 +87,7 @@ Note: Phase 3 can be worked on in parallel with Phase 2 by a different team memb
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Recording and Transcription Pipeline | 0/5 | Not started | - |
+| 1. Recording and Transcription Pipeline | 1/5 | In Progress|  |
 | 2. AI Extraction and Promotion | 0/2 | Not started | - |
 | 3. Task Management | 0/2 | Not started | - |
 | 4. Document Generation and Demo Polish | 0/1 | Not started | - |
