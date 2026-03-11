@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { existsSync, mkdirSync, writeFileSync } from "fs"
 import { join } from "path"
-import { homedir } from "os"
 
 import { getRecordings, createRecording, updateRecording } from "@/lib/db/recordings"
 import type { RecordingStatus } from "@/types/recording"
 
-const RECORDINGS_DIR = join(homedir(), ".allure", "recordings")
+const RECORDINGS_DIR = join(process.cwd(), "public", "recordings")
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000"
 
 export async function GET(request: NextRequest) {
