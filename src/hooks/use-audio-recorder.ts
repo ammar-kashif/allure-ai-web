@@ -109,9 +109,12 @@ export function useAudioRecorder() {
       try {
         const displayStream = await navigator.mediaDevices.getDisplayMedia({
           audio: true,
-          video: false, // We only want audio, not screen video
+          video: true, // Required for Chrome to show the picker
         })
         displayStreamRef = displayStream
+
+        // Immediately stop video tracks — we only need audio
+        displayStream.getVideoTracks().forEach((t) => t.stop())
 
         // Check if we actually got audio tracks (user might not have shared audio)
         const displayAudioTracks = displayStream.getAudioTracks()
@@ -130,9 +133,6 @@ export function useAudioRecorder() {
           displaySource.connect(destination)
 
           mixedStream = destination.stream
-
-          // Stop the video track if browser included one despite video: false
-          displayStream.getVideoTracks().forEach((t) => t.stop())
 
           // If the user stops sharing the tab, stop the recording
           displayAudioTracks[0].onended = () => {
