@@ -13,11 +13,13 @@ import { checkForRecovery, discardRecovery, recoverRecording } from "@/lib/audio
 import { generateRecordingTitle } from "@/lib/utils"
 
 /**
- * Module-level MediaRecorder ref. Survives React re-renders and navigation.
+ * Module-level refs. Survive React re-renders and navigation.
  * The FAB lives in root layout which never unmounts, but this is extra safety.
  */
 let mediaRecorderRef: MediaRecorder | null = null
 let mediaStreamRef: MediaStream | null = null
+let displayStreamRef: MediaStream | null = null
+let audioContextRef: AudioContext | null = null
 
 export interface AudioRecorderResult {
   blob: Blob
@@ -98,15 +100,65 @@ export function useAudioRecorder() {
 
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      mediaStreamRef = stream
+      // 1. Get microphone audio
+      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      mediaStreamRef = micStream
+
+      // 2. Try to get system/tab audio via getDisplayMedia
+      let mixedStream: MediaStream = micStream
+      try {
+        const displayStream = await navigator.mediaDevices.getDisplayMedia({
+          audio: true,
+          video: false, // We only want audio, not screen video
+        })
+        displayStreamRef = displayStream
+
+        // Check if we actually got audio tracks (user might not have shared audio)
+        const displayAudioTracks = displayStream.getAudioTracks()
+        if (displayAudioTracks.length > 0) {
+          // 3. Mix mic + system audio using Web Audio API
+          const audioContext = new AudioContext()
+          audioContextRef = audioContext
+
+          const micSource = audioContext.createMediaStreamSource(micStream)
+          const displaySource = audioContext.createMediaStreamSource(
+            new MediaStream(displayAudioTracks)
+          )
+          const destination = audioContext.createMediaStreamDestination()
+
+          micSource.connect(destination)
+          displaySource.connect(destination)
+
+          mixedStream = destination.stream
+
+          // Stop the video track if browser included one despite video: false
+          displayStream.getVideoTracks().forEach((t) => t.stop())
+
+          // If the user stops sharing the tab, stop the recording
+          displayAudioTracks[0].onended = () => {
+            if (mediaRecorderRef?.state === "recording") {
+              toast.info("Tab sharing ended", {
+                description: "Recording will continue with microphone only.",
+              })
+            }
+          }
+        } else {
+          // User shared screen but no audio — continue with mic only
+          displayStream.getTracks().forEach((t) => t.stop())
+          displayStreamRef = null
+        }
+      } catch {
+        // User cancelled the display picker or browser doesn't support it
+        // Continue with mic-only recording
+        displayStreamRef = null
+      }
 
       const recordingId = crypto.randomUUID()
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
         : "audio/webm"
 
-      const recorder = new MediaRecorder(stream, { mimeType })
+      const recorder = new MediaRecorder(mixedStream, { mimeType })
       mediaRecorderRef = recorder
 
       recorder.ondataavailable = async (event) => {
@@ -124,6 +176,12 @@ export function useAudioRecorder() {
 
       recorder.start(3000) // 3-second chunks
       storeStart(recordingId)
+
+      toast.success("Recording started", {
+        description: displayStreamRef
+          ? "Capturing microphone + system audio"
+          : "Capturing microphone only",
+      })
     } catch (error) {
       const message =
         error instanceof DOMException && error.name === "NotAllowedError"
@@ -147,10 +205,14 @@ export function useAudioRecorder() {
         const blob = new Blob(chunks, { type: recorder.mimeType })
         await clearAudioChunks(recId)
 
-        // Stop all tracks
+        // Stop all tracks and clean up
         mediaStreamRef?.getTracks().forEach((t) => t.stop())
+        displayStreamRef?.getTracks().forEach((t) => t.stop())
+        audioContextRef?.close().catch(() => {})
         mediaRecorderRef = null
         mediaStreamRef = null
+        displayStreamRef = null
+        audioContextRef = null
 
         const durationMs = recordingStartedAt
           ? Date.now() - recordingStartedAt
