@@ -17,6 +17,13 @@ vi.mock("@/hooks/use-audio-recorder", () => ({
   })),
 }))
 
+vi.mock("@/hooks/use-recordings", () => ({
+  useUploadRecording: vi.fn(() => ({
+    mutate: vi.fn(),
+    isPending: false,
+  })),
+}))
+
 describe("RecordingFAB", () => {
   beforeEach(() => {
     vi.clearAllMocks()
