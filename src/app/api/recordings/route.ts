@@ -46,36 +46,37 @@ export async function POST(request: NextRequest) {
     filePath,
   })
 
-  // If projectId provided, assign and proxy to backend
+  // Assign project if provided
   if (projectId) {
-    try {
-      // Update local DB with project assignment
-      updateRecording(recordingId, { projectId, status: "processing" })
+    updateRecording(recordingId, { projectId })
+  }
 
-      // Proxy to FastAPI backend - don't set Content-Type header (let browser set multipart boundary)
-      const proxyForm = new FormData()
-      proxyForm.append("file", file)
+  // Always proxy to backend for transcription
+  try {
+    updateRecording(recordingId, { status: "processing" })
 
-      const backendResponse = await fetch(`${BACKEND_URL}/recordings`, {
-        method: "POST",
-        body: proxyForm,
-      })
+    const proxyForm = new FormData()
+    proxyForm.append("file", file)
 
-      if (backendResponse.ok) {
-        const backendData = await backendResponse.json()
-        updateRecording(recordingId, { backendId: backendData.id })
-      } else {
-        updateRecording(recordingId, {
-          status: "error",
-          errorMessage: "Failed to upload to backend",
-        })
-      }
-    } catch {
+    const backendResponse = await fetch(`${BACKEND_URL}/recordings`, {
+      method: "POST",
+      body: proxyForm,
+    })
+
+    if (backendResponse.ok) {
+      const backendData = await backendResponse.json()
+      updateRecording(recordingId, { backendId: backendData.id })
+    } else {
       updateRecording(recordingId, {
         status: "error",
-        errorMessage: "Backend unavailable",
+        errorMessage: "Failed to upload to backend",
       })
     }
+  } catch {
+    updateRecording(recordingId, {
+      status: "error",
+      errorMessage: "Backend unavailable",
+    })
   }
 
   return NextResponse.json(recording, { status: 201 })

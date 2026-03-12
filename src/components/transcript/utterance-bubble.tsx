@@ -28,17 +28,24 @@ function formatTime(seconds: number): string {
 interface UtteranceBubbleProps {
   utterance: Utterance
   showSpeaker?: boolean
+  highlighted?: boolean
 }
 
 export function UtteranceBubble({
   utterance,
   showSpeaker = true,
+  highlighted = false,
 }: UtteranceBubbleProps) {
   const colorIndex = getSpeakerIndex(utterance.speaker)
   const colors = speakerColors[colorIndex]
 
   return (
-    <div className={cn("max-w-[85%] rounded-lg px-4 py-3", colors.bg)}>
+    <div
+      className={cn(
+        "max-w-[85%] rounded-lg px-4 py-3 transition-colors duration-1000",
+        highlighted ? "bg-yellow-200/60" : colors.bg
+      )}
+    >
       {showSpeaker && (
         <div className="mb-1 flex items-center gap-2">
           <span className={cn("text-xs font-semibold", colors.label)}>

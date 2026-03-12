@@ -6,11 +6,17 @@ import { ArrowLeft, Loader2 } from "lucide-react"
 
 import { buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { StatusBadge } from "@/components/recording/status-badge"
 import { TranscriptView } from "@/components/transcript/transcript-view"
+import { OutcomesTab } from "@/components/outcome/outcomes-tab"
 import { useRecording, useRecordingStatus, useTranscript } from "@/hooks/use-recordings"
+import { useEvidenceHighlight } from "@/stores/evidence-highlight"
 import { formatDuration, formatTimestamp } from "@/lib/utils"
 import { cn } from "@/lib/utils"
+
+const TAB_MAP = { info: 0, transcript: 1, outcomes: 2 } as const
+const TAB_NAMES = ["info", "transcript", "outcomes"] as const
 
 export default function RecordingDetailPage({
   params,
@@ -31,6 +37,10 @@ export default function RecordingDetailPage({
     data: transcript,
     isLoading: isTranscriptLoading,
   } = useTranscript(id, isReady)
+
+  // Evidence highlight store controls active tab
+  const activeTab = useEvidenceHighlight((s) => s.activeTab)
+  const setActiveTab = useEvidenceHighlight((s) => s.setActiveTab)
 
   if (isLoading) {
     return <RecordingDetailSkeleton />
@@ -109,17 +119,62 @@ export default function RecordingDetailPage({
       )}
 
       {recording.status === "ready" && (
-        <>
-          {isTranscriptLoading ? (
-            <TranscriptSkeleton />
-          ) : transcript ? (
-            <TranscriptView transcript={transcript} />
-          ) : (
-            <div className="py-12 text-center text-muted-foreground">
-              No transcript content available
+        <Tabs
+          value={TAB_MAP[activeTab]}
+          onValueChange={(value: number) => {
+            setActiveTab(TAB_NAMES[value])
+          }}
+        >
+          <TabsList>
+            <TabsTrigger value={0}>Info</TabsTrigger>
+            <TabsTrigger value={1}>Transcript</TabsTrigger>
+            <TabsTrigger value={2}>Outcomes</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value={0}>
+            <div className="space-y-4 pt-4">
+              <div className="rounded-lg border p-4 space-y-3">
+                <h3 className="font-semibold">Recording Info</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <span className="text-muted-foreground">Title</span>
+                  <span>{recording.title}</span>
+                  <span className="text-muted-foreground">Duration</span>
+                  <span>{formatDuration(recording.durationMs)}</span>
+                  <span className="text-muted-foreground">Created</span>
+                  <span>{formatTimestamp(recording.createdAt)}</span>
+                  <span className="text-muted-foreground">Status</span>
+                  <span className="capitalize">{recording.status}</span>
+                  {recording.projectId && (
+                    <>
+                      <span className="text-muted-foreground">Project</span>
+                      <span>{recording.projectId}</span>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
-          )}
-        </>
+          </TabsContent>
+
+          <TabsContent value={1}>
+            <div className="pt-4">
+              {isTranscriptLoading ? (
+                <TranscriptSkeleton />
+              ) : transcript ? (
+                <TranscriptView transcript={transcript} />
+              ) : (
+                <div className="py-12 text-center text-muted-foreground">
+                  No transcript content available
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value={2}>
+            <div className="pt-4">
+              <OutcomesTab recordingId={id} />
+            </div>
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   )

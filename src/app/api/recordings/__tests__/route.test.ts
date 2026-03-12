@@ -108,7 +108,7 @@ describe("recordings API route", () => {
         id: "rec-1",
         title: "Test Recording",
         durationMs: 5000,
-        filePath: "/home/user/.allure/recordings/rec-1.webm",
+        filePath: "/Users/ammarkashif/Documents/Code/allure-ai/public/recordings/rec-1.webm",
         status: "unassigned",
         projectId: null,
         backendId: null,

@@ -35,7 +35,23 @@ export async function GET(
     }
 
     const data = await response.json()
-    return NextResponse.json(data)
+
+    // Transform backend format to frontend Transcript type
+    const transcript = {
+      id: data.id || recording.backendId,
+      recordingId: id,
+      utterances: (data.segments || []).map(
+        (seg: { start: number; end: number; text: string; speaker: string }, i: number) => ({
+          id: `${id}-utt-${i}`,
+          speaker: seg.speaker || "Speaker 1",
+          text: seg.text,
+          startTime: seg.start,
+          endTime: seg.end,
+        })
+      ),
+    }
+
+    return NextResponse.json(transcript)
   } catch {
     return NextResponse.json(
       { error: "Backend unavailable" },
