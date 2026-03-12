@@ -66,11 +66,12 @@ Plans:
   2. Each outcome shows an evidence link that identifies which transcript utterance(s) it came from
   3. Items below 0.80 confidence are visually distinct (flagged) from high-confidence items
   4. User can promote an action item to a task and a requirement to a requirement record -- both retain backlinks to the source transcript and audio timestamp
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md -- Backend extraction pipeline: LLM module, job queue chaining, outcome/promote endpoints
+- [ ] 02-02-PLAN.md -- Frontend data layer: TypeScript types, SQLite schema, proxy routes, hooks, stores
+- [ ] 02-03-PLAN.md -- Outcomes tab UI: grouped cards, confidence flagging, evidence links, promotion flow
 
 ### Phase 3: Task Management
 **Goal**: Users can manage tasks through full CRUD operations in both list and Kanban views
@@ -108,6 +109,6 @@ Note: Phase 3 can be worked on in parallel with Phase 2 by a different team memb
 |-------|----------------|--------|-----------|
 | 1. Recording and Transcription Pipeline | 3/5 | In Progress |  |
 | 1.1. Python Backend: FastAPI + Moonshine STT | 0/2 | Not started | - |
-| 2. AI Extraction and Promotion | 0/2 | Not started | - |
+| 2. AI Extraction and Promotion | 0/3 | Not started | - |
 | 3. Task Management | 0/2 | Not started | - |
 | 4. Document Generation and Demo Polish | 0/1 | Not started | - |
