@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class UploadResponse(BaseModel):
@@ -15,6 +15,9 @@ class StatusResponse(BaseModel):
     """Returned from GET /recordings/{id}/status."""
 
     status: Literal["pending", "processing", "completed", "failed"]
+    extraction_status: Literal[
+        "none", "pending", "processing", "completed", "failed"
+    ] = "none"
 
 
 class TranscriptSegment(BaseModel):
@@ -43,3 +46,52 @@ class TranscriptResponse(BaseModel):
     language: str
     speakers: list[SpeakerStats]
     segments: list[TranscriptSegment]
+
+
+# --- Extraction / Outcome models ---
+
+
+class EvidenceRef(BaseModel):
+    """Reference to a transcript segment as evidence for an outcome."""
+
+    segment_index: int
+    speaker: str
+    timestamp: float
+    text_snippet: str = ""
+
+
+class Outcome(BaseModel):
+    """A single extracted outcome."""
+
+    id: str
+    type: Literal["decision", "action_item", "requirement", "blocker"]
+    title: str
+    detail: str
+    confidence: float = Field(ge=0, le=1)
+    evidence_refs: list[EvidenceRef]
+    promoted: bool = False
+    promoted_id: str | None = None
+
+
+class OutcomesResponse(BaseModel):
+    """Response for GET /recordings/{id}/outcomes."""
+
+    job_id: str
+    extraction_status: Literal[
+        "none", "pending", "processing", "completed", "failed"
+    ]
+    outcomes: list[Outcome] = []
+
+
+class PromoteRequest(BaseModel):
+    """One-click promote request (empty body)."""
+
+    pass
+
+
+class PromoteResponse(BaseModel):
+    """Response for POST /recordings/{id}/outcomes/{index}/promote."""
+
+    id: str
+    type: Literal["task", "requirement"]
+    backlink: str
