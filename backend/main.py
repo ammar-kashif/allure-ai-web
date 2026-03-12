@@ -58,6 +58,31 @@ async def lifespan(app: FastAPI):
     app.state.diarizer = FastDiarizer(encoder=encoder)
     logger.info("SpeechBrain ECAPA-TDNN diarizer loaded in %.1fs", time.perf_counter() - t1)
 
+    # Load Phi-4-mini LLM for extraction
+    t2 = time.perf_counter()
+    from huggingface_hub import hf_hub_download
+    from llama_cpp import Llama
+
+    llm_model_path = os.environ.get("LLM_MODEL_PATH")
+    if not llm_model_path:
+        # Auto-download Q4_K_M quantization of Phi-4-mini-instruct
+        llm_model_path = hf_hub_download(
+            repo_id="unsloth/Phi-4-mini-instruct-GGUF",
+            filename="Phi-4-mini-instruct-Q4_K_M.gguf",
+            token=os.environ.get("HF_TOKEN"),
+        )
+        logger.info("Downloaded Phi-4-mini model to %s", llm_model_path)
+
+    n_gpu = -1 if os.environ.get("LLM_GPU", "1") != "0" else 0
+    app.state.llm = Llama(
+        model_path=llm_model_path,
+        n_ctx=4096,
+        n_gpu_layers=n_gpu,
+        chat_format="chatml",
+        verbose=False,
+    )
+    logger.info("Phi-4-mini LLM loaded in %.1fs", time.perf_counter() - t2)
+
     # Start background worker
     worker_task = asyncio.create_task(process_worker(app.state))
     app.state.worker = worker_task
