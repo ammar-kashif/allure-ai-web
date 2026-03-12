@@ -27,9 +27,9 @@ Requirements for FYP demo. Each maps to roadmap phases.
 
 - [x] **BE-01**: FastAPI server with CORS, health check, and file upload endpoints at localhost:8000
 - [x] **BE-02**: Audio file upload (mp3/mp4/wav) with validation, disk storage, and unique job ID generation
-- [ ] **BE-03**: Moonshine Voice STT integration producing timestamped transcript segments
-- [ ] **BE-04**: Speaker diarization assigning speaker labels (Speaker 1, Speaker 2, etc.) to segments
-- [ ] **BE-05**: Transcript retrieval endpoint returning metadata, segments, and speaker statistics
+- [x] **BE-03**: Moonshine Voice STT integration producing timestamped transcript segments
+- [x] **BE-04**: Speaker diarization assigning speaker labels (Speaker 1, Speaker 2, etc.) to segments
+- [x] **BE-05**: Transcript retrieval endpoint returning metadata, segments, and speaker statistics
 - [x] **BE-06**: Processing status endpoint compatible with frontend status mapping (pending/processing → processing, completed/ready → ready, failed/error → error)
 
 ### Extraction
@@ -140,9 +140,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STT-04 | Phase 1 | Complete |
 | BE-01 | Phase 1.1 | Complete |
 | BE-02 | Phase 1.1 | Complete |
-| BE-03 | Phase 1.1 | Pending |
-| BE-04 | Phase 1.1 | Pending |
-| BE-05 | Phase 1.1 | Pending |
+| BE-03 | Phase 1.1 | Complete |
+| BE-04 | Phase 1.1 | Complete |
+| BE-05 | Phase 1.1 | Complete |
 | BE-06 | Phase 1.1 | Complete |
 | EXT-01 | Phase 2 | Pending |
 | EXT-02 | Phase 2 | Pending |
