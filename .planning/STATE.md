@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 1.1 context gathered
-last_updated: "2026-03-12T00:24:20.957Z"
+stopped_at: Completed 01.1-01-PLAN.md
+last_updated: "2026-03-12T07:04:34.259Z"
 last_activity: 2026-03-12 — Plan 01-02 data layer and API proxy complete
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 7
+  completed_plans: 6
   percent: 30
 ---
 
@@ -50,6 +50,7 @@ Progress: [███░░░░░░░] 30%
 - Trend: accelerating
 
 *Updated after each plan completion*
+| Phase 01.1 P01 | 5min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,8 @@ Recent decisions affecting current work:
 - [01-02]: Used process.cwd() for schema.sql path resolution (bundler-safe)
 - [01-02]: serverExternalPackages for better-sqlite3 native addon support
 - [01-02]: Backend status mapping: pending/processing -> processing, completed/ready -> ready, failed/error -> error
+- [Phase 01.1]: Used aiofiles for async file I/O during upload
+- [Phase 01.1]: Uploads dir created in conftest fixture since ASGITransport skips lifespan
 
 ### Pending Todos
 
@@ -83,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T00:24:20.954Z
-Stopped at: Phase 1.1 context gathered
-Resume file: .planning/phases/01.1-python-backend-fastapi-moonshine-stt/01.1-CONTEXT.md
+Last session: 2026-03-12T07:04:34.258Z
+Stopped at: Completed 01.1-01-PLAN.md
+Resume file: None
