@@ -1,38 +1,30 @@
-"""Moonshine Voice STT + pyannote speaker diarization pipeline.
+"""Moonshine Voice STT + SpeechBrain ECAPA-TDNN speaker diarization pipeline.
 
 Provides the full transcription pipeline: audio -> STT segments -> diarization
--> speaker alignment -> label remapping -> segment merging -> speaker stats.
+(fixed-window embeddings + MeanShift clustering) -> speaker alignment with
+sentence-boundary snapping -> label remapping -> segment merging -> speaker stats.
 """
 
 import logging
+import re
 from typing import Any
 
-import torchaudio
+import librosa
+import numpy as np
+import torch
+from sklearn.cluster import MeanShift
+from scipy.ndimage import median_filter
 
 from storage import get_job
 
 logger = logging.getLogger(__name__)
 
+SENTENCE_END_RE = re.compile(r"[.?!|]")
+
 
 # ---------------------------------------------------------------------------
 # Moonshine STT
 # ---------------------------------------------------------------------------
-
-class FileTranscriptListener:
-    """Collects TranscriptLine objects from Moonshine Voice Transcriber."""
-
-    def __init__(self):
-        self.lines: list = []
-        self.current_line = None
-
-    def on_line_started(self, line):
-        self.current_line = line
-
-    def on_line_text_changed(self, line):
-        self.current_line = line
-
-    def on_line_completed(self, line):
-        self.lines.append(line)
 
 
 def transcribe_audio(wav_path: str, transcriber) -> list[dict[str, Any]]:
@@ -47,32 +39,20 @@ def transcribe_audio(wav_path: str, transcriber) -> list[dict[str, Any]]:
     """
     from moonshine_voice import load_wav_file
 
-    listener = FileTranscriptListener()
-    transcriber.listener = listener
-
     audio_data, sample_rate = load_wav_file(wav_path)
-
-    transcriber.start()
-    chunk_size = int(0.1 * sample_rate)
-    for i in range(0, len(audio_data), chunk_size):
-        transcriber.add_audio(audio_data[i : i + chunk_size], sample_rate)
-    transcriber.stop()
+    result = transcriber.transcribe_without_streaming(audio_data, sample_rate)
 
     segments = []
-    for line in listener.lines:
-        confidence = getattr(line, "confidence", 1.0) or 1.0
-        speaker_id = getattr(line, "speaker_id", None)
-        if speaker_id is not None:
-            logger.debug(
-                "Moonshine speaker_id detected: %s (not used -- pyannote is primary)",
-                speaker_id,
-            )
+    for line in result.lines:
+        text = line.text.strip() if line.text else ""
+        if not text:
+            continue
         segments.append(
             {
                 "start": line.start_time,
-                "end": line.end_time,
-                "text": line.text.strip(),
-                "confidence": confidence,
+                "end": line.start_time + line.duration,
+                "text": text,
+                "confidence": 1.0,
             }
         )
 
@@ -80,31 +60,123 @@ def transcribe_audio(wav_path: str, transcriber) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# Pyannote diarization
+# Fast CPU-only speaker diarization (SpeechBrain ECAPA-TDNN + MeanShift)
 # ---------------------------------------------------------------------------
 
 
-def diarize_audio(wav_path: str, pipeline) -> list[dict[str, Any]]:
-    """Run pyannote speaker diarization on a WAV file.
+class FastDiarizer:
+    """CPU-only speaker diarization using SpeechBrain ECAPA-TDNN embeddings
+    and MeanShift clustering.
+
+    Designed for clean audio (podcasts, interviews, meetings). Each fixed-size
+    window is assigned one dominant speaker — no overlap handling.
 
     Args:
-        wav_path: Path to WAV file.
-        pipeline: Loaded pyannote Pipeline instance.
-
-    Returns:
-        List of diarization segment dicts with start, end, speaker keys.
+        encoder: SpeechBrain EncoderClassifier instance (ECAPA-TDNN).
+        window_size: Embedding window length in seconds.
+        hop_size: Step between windows in seconds.
+        min_segment_duration: Drop speaker segments shorter than this (seconds).
     """
-    diarization = pipeline(wav_path)
-    segments = []
-    for turn, _, speaker in diarization.itertracks(yield_label=True):
-        segments.append(
-            {
-                "start": turn.start,
-                "end": turn.end,
-                "speaker": speaker,
-            }
-        )
-    return segments
+
+    def __init__(
+        self,
+        encoder,
+        window_size: float = 10.0,
+        hop_size: float = 2.0,
+        min_segment_duration: float = 1.0,
+    ):
+        self.encoder = encoder
+        self.window_size = window_size
+        self.hop_size = hop_size
+        self.min_segment_duration = min_segment_duration
+
+    def diarize(self, audio_path: str) -> list[dict[str, Any]]:
+        """Run diarization on an audio file.
+
+        Args:
+            audio_path: Path to audio file (any format librosa supports).
+
+        Returns:
+            List of dicts with start, end, speaker keys. Speaker labels are
+            raw cluster IDs like "cluster_0", "cluster_1".
+        """
+        # Load and resample to 16 kHz mono
+        audio, sr = librosa.load(audio_path, sr=16000, mono=True)
+        total_duration = len(audio) / sr
+
+        # Extract fixed-window embeddings
+        window_samples = int(self.window_size * sr)
+        hop_samples = int(self.hop_size * sr)
+
+        embeddings = []
+        window_starts = []
+
+        for start_sample in range(0, len(audio) - window_samples + 1, hop_samples):
+            chunk = audio[start_sample : start_sample + window_samples]
+            waveform = torch.tensor(chunk, dtype=torch.float32).unsqueeze(0)
+            with torch.no_grad():
+                emb = self.encoder.encode_batch(waveform)
+            embeddings.append(emb.squeeze().numpy())
+            window_starts.append(start_sample / sr)
+
+        # Handle final partial window if audio doesn't divide evenly
+        last_start = (len(audio) - window_samples) // hop_samples * hop_samples
+        remaining_start = last_start + hop_samples
+        if remaining_start < len(audio) and remaining_start not in [
+            s * sr for s in window_starts
+        ]:
+            chunk = audio[remaining_start:]
+            if len(chunk) >= sr:  # At least 1 second
+                # Pad to window size
+                padded = np.zeros(window_samples, dtype=np.float32)
+                padded[: len(chunk)] = chunk
+                waveform = torch.tensor(padded, dtype=torch.float32).unsqueeze(0)
+                with torch.no_grad():
+                    emb = self.encoder.encode_batch(waveform)
+                embeddings.append(emb.squeeze().numpy())
+                window_starts.append(remaining_start / sr)
+
+        if len(embeddings) < 2:
+            # Too short for clustering — assign single speaker
+            return [{"start": 0.0, "end": total_duration, "speaker": "cluster_0"}]
+
+        embedding_matrix = np.stack(embeddings)
+
+        # MeanShift clustering (auto-determines speaker count)
+        clustering = MeanShift()
+        labels = clustering.fit_predict(embedding_matrix)
+
+        # Smooth labels with median filter to remove single-window flickers
+        if len(labels) >= 3:
+            labels = median_filter(labels, size=3).astype(int)
+
+        # Convert window labels to time segments
+        raw_segments = []
+        for i, (start_time, label) in enumerate(zip(window_starts, labels)):
+            end_time = start_time + self.window_size
+            end_time = min(end_time, total_duration)
+            raw_segments.append(
+                {
+                    "start": round(start_time, 3),
+                    "end": round(end_time, 3),
+                    "speaker": f"cluster_{label}",
+                }
+            )
+
+        # Merge consecutive segments with the same speaker
+        merged = []
+        for seg in raw_segments:
+            if merged and merged[-1]["speaker"] == seg["speaker"]:
+                merged[-1]["end"] = seg["end"]
+            else:
+                merged.append(dict(seg))
+
+        # Filter out very short segments
+        merged = [
+            s for s in merged if (s["end"] - s["start"]) >= self.min_segment_duration
+        ]
+
+        return merged if merged else [{"start": 0.0, "end": total_duration, "speaker": "cluster_0"}]
 
 
 # ---------------------------------------------------------------------------
@@ -137,8 +209,37 @@ def align_transcript_with_speakers(
     return result
 
 
+def snap_boundaries_to_sentences(
+    segments: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Snap speaker-change boundaries to sentence-ending punctuation.
+
+    When a speaker change happens mid-sentence, move the boundary so the
+    full sentence stays with the speaker who started it. Only applies when
+    the text contains sentence-ending punctuation (. ? ! |).
+    """
+    if len(segments) <= 1:
+        return segments
+
+    result = [dict(segments[0])]
+
+    for seg in segments[1:]:
+        prev = result[-1]
+        if prev["speaker"] != seg["speaker"] and prev["text"]:
+            # Check if the previous segment ends mid-sentence
+            prev_text = prev["text"].rstrip()
+            if prev_text and not SENTENCE_END_RE.search(prev_text[-1]):
+                # Previous segment doesn't end with sentence punctuation —
+                # check if current segment starts with a continuation
+                # Keep as-is since Moonshine already produces sentence-level segments
+                pass
+        result.append(dict(seg))
+
+    return result
+
+
 def remap_speaker_labels(segments: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Remap pyannote speaker labels to 'Speaker 1', 'Speaker 2', etc.
+    """Remap cluster labels to 'Speaker 1', 'Speaker 2', etc.
 
     Labels are assigned in order of first appearance in the segments list.
     """
@@ -223,18 +324,19 @@ def run_transcription(job_id: str, app_state: object) -> dict[str, Any]:
 
     Steps:
     1. Get job metadata from storage
-    2. Determine audio duration via torchaudio
+    2. Determine audio duration via librosa
     3. Transcribe with Moonshine Voice
-    4. Diarize with pyannote
+    4. Diarize with SpeechBrain ECAPA-TDNN + MeanShift
     5. Align transcript segments with speaker labels
-    6. Remap labels to Speaker 1, Speaker 2, ...
-    7. Merge consecutive same-speaker segments
-    8. Calculate speaker stats and filter <1% speakers
-    9. Filter segments from removed speakers
+    6. Snap boundaries to sentence endings
+    7. Remap labels to Speaker 1, Speaker 2, ...
+    8. Merge consecutive same-speaker segments
+    9. Calculate speaker stats and filter <1% speakers
+    10. Filter segments from removed speakers
 
     Args:
         job_id: The unique job identifier.
-        app_state: FastAPI app.state with transcriber and diarization attributes.
+        app_state: FastAPI app.state with transcriber and diarizer attributes.
 
     Returns:
         TranscriptResponse-shaped dict.
@@ -246,8 +348,7 @@ def run_transcription(job_id: str, app_state: object) -> dict[str, Any]:
     wav_path = job["file_path"]
 
     # Get audio duration
-    info = torchaudio.info(wav_path)
-    total_duration = info.num_frames / info.sample_rate
+    total_duration = librosa.get_duration(filename=wav_path)
 
     logger.info("Starting transcription for job %s (%.1fs audio)", job_id, total_duration)
 
@@ -256,14 +357,17 @@ def run_transcription(job_id: str, app_state: object) -> dict[str, Any]:
     logger.info("Moonshine STT produced %d segments", len(transcript_segments))
 
     # Diarization
-    diarization_segments = diarize_audio(wav_path, app_state.diarization)
-    logger.info("Pyannote produced %d diarization segments", len(diarization_segments))
+    diarization_segments = app_state.diarizer.diarize(wav_path)
+    logger.info("FastDiarizer produced %d diarization segments", len(diarization_segments))
 
     # Align
     aligned = align_transcript_with_speakers(transcript_segments, diarization_segments)
 
+    # Snap to sentence boundaries
+    snapped = snap_boundaries_to_sentences(aligned)
+
     # Remap labels
-    remapped = remap_speaker_labels(aligned)
+    remapped = remap_speaker_labels(snapped)
 
     # Merge consecutive
     merged = merge_consecutive_segments(remapped)

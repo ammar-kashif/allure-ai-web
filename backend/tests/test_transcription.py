@@ -1,6 +1,6 @@
 """Unit tests for transcription pipeline utility functions.
 
-These tests exercise pure functions only -- no Moonshine or pyannote models required.
+These tests exercise pure functions only -- no Moonshine or SpeechBrain models required.
 """
 
 import pytest
@@ -51,7 +51,7 @@ def test_merge_different_speakers():
 
 
 def test_remap_speaker_labels():
-    """Pyannote labels are remapped to Speaker 1, Speaker 2 by first appearance."""
+    """Cluster labels are remapped to Speaker 1, Speaker 2 by first appearance."""
     segments = [
         {"start": 0.0, "end": 2.0, "text": "Hi", "speaker": "SPEAKER_00", "confidence": 0.9},
         {"start": 2.0, "end": 4.0, "text": "Hey", "speaker": "SPEAKER_01", "confidence": 0.8},
