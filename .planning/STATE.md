@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-03-12T11:24:40.083Z"
-last_activity: 2026-03-12 — Plan 01.1-02 Moonshine STT + SpeechBrain diarization pipeline complete
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-03-12T11:25:30Z"
+last_activity: 2026-03-12 — Plan 02-01 Backend extraction pipeline complete
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 10
-  completed_plans: 8
-  percent: 100
+  completed_plans: 9
+  percent: 90
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 ## Current Position
 
 Phase: 2 of 4 (AI Extraction and Promotion)
-Plan: 2 of 3 in current phase
+Plan: 3 of 3 in current phase
 Status: Executing Phase 2
-Last activity: 2026-03-12 — Plan 02-02 Frontend data layer complete
+Last activity: 2026-03-12 — Plan 02-01 Backend extraction pipeline complete
 
-Progress: [████████░░] 80%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [████████░░] 80%
 *Updated after each plan completion*
 | Phase 01.1 P01 | 5min | 2 tasks | 11 files |
 | Phase 01.1 P02 | 15min | 2 tasks | 6 files |
+| Phase 02 P01 | 4min | 2 tasks | 8 files |
 | Phase 02 P02 | 2min | 2 tasks | 9 files |
 
 ## Accumulated Context
@@ -73,6 +74,9 @@ Recent decisions affecting current work:
 - [Phase 01.1]: Uploads dir created in conftest fixture since ASGITransport skips lifespan
 - [Phase 01.1-02]: Replaced pyannote.audio with SpeechBrain ECAPA-TDNN + MeanShift clustering (CPU-only, no gated models)
 - [Phase 01.1-02]: Moonshine Voice uses transcribe_without_streaming for batch processing
+- [Phase 02-01]: Tuple-based job queue (job_id, job_type) for STT/extract dispatch in single worker
+- [Phase 02-01]: Import run_extraction inside elif branch to avoid circular imports
+- [Phase 02-01]: Promote endpoint uses outcome_index (positional) not outcome_id for simplicity
 - [Phase 02-02]: Backend snake_case to frontend camelCase transform in outcomes proxy route
 - [Phase 02-02]: Outcomes persisted to frontend SQLite on every fetch for offline resilience
 - [Phase 02-02]: Evidence highlight auto-clears after 3000ms with timer cleanup
@@ -93,6 +97,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-12T11:24:40.081Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-03-12T11:25:30Z
+Stopped at: Completed 02-01-PLAN.md
 Resume file: None

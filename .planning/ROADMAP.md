@@ -109,6 +109,6 @@ Note: Phase 3 can be worked on in parallel with Phase 2 by a different team memb
 |-------|----------------|--------|-----------|
 | 1. Recording and Transcription Pipeline | 3/5 | In Progress |  |
 | 1.1. Python Backend: FastAPI + Moonshine STT | 0/2 | Not started | - |
-| 2. AI Extraction and Promotion | 0/3 | Not started | - |
+| 2. AI Extraction and Promotion | 2/3 | In Progress | - |
 | 3. Task Management | 0/2 | Not started | - |
 | 4. Document Generation and Demo Polish | 0/1 | Not started | - |
