@@ -36,10 +36,10 @@ Requirements for FYP demo. Each maps to roadmap phases.
 
 - [ ] **EXT-01**: AI extracts structured outcomes from transcript (decisions, action items, requirements, blockers)
 - [ ] **EXT-02**: Each outcome includes title, details, confidence score, and evidence link to transcript utterance(s)
-- [ ] **EXT-03**: Outcomes display grouped by type with confidence indicators
+- [x] **EXT-03**: Outcomes display grouped by type with confidence indicators
 - [ ] **EXT-04**: Items below 0.80 confidence are visually flagged for review
-- [ ] **EXT-05**: User can promote action items to tasks with backlinks to source evidence
-- [ ] **EXT-06**: User can promote requirements to requirement records with backlinks
+- [x] **EXT-05**: User can promote action items to tasks with backlinks to source evidence
+- [x] **EXT-06**: User can promote requirements to requirement records with backlinks
 - [ ] **EXT-07**: Promoted tasks/requirements retain evidence links to original transcript and audio timestamp
 
 ### Task Management
@@ -146,10 +146,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BE-06 | Phase 1.1 | Complete |
 | EXT-01 | Phase 2 | Pending |
 | EXT-02 | Phase 2 | Pending |
-| EXT-03 | Phase 2 | Pending |
+| EXT-03 | Phase 2 | Complete |
 | EXT-04 | Phase 2 | Pending |
-| EXT-05 | Phase 2 | Pending |
-| EXT-06 | Phase 2 | Pending |
+| EXT-05 | Phase 2 | Complete |
+| EXT-06 | Phase 2 | Complete |
 | EXT-07 | Phase 2 | Pending |
 | TASK-01 | Phase 3 | Pending |
 | TASK-02 | Phase 3 | Pending |
