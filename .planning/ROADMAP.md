@@ -13,6 +13,7 @@ Allure delivers a complete Record-to-Tasks pipeline in 4 phases over ~2 weeks. P
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Recording and Transcription Pipeline** - Frontend scaffolding, audio recording, backend integration, transcript display
+- [ ] **Phase 1.1: Python Backend: FastAPI + Moonshine STT** - FastAPI server, audio upload, Moonshine transcription, speaker diarization (INSERTED)
 - [ ] **Phase 2: AI Extraction and Promotion** - Outcome extraction from transcripts, confidence-gated review, promotion to tasks/requirements
 - [ ] **Phase 3: Task Management** - Task CRUD, list view, Kanban board (parallelizable with Phase 2)
 - [ ] **Phase 4: Document Generation and Demo Polish** - PRD generation, Mermaid diagrams, demo preparation (stretch)
@@ -37,6 +38,24 @@ Plans:
 - [x] 01-02-PLAN.md -- SQLite database, API routes, TanStack Query hooks
 - [ ] 01-03-PLAN.md -- Recording Hub UI with table, tabs, project assignment
 - [ ] 01-04-PLAN.md -- Transcript display with chat bubbles, recording detail page, end-to-end verification
+
+### Phase 1.1: Python Backend: FastAPI + Moonshine STT (INSERTED)
+
+**Goal**: Build the Python FastAPI backend with audio upload, Moonshine Voice transcription with speaker diarization, and transcript retrieval endpoints that the Next.js frontend proxy routes already expect at localhost:8000
+**Depends on**: Phase 1
+**Requirements**: BE-01, BE-02, BE-03, BE-04, BE-05, BE-06
+**Success Criteria** (what must be TRUE):
+  1. FastAPI server runs at localhost:8000 with CORS configured for localhost:3000
+  2. POST /recordings accepts audio file upload (mp3/mp4/wav/webm/m4a), saves to disk, returns job ID
+  3. Moonshine Voice processes uploaded audio and produces timestamped transcript segments
+  4. Speaker diarization assigns speaker labels (Speaker 1, Speaker 2, etc.) to transcript segments
+  5. GET /recordings/{id}/transcript returns full transcript with metadata, segments (start/end/text/speaker), and speaker stats
+  6. GET /recordings/{id}/status returns processing status (pending/processing/completed/failed) compatible with frontend status mapping
+**Plans**: 2 plans
+
+Plans:
+- [ ] 01.1-01-PLAN.md -- FastAPI server, Pydantic models, job queue, upload/status endpoints, integration tests
+- [ ] 01.1-02-PLAN.md -- Moonshine STT + pyannote diarization pipeline, transcript endpoint, end-to-end verification
 
 ### Phase 2: AI Extraction and Promotion
 **Goal**: Users can trigger AI extraction on a transcript and get structured outcomes (decisions, action items, requirements, blockers) with confidence scores and evidence links, then promote them into tasks and requirement records
@@ -82,12 +101,13 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4
+Phases execute in numeric order: 1 -> 1.1 -> 2 -> 3 -> 4
 Note: Phase 3 can be worked on in parallel with Phase 2 by a different team member.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Recording and Transcription Pipeline | 3/5 | In Progress|  |
+| 1. Recording and Transcription Pipeline | 3/5 | In Progress |  |
+| 1.1. Python Backend: FastAPI + Moonshine STT | 0/2 | Not started | - |
 | 2. AI Extraction and Promotion | 0/2 | Not started | - |
 | 3. Task Management | 0/2 | Not started | - |
 | 4. Document Generation and Demo Polish | 0/1 | Not started | - |
