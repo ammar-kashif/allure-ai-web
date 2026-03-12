@@ -1,27 +1,12 @@
 """Async job queue with sequential worker."""
 
 import asyncio
-import time
 
 from storage import get_job, update_job
+from transcription import run_transcription
 
 # Global async job queue
 job_queue: asyncio.Queue[str] = asyncio.Queue()
-
-
-def run_transcription(job_id: str, app_state: object) -> dict:
-    """Run transcription for a job.
-
-    STUB: Sleeps 1 second and returns empty result.
-    Plan 02 replaces this with real Moonshine + pyannote logic.
-    """
-    time.sleep(1)
-    return {
-        "segments": [],
-        "speakers": [],
-        "duration": 0.0,
-        "language": "en",
-    }
 
 
 async def process_worker(app_state: object) -> None:

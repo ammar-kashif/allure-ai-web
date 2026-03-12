@@ -1,8 +1,10 @@
 """FastAPI application with audio upload, job queue, and status tracking."""
 
 import asyncio
+import logging
 import os
 import subprocess
+import time
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
@@ -15,14 +17,63 @@ from job_queue import job_queue, process_worker
 from models import StatusResponse, UploadResponse
 from storage import create_job, get_job
 
+logger = logging.getLogger(__name__)
+
 UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage application lifecycle."""
+    """Manage application lifecycle: load ML models at startup, cleanup on shutdown."""
+    import torch
+
     # Startup
     os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+    # Load Moonshine Voice transcriber
+    t0 = time.perf_counter()
+    from moonshine_voice import Transcriber, get_model_for_language
+
+    model_path, model_arch = get_model_for_language("en")
+    app.state.transcriber = Transcriber(
+        model_path=model_path,
+        model_arch=model_arch,
+    )
+    logger.info("Moonshine transcriber loaded in %.1fs", time.perf_counter() - t0)
+
+    # Load pyannote diarization pipeline
+    t1 = time.perf_counter()
+    from pyannote.audio import Pipeline
+
+    hf_token = os.environ.get("HF_TOKEN")
+    try:
+        diarization_pipeline = Pipeline.from_pretrained(
+            "pyannote/speaker-diarization-3.1",
+            use_auth_token=hf_token,
+        )
+        logger.info("Loaded pyannote/speaker-diarization-3.1")
+    except Exception as exc:
+        logger.warning(
+            "Failed to load speaker-diarization-3.1 (%s), trying community fallback",
+            exc,
+        )
+        diarization_pipeline = Pipeline.from_pretrained(
+            "pyannote/speaker-diarization-community-1",
+            use_auth_token=hf_token,
+        )
+        logger.info("Loaded pyannote/speaker-diarization-community-1 (fallback)")
+
+    # Move to MPS if available (Apple Silicon acceleration)
+    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+    diarization_pipeline.to(device)
+    app.state.diarization = diarization_pipeline
+    logger.info(
+        "Pyannote diarization loaded in %.1fs (device: %s)",
+        time.perf_counter() - t1,
+        device,
+    )
+
+    # Start background worker
     worker_task = asyncio.create_task(process_worker(app.state))
     app.state.worker = worker_task
     yield
