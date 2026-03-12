@@ -15,6 +15,9 @@ def create_job(job_id: str, file_path: str, original_filename: str) -> dict[str,
         "status": "pending",
         "result": None,
         "error": None,
+        "extraction_status": "none",
+        "extraction_error": None,
+        "outcomes": [],
     }
     jobs[job_id] = job
     return job

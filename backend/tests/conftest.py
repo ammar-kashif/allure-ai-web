@@ -54,6 +54,7 @@ def sample_audio():
 def reset_state():
     """Clear storage and drain job queue before each test."""
     storage.jobs.clear()
+    # Drain queue (items are now tuples)
     while not job_queue.empty():
         try:
             job_queue.get_nowait()
