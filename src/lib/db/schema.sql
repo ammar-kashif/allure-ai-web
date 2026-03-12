@@ -18,3 +18,44 @@ CREATE TABLE IF NOT EXISTS recordings (
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (project_id) REFERENCES projects(id)
 );
+
+CREATE TABLE IF NOT EXISTS outcomes (
+  id TEXT PRIMARY KEY,
+  recording_id TEXT NOT NULL,
+  type TEXT NOT NULL CHECK(type IN ('decision', 'action_item', 'requirement', 'blocker')),
+  title TEXT NOT NULL,
+  detail TEXT NOT NULL DEFAULT '',
+  confidence REAL NOT NULL DEFAULT 0.0,
+  evidence_refs TEXT NOT NULL DEFAULT '[]',
+  promoted INTEGER NOT NULL DEFAULT 0,
+  promoted_id TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (recording_id) REFERENCES recordings(id)
+);
+
+CREATE TABLE IF NOT EXISTS tasks (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  detail TEXT NOT NULL DEFAULT '',
+  source_outcome_id TEXT,
+  source_recording_id TEXT,
+  backlink TEXT,
+  status TEXT NOT NULL DEFAULT 'todo',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (source_outcome_id) REFERENCES outcomes(id),
+  FOREIGN KEY (source_recording_id) REFERENCES recordings(id)
+);
+
+CREATE TABLE IF NOT EXISTS requirement_records (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  detail TEXT NOT NULL DEFAULT '',
+  source_outcome_id TEXT,
+  source_recording_id TEXT,
+  backlink TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (source_outcome_id) REFERENCES outcomes(id),
+  FOREIGN KEY (source_recording_id) REFERENCES recordings(id)
+);
