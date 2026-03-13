@@ -1,8 +1,17 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState, useDeferredValue } from "react"
 import { toast } from "sonner"
+import { Search } from "lucide-react"
 
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import {
   Table,
@@ -63,26 +72,51 @@ export function RecordingHub() {
   const { data: allRecordings = [], isLoading } = useRecordings()
   const assignProject = useAssignProject()
 
+  // Search and project filter state
+  const [query, setQuery] = useState("")
+  const deferredQuery = useDeferredValue(query)
+  const [projectFilter, setProjectFilter] = useState<string>("all")
+
   const handleAssignProject = (recordingId: string, projectId: string) => {
     assignProject.mutate({ recordingId, projectId })
   }
 
-  // Count recordings by status
+  // Extract unique project IDs for the dropdown
+  const projects = [
+    ...new Set(
+      allRecordings.filter((r) => r.projectId).map((r) => r.projectId!)
+    ),
+  ]
+
+  // Apply search filter
+  const searchFiltered = deferredQuery
+    ? allRecordings.filter((r) =>
+        r.title.toLowerCase().includes(deferredQuery.toLowerCase())
+      )
+    : allRecordings
+
+  // Apply project filter
+  const filtered =
+    projectFilter === "all"
+      ? searchFiltered
+      : searchFiltered.filter((r) => r.projectId === projectFilter)
+
+  // Count recordings by status (from filtered set)
   const counts = {
-    all: allRecordings.length,
-    unassigned: allRecordings.filter((r) => r.status === "unassigned").length,
-    processing: allRecordings.filter((r) => r.status === "processing").length,
-    ready: allRecordings.filter((r) => r.status === "ready").length,
+    all: filtered.length,
+    unassigned: filtered.filter((r) => r.status === "unassigned").length,
+    processing: filtered.filter((r) => r.status === "processing").length,
+    ready: filtered.filter((r) => r.status === "ready").length,
   }
 
-  // Processing recordings need status polling
+  // Processing recordings need status polling (from all, not filtered)
   const processingRecordings = allRecordings.filter(
     (r) => r.status === "processing"
   )
 
   const filterRecordings = (tab: string): Recording[] => {
-    if (tab === "all") return allRecordings
-    return allRecordings.filter((r) => r.status === tab)
+    if (tab === "all") return filtered
+    return filtered.filter((r) => r.status === tab)
   }
 
   const renderTable = (recordings: Recording[]) => (
@@ -135,6 +169,34 @@ export function RecordingHub() {
       {processingRecordings.map((r) => (
         <ProcessingPoller key={r.id} recording={r} />
       ))}
+
+      {/* Search and project filter controls */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search recordings..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        {projects.length > 0 && (
+          <Select value={projectFilter} onValueChange={setProjectFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="All Projects" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Projects</SelectItem>
+              {projects.map((pid) => (
+                <SelectItem key={pid} value={pid}>
+                  {pid}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
 
       <Tabs defaultValue="all">
         <TabsList>

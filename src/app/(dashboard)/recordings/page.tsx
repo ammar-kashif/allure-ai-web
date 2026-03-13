@@ -6,7 +6,7 @@ export default function RecordingsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Recordings</h2>
+          <h1 className="text-2xl font-heading font-bold tracking-tight">Recordings</h1>
           <p className="text-muted-foreground">
             Manage your recordings and assign them to projects for transcription.
           </p>
