@@ -101,11 +101,12 @@ Plans:
   1. User can create a task with title, status, priority, due date, assignee, and tags -- and can edit or delete it
   2. Tasks display in a sortable and filterable list view
   3. Tasks display in a Kanban board where dragging a card between columns updates its status
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md -- Data layer: extended schema, CRUD DB functions, API routes, TanStack Query hooks
+- [ ] 03-02-PLAN.md -- Task list view with create dialog, detail panel, inline editing, sidebar activation
+- [ ] 03-03-PLAN.md -- Kanban board with drag-and-drop, end-to-end verification checkpoint
 
 ### Phase 4: Document Generation and Demo Polish
 **Goal**: Users can generate PRD documents and Mermaid diagrams from project data (stretch goals completed if time permits)
@@ -131,5 +132,5 @@ Note: Phase 3 can be worked on in parallel with Phase 2 by a different team memb
 | 1.1. Python Backend: FastAPI + Moonshine STT | 0/2 | Not started | - |
 | 2. AI Extraction and Promotion | 2/3 | In Progress | - |
 | 2.1. UI/UX Overhaul - Modern SaaS Dashboard | 3/3 | Complete   | 2026-03-13 |
-| 3. Task Management | 0/2 | Not started | - |
+| 3. Task Management | 0/3 | Not started | - |
 | 4. Document Generation and Demo Polish | 0/1 | Not started | - |
