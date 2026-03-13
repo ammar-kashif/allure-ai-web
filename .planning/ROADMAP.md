@@ -15,6 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Recording and Transcription Pipeline** - Frontend scaffolding, audio recording, backend integration, transcript display
 - [ ] **Phase 1.1: Python Backend: FastAPI + Moonshine STT** - FastAPI server, audio upload, Moonshine transcription, speaker diarization (INSERTED)
 - [ ] **Phase 2: AI Extraction and Promotion** - Outcome extraction from transcripts, confidence-gated review, promotion to tasks/requirements
+- [ ] **Phase 2.1: UI/UX Overhaul - Modern SaaS Dashboard** - Sidebar navigation, indigo theme, typography, dashboard home, component polish (INSERTED)
 - [ ] **Phase 3: Task Management** - Task CRUD, list view, Kanban board (parallelizable with Phase 2)
 - [ ] **Phase 4: Document Generation and Demo Polish** - PRD generation, Mermaid diagrams, demo preparation (stretch)
 
@@ -73,6 +74,25 @@ Plans:
 - [ ] 02-02-PLAN.md -- Frontend data layer: TypeScript types, SQLite schema, proxy routes, hooks, stores
 - [ ] 02-03-PLAN.md -- Outcomes tab UI: grouped cards, confidence flagging, evidence links, promotion flow
 
+### Phase 02.1: UI/UX Overhaul - Modern SaaS Dashboard (INSERTED)
+
+**Goal:** Transform the existing functional UI into a polished modern SaaS dashboard with collapsible sidebar navigation, indigo color theme, Space Grotesk + Inter typography, stats-driven dashboard home, and component polish across all existing views
+**Depends on:** Phase 2
+**Requirements**: UI-01, UI-02, UI-03, UI-04, UI-05
+**Success Criteria** (what must be TRUE):
+  1. Collapsible sidebar navigation with Dashboard, Recordings, Tasks (placeholder), Documents (placeholder), Settings
+  2. Deep indigo primary color theme applied consistently across all components
+  3. Space Grotesk headings and Inter body text throughout
+  4. Dashboard home page with stat cards (Total Recordings, Outcomes Extracted, Tasks Created) and recent activity
+  5. Recording Hub has text search and project dropdown filter
+  6. All outcome cards, transcript bubbles, status badges, and FAB polished with indigo theme
+**Plans:** 3 plans
+
+Plans:
+- [ ] 02.1-01-PLAN.md -- Indigo theme, Space Grotesk/Inter fonts, sidebar layout with AppSidebar
+- [ ] 02.1-02-PLAN.md -- Dashboard home page with stat cards, recent activity, empty state
+- [ ] 02.1-03-PLAN.md -- Recording Hub search/filter, component polish, visual verification checkpoint
+
 ### Phase 3: Task Management
 **Goal**: Users can manage tasks through full CRUD operations in both list and Kanban views
 **Depends on**: Phase 1 (for project context); can be built in parallel with Phase 2
@@ -102,7 +122,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 1.1 -> 2 -> 3 -> 4
+Phases execute in numeric order: 1 -> 1.1 -> 2 -> 2.1 -> 3 -> 4
 Note: Phase 3 can be worked on in parallel with Phase 2 by a different team member.
 
 | Phase | Plans Complete | Status | Completed |
@@ -110,5 +130,6 @@ Note: Phase 3 can be worked on in parallel with Phase 2 by a different team memb
 | 1. Recording and Transcription Pipeline | 3/5 | In Progress |  |
 | 1.1. Python Backend: FastAPI + Moonshine STT | 0/2 | Not started | - |
 | 2. AI Extraction and Promotion | 2/3 | In Progress | - |
+| 2.1. UI/UX Overhaul - Modern SaaS Dashboard | 0/3 | Not started | - |
 | 3. Task Management | 0/2 | Not started | - |
 | 4. Document Generation and Demo Polish | 0/1 | Not started | - |
