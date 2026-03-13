@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { TaskListView } from "@/components/task/task-list-view"
+import { TaskKanbanView } from "@/components/task/task-kanban-view"
 import { TaskCreateDialog } from "@/components/task/task-create-dialog"
 import { TaskDetailPanel } from "@/components/task/task-detail-panel"
 import type { Task } from "@/types/outcome"
@@ -37,9 +38,10 @@ export function TaskPage() {
         </TabsContent>
 
         <TabsContent value="board">
-          <div className="flex items-center justify-center py-16 text-muted-foreground">
-            Kanban board coming soon
-          </div>
+          <TaskKanbanView
+            onTaskClick={handleTaskClick}
+            onCreateClick={handleCreateClick}
+          />
         </TabsContent>
       </Tabs>
 
