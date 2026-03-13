@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 
 ## Current Position
 
-Phase: 2 of 4 (AI Extraction and Promotion)
-Plan: 3 of 3 in current phase
-Status: Executing Phase 2
-Last activity: 2026-03-12 — Plan 02-01 Backend extraction pipeline complete
+Phase: 2.1 of 4 (UI/UX Overhaul - Modern SaaS Dashboard)
+Plan: 2 of 3 in current phase
+Status: Executing Phase 2.1
+Last activity: 2026-03-13 — Plan 02.1-01 Theme & Sidebar Foundation complete
 
-Progress: [█████████░] 90%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Progress: [█████████░] 90%
 | Phase 01.1 P02 | 15min | 2 tasks | 6 files |
 | Phase 02 P01 | 4min | 2 tasks | 8 files |
 | Phase 02 P02 | 2min | 2 tasks | 9 files |
+| Phase 02.1 P01 | 4min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,9 @@ Recent decisions affecting current work:
 - [Phase 02-02]: Backend snake_case to frontend camelCase transform in outcomes proxy route
 - [Phase 02-02]: Outcomes persisted to frontend SQLite on every fetch for offline resilience
 - [Phase 02-02]: Evidence highlight auto-clears after 3000ms with timer cleanup
+- [Phase 02.1-01]: Used render prop instead of asChild for base-nova shadcn SidebarMenuButton
+- [Phase 02.1-01]: Added TooltipProvider in dashboard layout for sidebar tooltip support
+- [Phase 02.1-01]: Disabled nav items as plain buttons with opacity-50 and "(coming soon)" tooltip
 
 ### Pending Todos
 
@@ -98,6 +102,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-13T18:02:05.580Z
-Stopped at: Phase 2.1 context gathered
-Resume file: .planning/phases/02.1-ui-ux-overhaul-modern-saas-dashboard/02.1-CONTEXT.md
+Last session: 2026-03-13T18:27:13Z
+Stopped at: Completed 02.1-01-PLAN.md
+Resume file: .planning/phases/02.1-ui-ux-overhaul-modern-saas-dashboard/02.1-02-PLAN.md
