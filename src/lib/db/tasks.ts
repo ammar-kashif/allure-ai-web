@@ -15,6 +15,7 @@ interface TaskRow {
   source_outcome_id: string | null
   source_recording_id: string | null
   backlink: string | null
+  evidence_refs: string | null
   status: string
   priority: string
   due_date: string | null
@@ -35,6 +36,16 @@ interface RequirementRow {
   updated_at: string
 }
 
+function parseSourceHighlightIndex(evidenceRefs: string | null): number | null {
+  if (!evidenceRefs) return null
+  try {
+    const refs = JSON.parse(evidenceRefs)
+    return refs[0]?.segmentIndex ?? null
+  } catch {
+    return null
+  }
+}
+
 function rowToTask(row: TaskRow): Task {
   return {
     id: row.id,
@@ -43,6 +54,7 @@ function rowToTask(row: TaskRow): Task {
     sourceOutcomeId: row.source_outcome_id,
     sourceRecordingId: row.source_recording_id,
     backlink: row.backlink,
+    sourceHighlightIndex: parseSourceHighlightIndex(row.evidence_refs),
     status: row.status as TaskStatus,
     priority: row.priority as TaskPriority,
     dueDate: row.due_date,
@@ -122,7 +134,11 @@ export function createRequirementRecord(data: {
 export function getTask(id: string): Task | null {
   const db = getDb()
   const row = db
-    .prepare("SELECT * FROM tasks WHERE id = ?")
+    .prepare(
+      `SELECT t.*, o.evidence_refs FROM tasks t
+       LEFT JOIN outcomes o ON t.source_outcome_id = o.id
+       WHERE t.id = ?`
+    )
     .get(id) as TaskRow | undefined
   return row ? rowToTask(row) : null
 }
@@ -144,12 +160,12 @@ export function listTasks(filters?: {
   const params: unknown[] = []
 
   if (filters?.status) {
-    conditions.push("status = ?")
+    conditions.push("t.status = ?")
     params.push(filters.status)
   }
 
   if (filters?.search) {
-    conditions.push("(title LIKE ? OR detail LIKE ?)")
+    conditions.push("(t.title LIKE ? OR t.detail LIKE ?)")
     const searchTerm = `%${filters.search}%`
     params.push(searchTerm, searchTerm)
   }
@@ -158,10 +174,12 @@ export function listTasks(filters?: {
 
   const rows = db
     .prepare(
-      `SELECT * FROM tasks ${where}
+      `SELECT t.*, o.evidence_refs FROM tasks t
+       LEFT JOIN outcomes o ON t.source_outcome_id = o.id
+       ${where}
        ORDER BY
-         CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,
-         created_at DESC`
+         CASE t.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,
+         t.created_at DESC`
     )
     .all(...params) as TaskRow[]
 
@@ -228,6 +246,24 @@ export function updateTask(
   )
 
   return getTask(id)!
+}
+
+export function getTaskSourceSegmentIndex(taskId: string): number | null {
+  const db = getDb()
+  const row = db
+    .prepare(
+      `SELECT o.evidence_refs FROM tasks t
+       JOIN outcomes o ON t.source_outcome_id = o.id
+       WHERE t.id = ?`
+    )
+    .get(taskId) as { evidence_refs: string } | undefined
+  if (!row) return null
+  try {
+    const refs = JSON.parse(row.evidence_refs)
+    return refs[0]?.segmentIndex ?? null
+  } catch {
+    return null
+  }
 }
 
 export function deleteTask(id: string): boolean {

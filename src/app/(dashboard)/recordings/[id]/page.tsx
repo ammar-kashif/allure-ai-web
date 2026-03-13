@@ -2,7 +2,7 @@
 
 import { use, useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, Loader2, MoreVertical, Pencil, Trash2 } from "lucide-react"
 
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -57,6 +57,17 @@ export default function RecordingDetailPage({
   // Evidence highlight store controls active tab
   const activeTab = useEvidenceHighlight((s) => s.activeTab)
   const setActiveTab = useEvidenceHighlight((s) => s.setActiveTab)
+  const setHighlight = useEvidenceHighlight((s) => s.setHighlight)
+
+  // Apply highlight from URL search param (e.g. ?highlight=2)
+  const searchParams = useSearchParams()
+  useEffect(() => {
+    const h = searchParams.get("highlight")
+    if (h !== null && isReady) {
+      const idx = parseInt(h, 10)
+      if (!isNaN(idx)) setHighlight(idx)
+    }
+  }, [searchParams, isReady, setHighlight])
 
   // Rename
   const renameMutation = useRenameRecording()
@@ -127,7 +138,7 @@ export default function RecordingDetailPage({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <BackButton />
 
       {/* Header */}
@@ -136,7 +147,7 @@ export default function RecordingDetailPage({
           {isEditing ? (
             <input
               ref={inputRef}
-              className="text-2xl font-heading font-bold tracking-tight bg-transparent border-b border-primary outline-none"
+              className="text-[1.75rem] font-heading font-bold tracking-[-0.02em] bg-transparent border-b border-primary outline-none"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
               onBlur={saveTitle}
@@ -147,7 +158,7 @@ export default function RecordingDetailPage({
             />
           ) : (
             <h2
-              className="text-2xl font-heading font-bold tracking-tight cursor-pointer hover:text-muted-foreground transition-colors"
+              className="text-[1.75rem] font-heading font-bold tracking-[-0.02em] cursor-pointer hover:text-muted-foreground transition-colors duration-[var(--duration-fast)]"
               onClick={startEditing}
               title="Click to rename"
             >
@@ -177,7 +188,7 @@ export default function RecordingDetailPage({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="flex items-center gap-4 text-base text-muted-foreground">
+        <div className="flex items-center gap-4 text-[0.8125rem] text-muted-foreground">
           <span>{formatTimestamp(recording.createdAt)}</span>
           <span>{formatDuration(recording.durationMs)}</span>
           {recording.projectId && (
@@ -188,7 +199,7 @@ export default function RecordingDetailPage({
 
       {/* Content based on status */}
       {recording.status === "unassigned" && (
-        <div className="rounded-lg border border-dashed p-8 text-center">
+        <div className="rounded-xl border border-dashed p-8 text-center shadow-[var(--shadow-xs)]">
           <p className="text-muted-foreground">
             Assign to a project to begin transcription
           </p>
@@ -232,9 +243,9 @@ export default function RecordingDetailPage({
 
           <TabsContent value={0}>
             <div className="space-y-4 pt-4">
-              <div className="rounded-lg border p-4 space-y-3">
-                <h3 className="font-heading font-semibold">Recording Info</h3>
-                <div className="grid grid-cols-2 gap-2 text-base">
+              <div className="rounded-xl bg-card p-5 shadow-[var(--shadow-card)] space-y-3">
+                <h3 className="font-heading font-semibold tracking-[-0.01em]">Recording Info</h3>
+                <div className="grid grid-cols-2 gap-2 text-[0.9375rem]">
                   <span className="text-muted-foreground">Title</span>
                   <span>{recording.title}</span>
                   <span className="text-muted-foreground">Duration</span>

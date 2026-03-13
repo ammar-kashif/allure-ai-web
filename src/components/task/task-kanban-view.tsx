@@ -4,7 +4,10 @@ import { useMemo, useState, useCallback } from "react"
 import {
   DndContext,
   DragOverlay,
+  PointerSensor,
   closestCorners,
+  useSensor,
+  useSensors,
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core"
@@ -34,6 +37,9 @@ export function TaskKanbanView({ onTaskClick, onCreateClick }: TaskKanbanViewPro
   const updateTask = useUpdateTask()
   const queryClient = useQueryClient()
   const [activeId, setActiveId] = useState<string | null>(null)
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  )
 
   const grouped = useMemo(() => {
     const map: Record<TaskStatus, Task[]> = {
@@ -112,6 +118,7 @@ export function TaskKanbanView({ onTaskClick, onCreateClick }: TaskKanbanViewPro
       </div>
 
       <DndContext
+        sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}

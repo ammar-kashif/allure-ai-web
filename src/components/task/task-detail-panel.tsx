@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import Link from "next/link"
+import { ExternalLink } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -258,22 +260,20 @@ export function TaskDetailPanel({ taskId, open, onOpenChange }: TaskDetailPanelP
             </div>
 
             {/* Source section */}
-            {task.sourceOutcomeId && (
-              <div className="space-y-1 border-t pt-4">
+            {task.sourceRecordingId && (
+              <div className="space-y-1.5 border-t pt-4">
                 <p className="text-xs font-medium text-muted-foreground">Source</p>
-                <p className="text-sm text-muted-foreground">
-                  From recording: {task.sourceRecordingId || "Unknown"}
-                </p>
                 {task.backlink && (
-                  <a
-                    href={task.backlink}
-                    className="text-sm text-primary hover:underline"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    View source
-                  </a>
+                  <p className="text-sm text-muted-foreground">{task.backlink}</p>
                 )}
+                <Link
+                  href={`/recordings/${task.sourceRecordingId}${task.sourceHighlightIndex !== null ? `?highlight=${task.sourceHighlightIndex}` : ""}`}
+                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  View in transcript
+                </Link>
               </div>
             )}
 

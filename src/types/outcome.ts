@@ -37,6 +37,7 @@ export interface Task {
   sourceOutcomeId: string | null
   sourceRecordingId: string | null
   backlink: string | null
+  sourceHighlightIndex: number | null
   status: TaskStatus
   priority: TaskPriority
   dueDate: string | null

@@ -24,17 +24,33 @@ function createDatabase(): Database.Database {
     db.exec(schema)
   }
 
+  // Migrate existing tables — ALTER TABLE for columns added after initial creation
+  // (CREATE TABLE IF NOT EXISTS won't modify existing tables)
+  const migrations: { table: string; column: string; definition: string }[] = [
+    { table: "tasks", column: "priority", definition: "TEXT NOT NULL DEFAULT 'medium'" },
+    { table: "tasks", column: "due_date", definition: "TEXT" },
+    { table: "tasks", column: "assignee", definition: "TEXT" },
+    { table: "tasks", column: "tags", definition: "TEXT NOT NULL DEFAULT '[]'" },
+  ]
+
+  for (const m of migrations) {
+    const columns = db.prepare(`PRAGMA table_info(${m.table})`).all() as { name: string }[]
+    if (columns.length > 0 && !columns.some((c) => c.name === m.column)) {
+      db.exec(`ALTER TABLE ${m.table} ADD COLUMN ${m.column} ${m.definition}`)
+    }
+  }
+
   return db
 }
 
-// Singleton
-let _db: Database.Database | null = null
+// Singleton — store on globalThis to survive Next.js dev HMR
+const globalForDb = globalThis as unknown as { __allureDb: Database.Database | null }
 
 export function getDb(): Database.Database {
-  if (!_db) {
-    _db = createDatabase()
+  if (!globalForDb.__allureDb) {
+    globalForDb.__allureDb = createDatabase()
   }
-  return _db
+  return globalForDb.__allureDb
 }
 
 export default getDb

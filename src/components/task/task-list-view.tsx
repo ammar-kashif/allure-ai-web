@@ -43,22 +43,21 @@ export function TaskListView({ onTaskClick, onCreateClick }: TaskListViewProps) 
   const [query, setQuery] = useState("")
   const deferredQuery = useDeferredValue(query)
 
-  const statusFilter = activeTab === "all" ? null : activeTab
   const searchFilter = deferredQuery || null
 
-  const { data: tasks = [], isLoading } = useTasks({
-    status: statusFilter,
-    search: searchFilter,
-  })
+  // Single query for all tasks (with search filter only) — derive filtered list and counts client-side
+  const { data: allTasks = [], isLoading } = useTasks({ search: searchFilter })
 
-  // Count tasks by status for tab badges
-  const { data: allTasks = [] } = useTasks({ search: searchFilter })
   const counts = {
     all: allTasks.length,
     todo: allTasks.filter((t) => t.status === "todo").length,
     in_progress: allTasks.filter((t) => t.status === "in_progress").length,
     done: allTasks.filter((t) => t.status === "done").length,
   }
+
+  const tasks = activeTab === "all"
+    ? allTasks
+    : allTasks.filter((t) => t.status === activeTab)
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "--"
