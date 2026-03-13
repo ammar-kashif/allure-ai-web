@@ -38,9 +38,9 @@ export function SummaryBanner({ outcomes }: SummaryBannerProps) {
   )
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/40 px-4 py-3">
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-primary/5 px-4 py-3">
       <div className="flex items-center gap-1.5">
-        <span className="text-2xl font-bold">{total}</span>
+        <span className="text-2xl font-heading font-bold">{total}</span>
         <span className="text-sm text-muted-foreground">outcomes</span>
       </div>
 

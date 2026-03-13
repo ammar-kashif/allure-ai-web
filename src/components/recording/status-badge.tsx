@@ -15,11 +15,12 @@ const statusConfig: Record<
   processing: {
     label: "Processing",
     variant: "secondary",
+    className: "bg-primary/10 text-primary border-primary/20",
   },
   ready: {
     label: "Ready",
     variant: "default",
-    className: "bg-green-600 text-white",
+    className: "bg-emerald-600 text-white",
   },
   error: {
     label: "Error",

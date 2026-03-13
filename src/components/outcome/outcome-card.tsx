@@ -66,7 +66,7 @@ export function OutcomeCard({
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card p-4 shadow-sm border-l-4",
+        "rounded-lg border bg-card p-4 shadow-sm hover:shadow-md transition-shadow border-l-4",
         isHighConfidence ? "border-l-green-500" : "border-l-amber-500"
       )}
     >
@@ -161,7 +161,7 @@ function EvidenceLink({
     <button
       type="button"
       onClick={() => onClick(ref_)}
-      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+      className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 hover:underline"
     >
       <ExternalLink className="size-3" />
       <span>

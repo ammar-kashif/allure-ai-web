@@ -4,9 +4,9 @@ import { cn } from "@/lib/utils"
 import type { Utterance } from "@/types/recording"
 
 const speakerColors = [
-  { bg: "bg-blue-50", label: "text-blue-700" },
-  { bg: "bg-emerald-50", label: "text-emerald-700" },
-  { bg: "bg-purple-50", label: "text-purple-700" },
+  { bg: "bg-indigo-50", label: "text-indigo-700" },
+  { bg: "bg-teal-50", label: "text-teal-700" },
+  { bg: "bg-violet-50", label: "text-violet-700" },
   { bg: "bg-amber-50", label: "text-amber-700" },
   { bg: "bg-rose-50", label: "text-rose-700" },
 ] as const

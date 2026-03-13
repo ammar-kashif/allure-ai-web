@@ -134,7 +134,7 @@ export default function RecordingDetailPage({
           {isEditing ? (
             <input
               ref={inputRef}
-              className="text-2xl font-bold tracking-tight bg-transparent border-b border-primary outline-none"
+              className="text-2xl font-heading font-bold tracking-tight bg-transparent border-b border-primary outline-none"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
               onBlur={saveTitle}
@@ -145,7 +145,7 @@ export default function RecordingDetailPage({
             />
           ) : (
             <h2
-              className="text-2xl font-bold tracking-tight cursor-pointer hover:text-muted-foreground transition-colors"
+              className="text-2xl font-heading font-bold tracking-tight cursor-pointer hover:text-muted-foreground transition-colors"
               onClick={startEditing}
               title="Click to rename"
             >
@@ -231,7 +231,7 @@ export default function RecordingDetailPage({
           <TabsContent value={0}>
             <div className="space-y-4 pt-4">
               <div className="rounded-lg border p-4 space-y-3">
-                <h3 className="font-semibold">Recording Info</h3>
+                <h3 className="font-heading font-semibold">Recording Info</h3>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <span className="text-muted-foreground">Title</span>
                   <span>{recording.title}</span>

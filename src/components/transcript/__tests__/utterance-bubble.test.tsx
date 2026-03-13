@@ -20,7 +20,7 @@ describe("UtteranceBubble", () => {
 
     const label = screen.getByText("Speaker 1")
     expect(label).toBeInTheDocument()
-    expect(label.className).toContain("text-blue-700")
+    expect(label.className).toContain("text-indigo-700")
   })
 
   it("renders utterance text", () => {
@@ -43,9 +43,9 @@ describe("UtteranceBubble", () => {
 
   it("cycles through 5 speaker colors", () => {
     const speakers = [
-      { speaker: "Speaker 1", labelColor: "text-blue-700", bgColor: "bg-blue-50" },
-      { speaker: "Speaker 2", labelColor: "text-emerald-700", bgColor: "bg-emerald-50" },
-      { speaker: "Speaker 3", labelColor: "text-purple-700", bgColor: "bg-purple-50" },
+      { speaker: "Speaker 1", labelColor: "text-indigo-700", bgColor: "bg-indigo-50" },
+      { speaker: "Speaker 2", labelColor: "text-teal-700", bgColor: "bg-teal-50" },
+      { speaker: "Speaker 3", labelColor: "text-violet-700", bgColor: "bg-violet-50" },
       { speaker: "Speaker 4", labelColor: "text-amber-700", bgColor: "bg-amber-50" },
       { speaker: "Speaker 5", labelColor: "text-rose-700", bgColor: "bg-rose-50" },
     ]
@@ -65,11 +65,11 @@ describe("UtteranceBubble", () => {
     }
   })
 
-  it("wraps Speaker 6 back to first color (blue)", () => {
+  it("wraps Speaker 6 back to first color (indigo)", () => {
     render(<UtteranceBubble utterance={makeUtterance({ speaker: "Speaker 6" })} />)
 
     const label = screen.getByText("Speaker 6")
-    expect(label.className).toContain("text-blue-700")
+    expect(label.className).toContain("text-indigo-700")
   })
 
   it("hides speaker label when showSpeaker is false", () => {
