@@ -91,102 +91,103 @@ async def test_get_transcript_not_ready(client, sample_audio):
 
 # --- Helper to set up a job with completed extraction ---
 
+SAMPLE_OUTCOMES = [
+    {
+        "id": "outcome-decision-1",
+        "type": "decision",
+        "title": "Use React",
+        "detail": "Team decided on React.",
+        "confidence": 0.95,
+        "evidence_refs": [
+            {
+                "segment_index": 0,
+                "speaker": "Speaker 1",
+                "timestamp": 0.0,
+                "text_snippet": "Let's use React.",
+            }
+        ],
+        "promoted": False,
+        "promoted_id": None,
+    },
+    {
+        "id": "outcome-action-1",
+        "type": "action_item",
+        "title": "API integration",
+        "detail": "Speaker 2 handles API by Friday.",
+        "confidence": 0.90,
+        "evidence_refs": [
+            {
+                "segment_index": 1,
+                "speaker": "Speaker 2",
+                "timestamp": 5.5,
+                "text_snippet": "I'll do API by Friday.",
+            }
+        ],
+        "promoted": False,
+        "promoted_id": None,
+    },
+    {
+        "id": "outcome-req-1",
+        "type": "requirement",
+        "title": "Offline support",
+        "detail": "Must support offline mode.",
+        "confidence": 0.75,
+        "evidence_refs": [
+            {
+                "segment_index": 0,
+                "speaker": "Speaker 1",
+                "timestamp": 0.0,
+            }
+        ],
+        "promoted": False,
+        "promoted_id": None,
+    },
+    {
+        "id": "outcome-blocker-1",
+        "type": "blocker",
+        "title": "CI broken",
+        "detail": "CI pipeline is down.",
+        "confidence": 0.92,
+        "evidence_refs": [],
+        "promoted": False,
+        "promoted_id": None,
+    },
+]
+
+SAMPLE_RESULT = {
+    "id": "test-job-123",
+    "duration": 20.0,
+    "language": "en",
+    "speakers": [],
+    "segments": [
+        {
+            "start": 0.0,
+            "end": 5.0,
+            "text": "Let's use React.",
+            "speaker": "Speaker 1",
+            "confidence": 0.95,
+        },
+        {
+            "start": 5.5,
+            "end": 10.0,
+            "text": "I'll do API by Friday.",
+            "speaker": "Speaker 2",
+            "confidence": 0.90,
+        },
+    ],
+}
+
 
 def _create_test_job_with_outcomes(job_id: str = "test-job-123"):
-    """Directly insert a job with completed extraction and outcomes into storage."""
-    storage.jobs[job_id] = {
-        "id": job_id,
-        "file_path": "/fake/path.wav",
-        "original_filename": "Sprint Planning.wav",
-        "status": "completed",
-        "result": {
-            "id": job_id,
-            "duration": 20.0,
-            "language": "en",
-            "speakers": [],
-            "segments": [
-                {
-                    "start": 0.0,
-                    "end": 5.0,
-                    "text": "Let's use React.",
-                    "speaker": "Speaker 1",
-                    "confidence": 0.95,
-                },
-                {
-                    "start": 5.5,
-                    "end": 10.0,
-                    "text": "I'll do API by Friday.",
-                    "speaker": "Speaker 2",
-                    "confidence": 0.90,
-                },
-            ],
-        },
-        "error": None,
-        "extraction_status": "completed",
-        "extraction_error": None,
-        "outcomes": [
-            {
-                "id": "outcome-decision-1",
-                "type": "decision",
-                "title": "Use React",
-                "detail": "Team decided on React.",
-                "confidence": 0.95,
-                "evidence_refs": [
-                    {
-                        "segment_index": 0,
-                        "speaker": "Speaker 1",
-                        "timestamp": 0.0,
-                        "text_snippet": "Let's use React.",
-                    }
-                ],
-                "promoted": False,
-                "promoted_id": None,
-            },
-            {
-                "id": "outcome-action-1",
-                "type": "action_item",
-                "title": "API integration",
-                "detail": "Speaker 2 handles API by Friday.",
-                "confidence": 0.90,
-                "evidence_refs": [
-                    {
-                        "segment_index": 1,
-                        "speaker": "Speaker 2",
-                        "timestamp": 5.5,
-                        "text_snippet": "I'll do API by Friday.",
-                    }
-                ],
-                "promoted": False,
-                "promoted_id": None,
-            },
-            {
-                "id": "outcome-req-1",
-                "type": "requirement",
-                "title": "Offline support",
-                "detail": "Must support offline mode.",
-                "confidence": 0.75,
-                "evidence_refs": [
-                    {
-                        "segment_index": 0,
-                        "speaker": "Speaker 1",
-                        "timestamp": 0.0,
-                    }
-                ],
-                "promoted": False,
-                "promoted_id": None,
-            },
-            {
-                "id": "outcome-blocker-1",
-                "type": "blocker",
-                "title": "CI broken",
-                "detail": "CI pipeline is down.",
-                "confidence": 0.92,
-                "evidence_refs": [],
-                "promoted": False,
-                "promoted_id": None,
-            },
-        ],
-    }
+    """Insert a job with completed extraction and outcomes via storage API."""
+    storage.create_job(job_id, "/fake/path.wav", "Sprint Planning.wav")
+    storage.update_job(
+        job_id,
+        status="completed",
+        result=SAMPLE_RESULT,
+        extraction_status="completed",
+        outcomes=SAMPLE_OUTCOMES,
+    )
     return job_id
 
 
@@ -243,7 +244,7 @@ async def test_promote_action_item(client):
     assert "Speaker 2" in data["backlink"]
 
     # Verify outcome is marked promoted in storage
-    job = storage.jobs[job_id]
+    job = storage.get_job(job_id)
     assert job["outcomes"][1]["promoted"] is True
     assert job["outcomes"][1]["promoted_id"] == data["id"]
 
@@ -316,7 +317,7 @@ async def test_extract_one_shot_guard_completed(client):
 async def test_extract_one_shot_guard_pending(client):
     """POST /extract with extraction_status='pending' returns 409."""
     job_id = _create_test_job_with_outcomes()
-    storage.jobs[job_id]["extraction_status"] = "pending"
+    storage.update_job(job_id, extraction_status="pending")
     response = await client.post(f"/recordings/{job_id}/extract")
     assert response.status_code == 409
 
@@ -325,7 +326,7 @@ async def test_extract_one_shot_guard_pending(client):
 async def test_extract_one_shot_guard_processing(client):
     """POST /extract with extraction_status='processing' returns 409."""
     job_id = _create_test_job_with_outcomes()
-    storage.jobs[job_id]["extraction_status"] = "processing"
+    storage.update_job(job_id, extraction_status="processing")
     response = await client.post(f"/recordings/{job_id}/extract")
     assert response.status_code == 409
 
@@ -334,26 +335,47 @@ async def test_extract_one_shot_guard_processing(client):
 async def test_extract_allows_when_none(client):
     """POST /extract with extraction_status='none' and status='completed' returns 202."""
     job_id = _create_test_job_with_outcomes()
-    storage.jobs[job_id]["extraction_status"] = "none"
+    storage.update_job(job_id, extraction_status="none")
     response = await client.post(f"/recordings/{job_id}/extract")
     assert response.status_code == 202
     # Verify extraction_status changed to pending
-    assert storage.jobs[job_id]["extraction_status"] == "pending"
+    job = storage.get_job(job_id)
+    assert job["extraction_status"] == "pending"
+
+
+@pytest.mark.asyncio
+async def test_extract_allows_when_failed(client):
+    """POST /extract with extraction_status='failed' and status='completed' returns 202."""
+    job_id = _create_test_job_with_outcomes()
+    storage.update_job(job_id, extraction_status="failed")
+    response = await client.post(f"/recordings/{job_id}/extract")
+    assert response.status_code == 202
+    job = storage.get_job(job_id)
+    assert job["extraction_status"] == "pending"
 
 
 @pytest.mark.asyncio
 async def test_extract_rejects_incomplete_stt(client):
     """POST /extract with status!='completed' returns 400."""
-    storage.jobs["incomplete-job"] = {
-        "id": "incomplete-job",
-        "file_path": "/fake.wav",
-        "original_filename": "test.wav",
-        "status": "pending",
-        "result": None,
-        "error": None,
-        "extraction_status": "none",
-        "extraction_error": None,
-        "outcomes": [],
-    }
+    storage.create_job("incomplete-job", "/fake.wav", "test.wav")
     response = await client.post("/recordings/incomplete-job/extract")
     assert response.status_code == 400
+
+
+# --- Delete endpoint tests ---
+
+
+@pytest.mark.asyncio
+async def test_delete_recording(client):
+    """DELETE /recordings/{id} removes the job."""
+    job_id = _create_test_job_with_outcomes()
+    response = await client.delete(f"/recordings/{job_id}")
+    assert response.status_code == 204
+    assert storage.get_job(job_id) is None
+
+
+@pytest.mark.asyncio
+async def test_delete_recording_not_found(client):
+    """DELETE /recordings/nonexistent returns 404."""
+    response = await client.delete("/recordings/nonexistent")
+    assert response.status_code == 404

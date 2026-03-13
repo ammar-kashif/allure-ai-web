@@ -91,6 +91,41 @@ export function useUploadRecording(): UseMutationResult<
   })
 }
 
+export function useRenameRecording(): UseMutationResult<
+  Recording,
+  Error,
+  { recordingId: string; title: string }
+> {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ recordingId, title }: { recordingId: string; title: string }) =>
+      apiClient.patch<Recording>(`/api/recordings/${recordingId}`, { title }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["recordings"] })
+      queryClient.invalidateQueries({
+        queryKey: ["recording", variables.recordingId],
+      })
+    },
+  })
+}
+
+export function useDeleteRecording(): UseMutationResult<
+  void,
+  Error,
+  string
+> {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (recordingId: string) =>
+      apiClient.delete<void>(`/api/recordings/${recordingId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recordings"] })
+    },
+  })
+}
+
 export function useAssignProject(): UseMutationResult<
   Recording,
   Error,

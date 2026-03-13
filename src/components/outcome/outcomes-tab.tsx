@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { SummaryBanner } from "@/components/outcome/summary-banner"
 import { OutcomeSection } from "@/components/outcome/outcome-section"
 import { OutcomeCard } from "@/components/outcome/outcome-card"
+import { GenerateOutcomesButton } from "@/components/outcome/generate-outcomes-button"
 import { useOutcomes, useExtractionStatus } from "@/hooks/use-outcomes"
 import type { OutcomeType } from "@/types/outcome"
 
@@ -39,6 +40,16 @@ export function OutcomesTab({ recordingId }: OutcomesTabProps) {
     return <OutcomesLoadingSkeleton />
   }
 
+  // Not started state
+  if (extractionStatus === "none") {
+    return (
+      <div className="flex flex-col items-center gap-3 py-12 text-center">
+        <p className="text-muted-foreground">Extraction not started</p>
+        <GenerateOutcomesButton recordingId={recordingId} />
+      </div>
+    )
+  }
+
   // Error state
   if (extractionStatus === "failed") {
     return (
@@ -47,6 +58,12 @@ export function OutcomesTab({ recordingId }: OutcomesTabProps) {
         <p className="mt-1 text-sm text-destructive/80">
           AI extraction encountered an error. You can try re-running extraction.
         </p>
+        <div className="mt-3">
+          <GenerateOutcomesButton
+            recordingId={recordingId}
+            label="Retry Extraction"
+          />
+        </div>
       </div>
     )
   }

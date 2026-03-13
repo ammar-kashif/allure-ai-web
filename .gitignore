@@ -11,6 +11,10 @@ out/
 build/
 public/recordings/
 
+# backend data
+backend/data/
+backend/uploads/
+
 # misc
 .DS_Store
 *.pem

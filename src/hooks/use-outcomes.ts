@@ -77,6 +77,27 @@ interface PromoteOutcomeResult {
   backlink: string
 }
 
+export function useExtract(
+  recordingId: string
+): UseMutationResult<{ message: string; job_id: string }, Error, void> {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () =>
+      apiClient.post<{ message: string; job_id: string }>(
+        `/api/recordings/${recordingId}/extract`
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["extraction-status", recordingId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ["outcomes", recordingId],
+      })
+    },
+  })
+}
+
 export function usePromoteOutcome(): UseMutationResult<
   PromoteOutcomeResult,
   Error,

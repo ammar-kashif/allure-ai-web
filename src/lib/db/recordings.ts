@@ -68,12 +68,16 @@ export function createRecording(data: {
 
 export function updateRecording(
   id: string,
-  data: Partial<Pick<Recording, "status" | "projectId" | "backendId" | "errorMessage">>
+  data: Partial<Pick<Recording, "title" | "status" | "projectId" | "backendId" | "errorMessage">>
 ): Recording {
   const db = getDb()
   const sets: string[] = []
   const values: unknown[] = []
 
+  if (data.title !== undefined) {
+    sets.push("title = ?")
+    values.push(data.title)
+  }
   if (data.status !== undefined) {
     sets.push("status = ?")
     values.push(data.status)
@@ -99,6 +103,15 @@ export function updateRecording(
   )
 
   return getRecording(id)!
+}
+
+export function deleteRecording(id: string): void {
+  const db = getDb()
+  // Delete related rows first (foreign key order)
+  db.prepare("DELETE FROM tasks WHERE source_recording_id = ?").run(id)
+  db.prepare("DELETE FROM requirement_records WHERE source_recording_id = ?").run(id)
+  db.prepare("DELETE FROM outcomes WHERE recording_id = ?").run(id)
+  db.prepare("DELETE FROM recordings WHERE id = ?").run(id)
 }
 
 export function getRecordingCounts(): Record<RecordingStatus | "all", number> {

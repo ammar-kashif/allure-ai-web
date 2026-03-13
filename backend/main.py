@@ -21,7 +21,7 @@ from audio_utils import convert_to_wav, validate_audio_format
 from job_queue import job_queue, process_worker
 from extraction import format_backlink
 from models import OutcomesResponse, PromoteResponse, StatusResponse, UploadResponse
-from storage import create_job, get_job, update_job
+from storage import create_job, delete_job, get_job, init_db, list_jobs, update_job
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,7 @@ async def lifespan(app: FastAPI):
     """Manage application lifecycle: load ML models at startup, cleanup on shutdown."""
     # Startup
     os.makedirs(UPLOADS_DIR, exist_ok=True)
+    init_db()
 
     # Load Moonshine Voice transcriber
     t0 = time.perf_counter()
@@ -86,6 +87,14 @@ async def lifespan(app: FastAPI):
     # Start background worker
     worker_task = asyncio.create_task(process_worker(app.state))
     app.state.worker = worker_task
+
+    # Re-queue incomplete jobs from previous run
+    for job in list_jobs():
+        if job["status"] in ("pending", "processing"):
+            await job_queue.put((job["id"], "stt"))
+        elif job["extraction_status"] in ("pending", "processing"):
+            await job_queue.put((job["id"], "extract"))
+
     yield
     # Shutdown
     worker_task.cancel()
@@ -199,7 +208,7 @@ async def trigger_extraction(job_id: str):
         raise HTTPException(
             status_code=400, detail="Transcript not ready for extraction"
         )
-    if job.get("extraction_status", "none") != "none":
+    if job.get("extraction_status", "none") not in ("none", "failed"):
         raise HTTPException(
             status_code=409,
             detail="Extraction already triggered or completed for this recording",
@@ -269,3 +278,26 @@ async def promote_outcome(job_id: str, outcome_index: int):
     return PromoteResponse(
         id=promoted_id, type=promote_type, backlink=backlink
     )
+
+
+@app.delete("/recordings/{job_id}", status_code=204)
+async def delete_recording(job_id: str):
+    """Delete a recording and its associated files."""
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Clean up files
+    file_path = job.get("file_path")
+    if file_path and os.path.exists(file_path):
+        os.remove(file_path)
+
+    # Clean up original upload (pattern: {job_id}_{filename})
+    for f in os.listdir(UPLOADS_DIR):
+        if f.startswith(job_id):
+            path = os.path.join(UPLOADS_DIR, f)
+            if os.path.exists(path):
+                os.remove(path)
+
+    delete_job(job_id)
+    return None

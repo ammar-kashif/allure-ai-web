@@ -44,4 +44,10 @@ export const apiClient = {
     })
     return handleResponse<T>(response)
   },
+
+  async delete<T>(path: string): Promise<T> {
+    const response = await fetch(path, { method: "DELETE" })
+    if (response.status === 204) return undefined as T
+    return handleResponse<T>(response)
+  },
 }

@@ -51,9 +51,11 @@ def sample_audio():
 
 
 @pytest.fixture(autouse=True)
-def reset_state():
-    """Clear storage and drain job queue before each test."""
-    storage.jobs.clear()
+def reset_state(tmp_path):
+    """Initialize a fresh temp SQLite DB and drain job queue before each test."""
+    db_path = str(tmp_path / "test_allure.db")
+    storage.init_db(db_path)
+
     # Drain queue (items are now tuples)
     while not job_queue.empty():
         try:

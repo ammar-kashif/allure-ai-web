@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { getRecording } from "@/lib/db/recordings"
 import { updateOutcomePromotion } from "@/lib/db/outcomes"
 import { createTask, createRequirementRecord } from "@/lib/db/tasks"
 
@@ -31,9 +32,24 @@ export async function POST(
     )
   }
 
+  // Look up the backend job ID from the frontend recording
+  const recording = getRecording(recordingId)
+  if (!recording) {
+    return NextResponse.json(
+      { error: "Recording not found" },
+      { status: 404 }
+    )
+  }
+  if (!recording.backendId) {
+    return NextResponse.json(
+      { error: "Recording has not been sent to backend" },
+      { status: 400 }
+    )
+  }
+
   try {
     const response = await fetch(
-      `${BACKEND_URL}/recordings/${recordingId}/outcomes/${outcomeIndex}/promote`,
+      `${BACKEND_URL}/recordings/${recording.backendId}/outcomes/${outcomeIndex}/promote`,
       { method: "POST" }
     )
 
@@ -51,6 +67,7 @@ export async function POST(
     updateOutcomePromotion(outcomeId, data.id)
 
     // Create the promoted record in frontend SQLite based on type
+    // Backend returns "task" for action_items and "requirement" for requirements
     const commonData = {
       id: data.id,
       title: "",
@@ -60,7 +77,7 @@ export async function POST(
       backlink: data.backlink,
     }
 
-    if (data.type === "action_item") {
+    if (data.type === "task") {
       createTask(commonData)
     } else if (data.type === "requirement") {
       createRequirementRecord(commonData)

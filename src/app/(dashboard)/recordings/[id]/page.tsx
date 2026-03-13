@@ -1,16 +1,29 @@
 "use client"
 
-import { use } from "react"
+import { use, useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { ArrowLeft, Loader2, MoreVertical, Pencil, Trash2 } from "lucide-react"
 
-import { buttonVariants } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { StatusBadge } from "@/components/recording/status-badge"
 import { TranscriptView } from "@/components/transcript/transcript-view"
 import { OutcomesTab } from "@/components/outcome/outcomes-tab"
-import { useRecording, useRecordingStatus, useTranscript } from "@/hooks/use-recordings"
+import {
+  useRecording,
+  useRecordingStatus,
+  useTranscript,
+  useRenameRecording,
+  useDeleteRecording,
+} from "@/hooks/use-recordings"
 import { useEvidenceHighlight } from "@/stores/evidence-highlight"
 import { formatDuration, formatTimestamp } from "@/lib/utils"
 import { cn } from "@/lib/utils"
@@ -24,6 +37,7 @@ export default function RecordingDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = use(params)
+  const router = useRouter()
   const { data: recording, isLoading, error } = useRecording(id)
 
   const isProcessing = recording?.status === "processing"
@@ -41,6 +55,50 @@ export default function RecordingDetailPage({
   // Evidence highlight store controls active tab
   const activeTab = useEvidenceHighlight((s) => s.activeTab)
   const setActiveTab = useEvidenceHighlight((s) => s.setActiveTab)
+
+  // Rename
+  const renameMutation = useRenameRecording()
+  const [isEditing, setIsEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState("")
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const startEditing = useCallback(() => {
+    if (recording) {
+      setEditTitle(recording.title)
+      setIsEditing(true)
+    }
+  }, [recording])
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isEditing])
+
+  const saveTitle = useCallback(() => {
+    const trimmed = editTitle.trim()
+    if (trimmed && trimmed !== recording?.title) {
+      renameMutation.mutate({ recordingId: id, title: trimmed })
+    }
+    setIsEditing(false)
+  }, [editTitle, recording?.title, id, renameMutation])
+
+  const cancelEditing = useCallback(() => {
+    setIsEditing(false)
+  }, [])
+
+  // Delete
+  const deleteMutation = useDeleteRecording()
+
+  const handleDelete = useCallback(() => {
+    if (!window.confirm("Are you sure you want to delete this recording? This cannot be undone.")) {
+      return
+    }
+    deleteMutation.mutate(id, {
+      onSuccess: () => router.push("/recordings"),
+    })
+  }, [id, deleteMutation, router])
 
   if (isLoading) {
     return <RecordingDetailSkeleton />
@@ -73,10 +131,49 @@ export default function RecordingDetailPage({
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center gap-3">
-          <h2 className="text-2xl font-bold tracking-tight">
-            {recording.title}
-          </h2>
+          {isEditing ? (
+            <input
+              ref={inputRef}
+              className="text-2xl font-bold tracking-tight bg-transparent border-b border-primary outline-none"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              onBlur={saveTitle}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveTitle()
+                if (e.key === "Escape") cancelEditing()
+              }}
+            />
+          ) : (
+            <h2
+              className="text-2xl font-bold tracking-tight cursor-pointer hover:text-muted-foreground transition-colors"
+              onClick={startEditing}
+              title="Click to rename"
+            >
+              {recording.title}
+            </h2>
+          )}
           <StatusBadge status={recording.status} />
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button variant="ghost" size="icon" className="h-8 w-8" />}
+            >
+              <MoreVertical className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={startEditing}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleDelete}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <span>{formatTimestamp(recording.createdAt)}</span>

@@ -17,7 +17,7 @@ export async function GET(
 
   // If no backend ID, return local status
   if (!recording.backendId) {
-    return NextResponse.json({ status: recording.status })
+    return NextResponse.json({ status: recording.status, extraction_status: "none" })
   }
 
   try {
@@ -26,7 +26,7 @@ export async function GET(
     )
 
     if (!response.ok) {
-      return NextResponse.json({ status: recording.status })
+      return NextResponse.json({ status: recording.status, extraction_status: "none" })
     }
 
     const data = await response.json()
@@ -51,9 +51,12 @@ export async function GET(
       })
     }
 
-    return NextResponse.json({ status: mappedStatus })
+    return NextResponse.json({
+      status: mappedStatus,
+      extraction_status: data.extraction_status ?? "none",
+    })
   } catch {
     // If backend is unavailable, return local status
-    return NextResponse.json({ status: recording.status })
+    return NextResponse.json({ status: recording.status, extraction_status: "none" })
   }
 }
