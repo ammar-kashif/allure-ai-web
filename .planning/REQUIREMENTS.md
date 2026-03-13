@@ -44,8 +44,8 @@ Requirements for FYP demo. Each maps to roadmap phases.
 
 ### Task Management
 
-- [ ] **TASK-01**: User can create, read, update, and delete tasks
-- [ ] **TASK-02**: Tasks have title, status, priority, due date, assignee (optional), and tags
+- [x] **TASK-01**: User can create, read, update, and delete tasks
+- [x] **TASK-02**: Tasks have title, status, priority, due date, assignee (optional), and tags
 - [ ] **TASK-03**: Tasks display in a sortable/filterable list view
 - [ ] **TASK-04**: Tasks display in a drag-and-drop Kanban board view
 - [ ] **TASK-05**: Dragging a Kanban card updates task status
@@ -151,8 +151,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EXT-05 | Phase 2 | Complete |
 | EXT-06 | Phase 2 | Complete |
 | EXT-07 | Phase 2 | Complete |
-| TASK-01 | Phase 3 | Pending |
-| TASK-02 | Phase 3 | Pending |
+| TASK-01 | Phase 3 | Complete |
+| TASK-02 | Phase 3 | Complete |
 | TASK-03 | Phase 3 | Pending |
 | TASK-04 | Phase 3 | Pending |
 | TASK-05 | Phase 3 | Pending |
