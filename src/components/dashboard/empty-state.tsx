@@ -11,14 +11,14 @@ export function DashboardEmptyState() {
         <h2 className="text-2xl font-heading font-bold tracking-tight">
           Record your first meeting
         </h2>
-        <p className="mt-2 max-w-md text-muted-foreground">
+        <p className="mt-2 max-w-md text-base text-muted-foreground">
           Record a conversation, get it transcribed, extract decisions and action
           items, then review with confidence scores.
         </p>
       </div>
       <Link
         href="/recordings"
-        className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-6 text-base font-medium text-primary-foreground transition-colors hover:bg-primary/90"
       >
         Go to Recordings
       </Link>

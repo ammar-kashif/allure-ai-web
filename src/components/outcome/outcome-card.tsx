@@ -75,7 +75,7 @@ export function OutcomeCard({
           <h4 className="font-bold leading-tight line-clamp-1">
             {outcome.title}
           </h4>
-          <p className="text-sm text-muted-foreground line-clamp-2">
+          <p className="text-base text-muted-foreground line-clamp-2">
             {outcome.detail}
           </p>
         </div>

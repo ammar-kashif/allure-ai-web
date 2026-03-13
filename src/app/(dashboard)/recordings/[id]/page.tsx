@@ -24,6 +24,7 @@ import {
   useRenameRecording,
   useDeleteRecording,
 } from "@/hooks/use-recordings"
+import { useProjects } from "@/hooks/use-projects"
 import { useEvidenceHighlight } from "@/stores/evidence-highlight"
 import { formatDuration, formatTimestamp } from "@/lib/utils"
 import { cn } from "@/lib/utils"
@@ -39,6 +40,7 @@ export default function RecordingDetailPage({
   const { id } = use(params)
   const router = useRouter()
   const { data: recording, isLoading, error } = useRecording(id)
+  const { data: projectList = [] } = useProjects()
 
   const isProcessing = recording?.status === "processing"
   const isReady = recording?.status === "ready"
@@ -175,11 +177,11 @@ export default function RecordingDetailPage({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <div className="flex items-center gap-4 text-base text-muted-foreground">
           <span>{formatTimestamp(recording.createdAt)}</span>
           <span>{formatDuration(recording.durationMs)}</span>
           {recording.projectId && (
-            <span>Project assigned</span>
+            <span>{projectList.find((p) => p.id === recording.projectId)?.name || "Project assigned"}</span>
           )}
         </div>
       </div>
@@ -232,7 +234,7 @@ export default function RecordingDetailPage({
             <div className="space-y-4 pt-4">
               <div className="rounded-lg border p-4 space-y-3">
                 <h3 className="font-heading font-semibold">Recording Info</h3>
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="grid grid-cols-2 gap-2 text-base">
                   <span className="text-muted-foreground">Title</span>
                   <span>{recording.title}</span>
                   <span className="text-muted-foreground">Duration</span>
@@ -244,7 +246,7 @@ export default function RecordingDetailPage({
                   {recording.projectId && (
                     <>
                       <span className="text-muted-foreground">Project</span>
-                      <span>{recording.projectId}</span>
+                      <span>{projectList.find((p) => p.id === recording.projectId)?.name || recording.projectId}</span>
                     </>
                   )}
                 </div>

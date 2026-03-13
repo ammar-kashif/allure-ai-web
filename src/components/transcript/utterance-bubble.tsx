@@ -63,7 +63,7 @@ export function UtteranceBubble({
           </span>
         </div>
       )}
-      <p className="text-sm">{utterance.text}</p>
+      <p className="text-base">{utterance.text}</p>
     </div>
   )
 }

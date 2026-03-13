@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, useDeferredValue } from "react"
+import { useEffect, useRef, useState, useDeferredValue, useMemo } from "react"
 import { toast } from "sonner"
 import { Search } from "lucide-react"
 
@@ -27,6 +27,7 @@ import {
   useRecordingStatus,
   useAssignProject,
 } from "@/hooks/use-recordings"
+import { useProjects } from "@/hooks/use-projects"
 import type { Recording, RecordingStatus } from "@/types/recording"
 
 const TABS = [
@@ -70,6 +71,7 @@ function ProcessingPoller({ recording }: { recording: Recording }) {
 
 export function RecordingHub() {
   const { data: allRecordings = [], isLoading } = useRecordings()
+  const { data: projectList = [] } = useProjects()
   const assignProject = useAssignProject()
 
   // Search and project filter state
@@ -81,7 +83,16 @@ export function RecordingHub() {
     assignProject.mutate({ recordingId, projectId })
   }
 
-  // Extract unique project IDs for the dropdown
+  // Build id→name map for project name resolution
+  const projectNameMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const p of projectList) {
+      map.set(p.id, p.name)
+    }
+    return map
+  }, [projectList])
+
+  // Extract unique project IDs that appear in recordings
   const projects = [
     ...new Set(
       allRecordings.filter((r) => r.projectId).map((r) => r.projectId!)
@@ -133,7 +144,7 @@ export function RecordingHub() {
       <TableBody>
         {recordings.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+            <TableCell colSpan={5} className="py-8 text-center text-base text-muted-foreground">
               No recordings found
             </TableCell>
           </TableRow>
@@ -182,7 +193,7 @@ export function RecordingHub() {
           />
         </div>
         {projects.length > 0 && (
-          <Select value={projectFilter} onValueChange={setProjectFilter}>
+          <Select value={projectFilter} onValueChange={(v) => setProjectFilter(v ?? "all")}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="All Projects" />
             </SelectTrigger>
@@ -190,7 +201,7 @@ export function RecordingHub() {
               <SelectItem value="all">All Projects</SelectItem>
               {projects.map((pid) => (
                 <SelectItem key={pid} value={pid}>
-                  {pid}
+                  {projectNameMap.get(pid) || pid}
                 </SelectItem>
               ))}
             </SelectContent>

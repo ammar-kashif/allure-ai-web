@@ -46,7 +46,7 @@ export function RecentOutcomes({ outcomes }: RecentOutcomesProps) {
             className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-muted/50"
           >
             <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-medium">{outcome.title}</span>
+              <span className="text-base font-medium">{outcome.title}</span>
               <Badge
                 variant="secondary"
                 className={`w-fit text-xs ${typeColors[outcome.type]}`}
@@ -55,7 +55,7 @@ export function RecentOutcomes({ outcomes }: RecentOutcomesProps) {
               </Badge>
             </div>
             <span
-              className={`text-sm font-medium ${
+              className={`text-base font-medium ${
                 outcome.confidence >= 0.8
                   ? "text-green-600"
                   : "text-amber-600"
@@ -67,7 +67,7 @@ export function RecentOutcomes({ outcomes }: RecentOutcomesProps) {
         ))}
         <Link
           href="/recordings"
-          className="mt-2 block text-center text-sm text-primary hover:underline"
+          className="mt-2 block text-center text-base text-primary hover:underline"
         >
           View all recordings
         </Link>

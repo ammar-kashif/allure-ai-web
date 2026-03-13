@@ -52,8 +52,8 @@ export function RecentRecordings({ recordings }: RecentRecordingsProps) {
             className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-muted/50"
           >
             <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-medium">{recording.title}</span>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-base font-medium">{recording.title}</span>
+              <span className="text-sm text-muted-foreground">
                 {formatDuration(recording.durationMs)} &middot;{" "}
                 {formatRelativeTime(recording.createdAt)}
               </span>
@@ -63,7 +63,7 @@ export function RecentRecordings({ recordings }: RecentRecordingsProps) {
         ))}
         <Link
           href="/recordings"
-          className="mt-2 block text-center text-sm text-primary hover:underline"
+          className="mt-2 block text-center text-base text-primary hover:underline"
         >
           View all recordings
         </Link>
