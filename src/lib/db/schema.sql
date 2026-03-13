@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS outcomes (
   FOREIGN KEY (recording_id) REFERENCES recordings(id)
 );
 
+-- Note: If upgrading from a previous schema, delete the existing DB file (allure.db)
+-- since CREATE TABLE IF NOT EXISTS will not alter an existing table.
 CREATE TABLE IF NOT EXISTS tasks (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
@@ -41,6 +43,10 @@ CREATE TABLE IF NOT EXISTS tasks (
   source_recording_id TEXT,
   backlink TEXT,
   status TEXT NOT NULL DEFAULT 'todo',
+  priority TEXT NOT NULL DEFAULT 'medium',
+  due_date TEXT,
+  assignee TEXT,
+  tags TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (source_outcome_id) REFERENCES outcomes(id),

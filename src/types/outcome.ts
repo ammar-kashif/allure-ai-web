@@ -26,15 +26,48 @@ export interface OutcomesResponse {
   outcomes: Outcome[]
 }
 
+export type TaskStatus = 'todo' | 'in_progress' | 'done'
+
+export type TaskPriority = 'low' | 'medium' | 'high'
+
 export interface Task {
   id: string
   title: string
   detail: string
-  sourceOutcomeId: string
-  sourceRecordingId: string
-  backlink: string
-  status: string
+  sourceOutcomeId: string | null
+  sourceRecordingId: string | null
+  backlink: string | null
+  status: TaskStatus
+  priority: TaskPriority
+  dueDate: string | null
+  assignee: string | null
+  tags: string[]
   createdAt: string
+  updatedAt: string
+}
+
+export interface TaskFilters {
+  status?: string | null
+  search?: string | null
+}
+
+export interface CreateTaskInput {
+  title: string
+  detail?: string
+  priority?: TaskPriority
+  dueDate?: string | null
+  assignee?: string | null
+  tags?: string[]
+}
+
+export interface UpdateTaskInput {
+  title?: string
+  detail?: string
+  status?: TaskStatus
+  priority?: TaskPriority
+  dueDate?: string | null
+  assignee?: string | null
+  tags?: string[]
 }
 
 export interface RequirementRecord {
