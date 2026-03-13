@@ -18,7 +18,7 @@ import Link from "next/link"
 const navItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Recordings", url: "/recordings", icon: Mic },
-  { title: "Tasks", url: "#", icon: CheckSquare, disabled: true },
+  { title: "Tasks", url: "/tasks", icon: CheckSquare },
   { title: "Documents", url: "#", icon: FileText, disabled: true },
 ]
 
