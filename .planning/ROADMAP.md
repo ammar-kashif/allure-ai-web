@@ -86,11 +86,11 @@ Plans:
   4. Dashboard home page with stat cards (Total Recordings, Outcomes Extracted, Tasks Created) and recent activity
   5. Recording Hub has text search and project dropdown filter
   6. All outcome cards, transcript bubbles, status badges, and FAB polished with indigo theme
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
-- [ ] 02.1-01-PLAN.md -- Indigo theme, Space Grotesk/Inter fonts, sidebar layout with AppSidebar
-- [ ] 02.1-02-PLAN.md -- Dashboard home page with stat cards, recent activity, empty state
+- [x] 02.1-01-PLAN.md -- Indigo theme, Space Grotesk/Inter fonts, sidebar layout with AppSidebar
+- [x] 02.1-02-PLAN.md -- Dashboard home page with stat cards, recent activity, empty state
 - [ ] 02.1-03-PLAN.md -- Recording Hub search/filter, component polish, visual verification checkpoint
 
 ### Phase 3: Task Management
@@ -130,6 +130,6 @@ Note: Phase 3 can be worked on in parallel with Phase 2 by a different team memb
 | 1. Recording and Transcription Pipeline | 3/5 | In Progress |  |
 | 1.1. Python Backend: FastAPI + Moonshine STT | 0/2 | Not started | - |
 | 2. AI Extraction and Promotion | 2/3 | In Progress | - |
-| 2.1. UI/UX Overhaul - Modern SaaS Dashboard | 0/3 | Not started | - |
+| 2.1. UI/UX Overhaul - Modern SaaS Dashboard | 2/3 | In Progress | - |
 | 3. Task Management | 0/2 | Not started | - |
 | 4. Document Generation and Demo Polish | 0/1 | Not started | - |
