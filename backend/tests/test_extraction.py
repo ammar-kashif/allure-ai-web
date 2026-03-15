@@ -110,24 +110,22 @@ MOCK_LLM_RESPONSE = {
 
 @pytest.fixture
 def sample_job():
-    """Create a completed job with transcript in storage."""
+    """Create a completed job with transcript in storage via SQLite API."""
     job_id = "test-extraction-job"
-    storage.jobs[job_id] = {
-        "id": job_id,
-        "file_path": "/fake/path.wav",
-        "original_filename": "meeting.wav",
-        "status": "completed",
-        "result": {
+    storage.create_job(job_id, "/fake/path.wav", "meeting.wav")
+    storage.update_job(
+        job_id,
+        status="completed",
+        result={
             "id": job_id,
             "duration": 20.0,
             "language": "en",
             "speakers": [],
             "segments": SAMPLE_SEGMENTS,
         },
-        "error": None,
-        "extraction_status": "none",
-        "outcomes": [],
-    }
+        extraction_status="none",
+        outcomes=[],
+    )
     return job_id
 
 
