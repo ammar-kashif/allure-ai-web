@@ -79,32 +79,37 @@ export function PlanPreview({ recordingId, projectId }: PlanPreviewProps) {
 
   const acceptMutation = useMutation({
     mutationFn: async () => {
-      if (!plan || !projectId) return
+      if (!plan) return
 
       const today = new Date()
 
-      // Create accepted milestones first
+      // Create accepted milestones first (only when a project is assigned)
       const milestoneMap = new Map<string, string>() // title -> created id
-      for (let i = 0; i < plan.milestones.length; i++) {
-        if (!accept.milestones[i]) continue
-        const m = plan.milestones[i]
-        const created = await apiClient.post<{ id: string }>("/api/milestones", {
-          projectId,
-          title: m.title,
-          startDate: format(addDays(today, m.startOffset), "yyyy-MM-dd"),
-          endDate: format(addDays(today, m.endOffset), "yyyy-MM-dd"),
-        })
-        milestoneMap.set(m.title, created.id)
+      if (projectId) {
+        for (let i = 0; i < plan.milestones.length; i++) {
+          if (!accept.milestones[i]) continue
+          const m = plan.milestones[i]
+          const created = await apiClient.post<{ id: string }>("/api/milestones", {
+            projectId,
+            title: m.title,
+            startDate: format(addDays(today, m.startOffset), "yyyy-MM-dd"),
+            endDate: format(addDays(today, m.endOffset), "yyyy-MM-dd"),
+          })
+          milestoneMap.set(m.title, created.id)
+        }
       }
 
-      // Create accepted tasks
+      // Always create accepted tasks (tasks don't require a project)
+      const validPriorities = new Set(["low", "medium", "high"])
       for (let i = 0; i < plan.tasks.length; i++) {
         if (!accept.tasks[i]) continue
         const t = plan.tasks[i]
+        const sanitizedTitle = (t.title || "").trim() || "Untitled task"
+        const sanitizedPriority = validPriorities.has(t.priority) ? t.priority : "medium"
         await apiClient.post("/api/tasks", {
-          title: t.title,
-          detail: t.detail,
-          priority: t.priority,
+          title: sanitizedTitle,
+          detail: t.detail || "",
+          priority: sanitizedPriority,
           dueDate: t.dueOffset != null ? format(addDays(today, t.dueOffset), "yyyy-MM-dd") : null,
         })
       }
@@ -115,7 +120,10 @@ export function PlanPreview({ recordingId, projectId }: PlanPreviewProps) {
       toast.success("Plan accepted — tasks and milestones created")
       setPlan(null)
     },
-    onError: () => toast.error("Failed to accept plan"),
+    onError: (err) =>
+      toast.error("Failed to accept plan", {
+        description: err instanceof Error ? err.message : "Unknown error",
+      }),
   })
 
   function toggleTask(i: number) {

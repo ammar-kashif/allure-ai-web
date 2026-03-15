@@ -75,6 +75,24 @@ export function useTranscript(
   })
 }
 
+export interface MeetingSummary {
+  summary: string
+  key_topics: string[]
+}
+
+export function useSummary(
+  recordingId: string,
+  enabled: boolean
+): UseQueryResult<MeetingSummary> {
+  return useQuery({
+    queryKey: ["summary", recordingId],
+    queryFn: () =>
+      apiClient.get<MeetingSummary>(`/api/recordings/${recordingId}/summary`),
+    enabled: !!recordingId && enabled,
+    staleTime: Infinity,
+  })
+}
+
 export function useUploadRecording(): UseMutationResult<
   Recording,
   Error,

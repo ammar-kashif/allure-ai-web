@@ -26,6 +26,7 @@ import {
   useRecording,
   useRecordingStatus,
   useTranscript,
+  useSummary,
   useRenameRecording,
   useDeleteRecording,
   useRenameSpeaker,
@@ -54,6 +55,8 @@ export default function RecordingDetailPage({
     id,
     isReady
   )
+
+  const { data: summary, isLoading: isSummaryLoading } = useSummary(id, isReady)
 
   const activeTab = useEvidenceHighlight((s) => s.activeTab)
   const setActiveTab = useEvidenceHighlight((s) => s.setActiveTab)
@@ -278,6 +281,7 @@ export default function RecordingDetailPage({
           {/* Info tab */}
           <TabsContent value="info">
             <div className="space-y-4 pt-4">
+              {/* Metadata card */}
               <div className="rounded-xl bg-card p-5 shadow-[var(--shadow-card)] space-y-3">
                 <h3 className="font-heading font-semibold tracking-[-0.01em]">
                   Recording Info
@@ -300,8 +304,88 @@ export default function RecordingDetailPage({
                       </dd>
                     </>
                   )}
+                  {transcript && (
+                    <>
+                      <dt className="text-muted-foreground">Speakers</dt>
+                      <dd>{transcript.speakers?.length ?? 0}</dd>
+                      <dt className="text-muted-foreground">Segments</dt>
+                      <dd>{transcript.utterances?.length ?? 0}</dd>
+                    </>
+                  )}
                 </dl>
               </div>
+
+              {/* Meeting summary card — AI-generated when transcript is ready */}
+              {isReady && (
+                <div className="rounded-xl bg-card p-5 shadow-[var(--shadow-card)] space-y-3">
+                  <h3 className="font-heading font-semibold tracking-[-0.01em]">
+                    Meeting Summary
+                  </h3>
+
+                  {isSummaryLoading ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                      <div className="flex gap-2 flex-wrap pt-1">
+                        <Skeleton className="h-6 w-20" />
+                        <Skeleton className="h-6 w-24" />
+                        <Skeleton className="h-6 w-16" />
+                      </div>
+                    </div>
+                  ) : summary ? (
+                    <>
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        {summary.summary}
+                      </p>
+                      {summary.key_topics && summary.key_topics.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {summary.key_topics.map((topic, i) => (
+                            <span
+                              key={i}
+                              className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground"
+                            >
+                              {topic}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Summary not available.
+                    </p>
+                  )}
+
+                  {/* Dominant speaker — when we have transcript */}
+                  {transcript && transcript.utterances && transcript.utterances.length > 0 && (() => {
+                    const wordCounts: Record<string, number> = {}
+                    for (const u of transcript.utterances) {
+                      wordCounts[u.speaker] = (wordCounts[u.speaker] ?? 0) + u.text.split(/\s+/).length
+                    }
+                    const dominant = Object.entries(wordCounts).sort((a, b) => b[1] - a[1])[0]
+                    const speakerName = transcript.speakers?.find((s) => s.label === dominant?.[0])?.name ?? dominant?.[0]
+                    return dominant ? (
+                      <p className="text-sm text-muted-foreground pt-1 border-t">
+                        Most active participant:{" "}
+                        <span className="font-medium text-foreground">{speakerName}</span>
+                        {" "}({dominant[1].toLocaleString()} words)
+                      </p>
+                    ) : null
+                  })()}
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("transcript")}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    View full transcript →
+                  </button>
+                </div>
+              )}
+
+              {/* Comments */}
+              <CommentThread entityType="recording" entityId={id} />
             </div>
           </TabsContent>
 

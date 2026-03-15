@@ -15,6 +15,8 @@ interface PromoteResponse {
   id: string
   type: string
   backlink: string
+  title: string
+  detail: string
 }
 
 export async function POST(
@@ -70,8 +72,8 @@ export async function POST(
     // Backend returns "task" for action_items and "requirement" for requirements
     const commonData = {
       id: data.id,
-      title: "",
-      detail: "",
+      title: data.title || "",
+      detail: data.detail || "",
       sourceOutcomeId: outcomeId,
       sourceRecordingId: recordingId,
       backlink: data.backlink,

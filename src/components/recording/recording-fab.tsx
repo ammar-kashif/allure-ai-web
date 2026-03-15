@@ -7,9 +7,9 @@ import { useAudioRecorder } from "@/hooks/use-audio-recorder"
 import { formatDuration } from "@/lib/utils"
 import { cn } from "@/lib/utils"
 import {
-  RecordingPrepareSheet,
+  RecordingPrepareDialog,
   type AudioPayload,
-} from "@/components/recording/recording-prepare-sheet"
+} from "@/components/recording/recording-prepare-dialog"
 
 export function RecordingFAB() {
   const { isRecording, elapsedSeconds, startRecording, stopRecording, onRecordingCompleteRef } =
@@ -67,7 +67,7 @@ export function RecordingFAB() {
         )}
       </button>
 
-      <RecordingPrepareSheet
+      <RecordingPrepareDialog
         payload={pendingPayload}
         onClose={() => setPendingPayload(null)}
       />

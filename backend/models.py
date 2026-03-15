@@ -122,3 +122,5 @@ class PromoteResponse(BaseModel):
     id: str
     type: Literal["task", "requirement"]
     backlink: str
+    title: str
+    detail: str

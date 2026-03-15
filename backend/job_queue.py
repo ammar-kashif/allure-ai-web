@@ -45,6 +45,11 @@ async def process_worker(app_state: object) -> None:
                         role_exc,
                     )
 
+                # Brief pause to allow concurrent document uploads to land before
+                # extraction starts (document uploads happen in parallel from the
+                # frontend after the audio POST returns).
+                await asyncio.sleep(2)
+
                 # Auto-chain extraction after STT
                 update_job(job_id, extraction_status="pending")
                 await job_queue.put((job_id, "extract"))

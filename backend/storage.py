@@ -50,6 +50,7 @@ def init_db(db_path: str | None = None) -> None:
         ("chart_plantuml", "TEXT"),
         ("chart_error", "TEXT"),
         ("documents", "TEXT NOT NULL DEFAULT '[]'"),
+        ("summary", "TEXT"),
     ]:
         try:
             _conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {definition}")
@@ -61,7 +62,7 @@ def init_db(db_path: str | None = None) -> None:
 def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     """Convert a sqlite3.Row to a dict, deserializing JSON fields."""
     d = dict(row)
-    for key in ("result", "outcomes", "documents"):
+    for key in ("result", "outcomes", "documents", "summary"):
         if d.get(key) is not None:
             d[key] = json.loads(d[key])
         elif key in ("outcomes", "documents"):
@@ -84,7 +85,7 @@ def update_job(job_id: str, **kwargs: Any) -> dict[str, Any]:
     """Update job fields."""
     conn = _get_conn()
     # Serialize JSON fields
-    for key in ("result", "outcomes", "documents"):
+    for key in ("result", "outcomes", "documents", "summary"):
         if key in kwargs:
             kwargs[key] = json.dumps(kwargs[key])
 

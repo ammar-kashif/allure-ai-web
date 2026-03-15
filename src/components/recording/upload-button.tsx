@@ -5,9 +5,9 @@ import { Upload } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
-  RecordingPrepareSheet,
+  RecordingPrepareDialog,
   type AudioPayload,
-} from "@/components/recording/recording-prepare-sheet"
+} from "@/components/recording/recording-prepare-dialog"
 
 const ACCEPTED_FORMATS = ".webm,.mp3,.wav,.m4a,.mp4"
 
@@ -58,7 +58,7 @@ export function UploadButton() {
         Upload Audio
       </Button>
 
-      <RecordingPrepareSheet
+      <RecordingPrepareDialog
         payload={pendingPayload}
         onClose={() => setPendingPayload(null)}
       />

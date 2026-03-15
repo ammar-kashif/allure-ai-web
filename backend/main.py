@@ -217,6 +217,27 @@ async def get_recording_transcript(job_id: str):
     return job["result"]
 
 
+@app.get("/recordings/{job_id}/summary")
+async def get_recording_summary(job_id: str, request: Request):
+    """Return AI-generated meeting summary. Cached after first generation."""
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job["status"] != "completed":
+        raise HTTPException(status_code=400, detail="Transcript not ready")
+
+    summary = job.get("summary")
+    if summary is not None:
+        return summary
+
+    from summary import run_summary
+
+    app_state = request.app.state
+    summary = await asyncio.to_thread(run_summary, job_id, app_state)
+    update_job(job_id, summary=summary)
+    return summary
+
+
 @app.get("/recordings/{job_id}/audio")
 async def get_recording_audio(job_id: str):
     """Stream the WAV audio file for a recording."""
@@ -421,7 +442,11 @@ async def promote_outcome(job_id: str, outcome_index: int):
     update_job(job_id, outcomes=outcomes)
 
     return PromoteResponse(
-        id=promoted_id, type=promote_type, backlink=backlink
+        id=promoted_id,
+        type=promote_type,
+        backlink=backlink,
+        title=outcome.get("title", ""),
+        detail=outcome.get("detail", ""),
     )
 
 
