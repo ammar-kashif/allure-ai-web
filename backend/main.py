@@ -280,6 +280,53 @@ async def promote_outcome(job_id: str, outcome_index: int):
     )
 
 
+@app.post("/recordings/{job_id}/generate-prd")
+async def generate_prd_endpoint(job_id: str):
+    """Generate a PRD from a recording's extracted outcomes."""
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    outcomes = job.get("outcomes", [])
+    if not outcomes:
+        raise HTTPException(status_code=400, detail="No outcomes to generate from")
+
+    from document_generation import generate_prd
+
+    content = await asyncio.to_thread(generate_prd, job_id, app.state)
+    return {
+        "content": content,
+        "title": f"PRD - {job.get('original_filename', 'Recording')}",
+    }
+
+
+@app.post("/recordings/{job_id}/generate-diagram")
+async def generate_diagram_endpoint(job_id: str, body: dict):
+    """Generate a Mermaid diagram from a recording's extracted outcomes."""
+    diagram_type = body.get("type")
+    if diagram_type not in ("user_flow", "erd"):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid type. Must be 'user_flow' or 'erd'",
+        )
+
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    outcomes = job.get("outcomes", [])
+    if not outcomes:
+        raise HTTPException(status_code=400, detail="No outcomes to generate from")
+
+    from document_generation import generate_diagram
+
+    content = await asyncio.to_thread(generate_diagram, job_id, diagram_type, app.state)
+    type_label = "User Flow" if diagram_type == "user_flow" else "ERD"
+    return {
+        "content": content,
+        "type": diagram_type,
+        "title": f"{type_label} - {job.get('original_filename', 'Recording')}",
+    }
+
+
 @app.delete("/recordings/{job_id}", status_code=204)
 async def delete_recording(job_id: str):
     """Delete a recording and its associated files."""

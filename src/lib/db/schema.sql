@@ -65,3 +65,13 @@ CREATE TABLE IF NOT EXISTS requirement_records (
   FOREIGN KEY (source_outcome_id) REFERENCES outcomes(id),
   FOREIGN KEY (source_recording_id) REFERENCES recordings(id)
 );
+
+CREATE TABLE IF NOT EXISTS documents (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  type TEXT NOT NULL CHECK(type IN ('prd', 'user_flow', 'erd')),
+  content TEXT NOT NULL,
+  source_recording_id TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (source_recording_id) REFERENCES recordings(id)
+);
