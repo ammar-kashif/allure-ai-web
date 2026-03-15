@@ -52,9 +52,9 @@ Requirements for FYP demo. Each maps to roadmap phases.
 
 ### Document Generation (Stretch)
 
-- [ ] **DOC-01**: User can generate a PRD from approved outcomes and requirements (template-based)
-- [ ] **DOC-02**: User can generate Mermaid diagrams (user flow flowchart, ERD) from project data
-- [ ] **DOC-03**: Generated Mermaid renders without syntax errors
+- [x] **DOC-01**: User can generate a PRD from approved outcomes and requirements (template-based)
+- [x] **DOC-02**: User can generate Mermaid diagrams (user flow flowchart, ERD) from project data
+- [x] **DOC-03**: Generated Mermaid renders without syntax errors
 
 ## v2 Requirements
 
@@ -156,9 +156,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TASK-03 | Phase 3 | Complete |
 | TASK-04 | Phase 3 | Complete |
 | TASK-05 | Phase 3 | Complete |
-| DOC-01 | Phase 4 | Pending |
-| DOC-02 | Phase 4 | Pending |
-| DOC-03 | Phase 4 | Pending |
+| DOC-01 | Phase 4 | Complete |
+| DOC-02 | Phase 4 | Complete |
+| DOC-03 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 31 total
