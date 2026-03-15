@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
 import { getTask, updateTask, deleteTask } from "@/lib/db/tasks"
+import { logActivity } from "@/lib/db/activity-log"
 
 const updateTaskSchema = z.object({
   title: z.string().min(1).optional(),
@@ -44,6 +45,8 @@ export async function PATCH(
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 })
   }
+  const changedFields = Object.keys(parsed.data).join(", ")
+  logActivity({ action: "updated", entityType: "task", entityId: id, detail: changedFields })
   return NextResponse.json(task)
 }
 
@@ -52,9 +55,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+  const existing = getTask(id)
   const deleted = deleteTask(id)
   if (!deleted) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 })
   }
+  logActivity({ action: "deleted", entityType: "task", entityId: id, detail: existing?.title ?? "" })
   return new NextResponse(null, { status: 204 })
 }

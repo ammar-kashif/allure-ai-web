@@ -18,6 +18,10 @@ class StatusResponse(BaseModel):
     extraction_status: Literal[
         "none", "pending", "processing", "completed", "failed"
     ] = "none"
+    chart_status: Literal[
+        "none", "pending", "processing", "completed", "failed"
+    ] = "none"
+    duration_ms: float | None = None
 
 
 class TranscriptSegment(BaseModel):
@@ -36,6 +40,13 @@ class SpeakerStats(BaseModel):
     label: str
     talk_time_pct: float
     utterance_count: int
+    role: str | None = None
+
+
+class SpeakerRoleUpdateRequest(BaseModel):
+    """Update inferred roles for speakers. Maps speaker label to new role."""
+
+    roles: dict[str, str]
 
 
 class TranscriptResponse(BaseModel):
@@ -81,6 +92,22 @@ class OutcomesResponse(BaseModel):
         "none", "pending", "processing", "completed", "failed"
     ]
     outcomes: list[Outcome] = []
+
+
+class SpeakerRenameRequest(BaseModel):
+    """Rename speakers in a transcript. Maps old label to new label."""
+
+    renames: dict[str, str]
+
+
+class DecisionChartResponse(BaseModel):
+    """Returned from GET /recordings/{id}/chart."""
+
+    job_id: str
+    chart_status: Literal[
+        "none", "pending", "processing", "completed", "failed"
+    ]
+    chart_plantuml: str | None = None
 
 
 class PromoteRequest(BaseModel):

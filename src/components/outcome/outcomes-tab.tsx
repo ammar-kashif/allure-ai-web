@@ -7,6 +7,7 @@ import { OutcomeCard } from "@/components/outcome/outcome-card"
 import { GenerateOutcomesButton } from "@/components/outcome/generate-outcomes-button"
 import { useOutcomes, useExtractionStatus } from "@/hooks/use-outcomes"
 import type { OutcomeType } from "@/types/outcome"
+import { PlanPreview } from "@/components/planning/plan-preview"
 
 const sectionOrder: OutcomeType[] = [
   "decision",
@@ -17,9 +18,10 @@ const sectionOrder: OutcomeType[] = [
 
 interface OutcomesTabProps {
   recordingId: string
+  projectId?: string
 }
 
-export function OutcomesTab({ recordingId }: OutcomesTabProps) {
+export function OutcomesTab({ recordingId, projectId }: OutcomesTabProps) {
   const { data: outcomesData, isLoading: isOutcomesLoading } = useOutcomes(
     recordingId,
     true
@@ -100,6 +102,8 @@ export function OutcomesTab({ recordingId }: OutcomesTabProps) {
           </OutcomeSection>
         )
       })}
+
+      <PlanPreview recordingId={recordingId} projectId={projectId} />
     </div>
   )
 }

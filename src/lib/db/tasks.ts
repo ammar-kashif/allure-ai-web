@@ -154,6 +154,7 @@ export function getRequirementRecord(id: string): RequirementRecord | null {
 export function listTasks(filters?: {
   status?: string | null
   search?: string | null
+  milestoneId?: string | null
 }): Task[] {
   const db = getDb()
   const conditions: string[] = []
@@ -168,6 +169,11 @@ export function listTasks(filters?: {
     conditions.push("(t.title LIKE ? OR t.detail LIKE ?)")
     const searchTerm = `%${filters.search}%`
     params.push(searchTerm, searchTerm)
+  }
+
+  if (filters?.milestoneId) {
+    conditions.push("t.milestone_id = ?")
+    params.push(filters.milestoneId)
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""

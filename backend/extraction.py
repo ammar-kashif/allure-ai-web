@@ -24,6 +24,11 @@ Rules:
 - A blocker is an impediment or risk that could prevent progress
 - Be conservative with confidence scores -- if wording is tentative, score below 0.80
 
+If presentation slides are provided, also identify which slides relate to each outcome.
+Include slide_refs listing the doc_filename, slide_index (0-based), slide_title, and a
+one-sentence relevance explanation. Only add a slide_ref when there is a clear thematic
+connection between the slide content and the outcome — do not force matches.
+
 Return valid JSON matching the provided schema."""
 
 EXTRACTION_SCHEMA: dict[str, Any] = {
@@ -63,6 +68,19 @@ EXTRACTION_SCHEMA: dict[str, Any] = {
                             ],
                         },
                     },
+                    "slide_refs": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "doc_filename": {"type": "string"},
+                                "slide_index": {"type": "integer"},
+                                "slide_title": {"type": "string"},
+                                "relevance": {"type": "string"},
+                            },
+                            "required": ["doc_filename", "slide_index"],
+                        },
+                    },
                 },
                 "required": [
                     "type",
@@ -88,6 +106,51 @@ def format_transcript_for_prompt(segments: list[dict[str, Any]]) -> str:
         speaker = seg.get("speaker", "Unknown")
         text = seg.get("text", "")
         lines.append(f"[{i}] {minutes}:{seconds:02d} {speaker}: {text}")
+    return "\n".join(lines)
+
+
+def format_documents_for_prompt(documents: list[dict[str, Any]], max_chars: int = 2000) -> str:
+    """Format parsed documents as labelled slide blocks for the LLM prompt.
+
+    Caps total output to max_chars to stay within token budget.
+    """
+    if not documents:
+        return ""
+
+    lines: list[str] = []
+    total = 0
+
+    for doc in documents:
+        filename = doc.get("filename", "document")
+        slides = doc.get("slides", [])
+        header = f"\n[Doc: {filename}]"
+        lines.append(header)
+        total += len(header)
+
+        for slide in slides:
+            idx = slide.get("index", 0)
+            title = slide.get("title", f"Slide {idx + 1}")
+            content = slide.get("content", "").strip()
+            notes = slide.get("notes", "").strip()
+
+            slide_header = f"[Slide {idx}] {title}"
+            lines.append(slide_header)
+            total += len(slide_header)
+
+            if content:
+                content_line = f"  Content: {content[:200]}"
+                lines.append(content_line)
+                total += len(content_line)
+
+            if notes:
+                notes_line = f"  Notes: {notes[:150]}"
+                lines.append(notes_line)
+                total += len(notes_line)
+
+            if total >= max_chars:
+                lines.append("  [... remaining slides truncated ...]")
+                return "\n".join(lines)
+
     return "\n".join(lines)
 
 
@@ -120,13 +183,23 @@ def run_extraction(job_id: str, app_state: object) -> list[dict[str, Any]]:
     transcript_text = format_transcript_for_prompt(segments)
     num_segments = len(segments)
 
+    # Load any uploaded documents to enrich the prompt
+    documents = job.get("documents") or []
+    doc_text = format_documents_for_prompt(documents)
+
+    # Build user message — append slide content when documents are present
+    if doc_text:
+        user_content = (
+            f"Extract outcomes from this transcript:\n\n{transcript_text}"
+            f"\n\n---\nPresentation slides for context:\n{doc_text}"
+        )
+    else:
+        user_content = f"Extract outcomes from this transcript:\n\n{transcript_text}"
+
     # Build chat messages
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {
-            "role": "user",
-            "content": f"Extract outcomes from this transcript:\n\n{transcript_text}",
-        },
+        {"role": "user", "content": user_content},
     ]
 
     # Call LLM with JSON schema constraint
@@ -140,6 +213,13 @@ def run_extraction(job_id: str, app_state: object) -> list[dict[str, Any]]:
     raw_text = response["choices"][0]["message"]["content"]
     parsed = json.loads(raw_text)
 
+    # Build a lookup of valid slide counts per document filename for validation
+    doc_slide_counts: dict[str, int] = {}
+    for doc in documents:
+        filename = doc.get("filename", "")
+        if filename:
+            doc_slide_counts[filename] = len(doc.get("slides", []))
+
     outcomes = []
     for item in parsed.get("outcomes", []):
         # Filter out evidence refs with invalid segment indices
@@ -149,6 +229,16 @@ def run_extraction(job_id: str, app_state: object) -> list[dict[str, Any]]:
             if 0 <= ref.get("segment_index", -1) < num_segments
         ]
 
+        # Filter out slide refs with invalid doc filenames or slide indices
+        raw_slide_refs = item.get("slide_refs", []) or []
+        valid_slide_refs = []
+        for ref in raw_slide_refs:
+            filename = ref.get("doc_filename", "")
+            slide_idx = ref.get("slide_index", -1)
+            max_slides = doc_slide_counts.get(filename, 0)
+            if filename and 0 <= slide_idx < max_slides:
+                valid_slide_refs.append(ref)
+
         outcome = {
             "id": str(uuid.uuid4()),
             "type": item["type"],
@@ -156,6 +246,7 @@ def run_extraction(job_id: str, app_state: object) -> list[dict[str, Any]]:
             "detail": item["detail"],
             "confidence": item["confidence"],
             "evidence_refs": valid_refs,
+            "slide_refs": valid_slide_refs,
             "promoted": False,
             "promoted_id": None,
         }

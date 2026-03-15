@@ -2,11 +2,26 @@ export type OutcomeType = 'decision' | 'action_item' | 'requirement' | 'blocker'
 
 export type ExtractionStatus = 'none' | 'pending' | 'processing' | 'completed' | 'failed'
 
+export type ChartStatus = 'none' | 'pending' | 'processing' | 'completed' | 'failed'
+
+export interface DecisionChartResponse {
+  jobId: string
+  chartStatus: ChartStatus
+  chartPlantuml: string | null
+}
+
 export interface EvidenceRef {
   segmentIndex: number
   speaker: string
   timestamp: number
   textSnippet?: string
+}
+
+export interface SlideRef {
+  docFilename: string
+  slideIndex: number
+  slideTitle?: string
+  relevance?: string
 }
 
 export interface Outcome {
@@ -16,6 +31,7 @@ export interface Outcome {
   detail: string
   confidence: number
   evidenceRefs: EvidenceRef[]
+  slideRefs?: SlideRef[]
   promoted: boolean
   promotedId: string | null
 }

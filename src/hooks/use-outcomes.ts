@@ -9,7 +9,7 @@ import {
 } from "@tanstack/react-query"
 
 import { apiClient } from "@/lib/api/client"
-import type { OutcomesResponse, ExtractionStatus } from "@/types/outcome"
+import type { OutcomesResponse, ExtractionStatus, DecisionChartResponse, ChartStatus } from "@/types/outcome"
 
 export function useOutcomes(
   recordingId: string,
@@ -93,6 +93,46 @@ export function useExtract(
       })
       queryClient.invalidateQueries({
         queryKey: ["outcomes", recordingId],
+      })
+    },
+  })
+}
+
+export function useDecisionChart(
+  recordingId: string,
+  enabled: boolean
+): UseQueryResult<DecisionChartResponse> {
+  return useQuery({
+    queryKey: ["decision-chart", recordingId],
+    queryFn: () =>
+      apiClient.get<DecisionChartResponse>(
+        `/api/recordings/${recordingId}/chart`
+      ),
+    enabled: !!recordingId && enabled,
+    staleTime: 0,
+    refetchInterval: (query) => {
+      const status = query.state.data?.chartStatus as ChartStatus | undefined
+      if (status === "completed" || status === "failed") {
+        return false
+      }
+      return 3000
+    },
+  })
+}
+
+export function useGenerateChart(
+  recordingId: string
+): UseMutationResult<{ message: string; job_id: string }, Error, void> {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () =>
+      apiClient.post<{ message: string; job_id: string }>(
+        `/api/recordings/${recordingId}/chart`
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["decision-chart", recordingId],
       })
     },
   })

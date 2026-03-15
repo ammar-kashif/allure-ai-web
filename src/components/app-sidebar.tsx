@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import {
   Sidebar,
   SidebarContent,
@@ -11,24 +12,38 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarSeparator,
 } from "@/components/ui/sidebar"
-import { Home, Mic, CheckSquare, FileText, Settings } from "lucide-react"
+import { Home, Mic, CheckSquare, Milestone, Settings, LogOut, User } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/contexts/auth-context"
+import { NotificationBell } from "@/components/notification/notification-bell"
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Recordings", url: "/recordings", icon: Mic },
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
-  { title: "Documents", url: "#", icon: FileText, disabled: true },
+  { title: "Milestones", url: "/milestones", icon: Milestone },
 ]
 
 export function AppSidebar() {
+  const { user, logout, isAdmin } = useAuth()
+  const router = useRouter()
+
+  async function handleLogout() {
+    await logout()
+    router.push("/login")
+  }
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <span className="font-heading text-lg font-bold tracking-tight px-2">
-          Allure
-        </span>
+        <div className="flex items-center justify-between px-2">
+          <span className="font-heading text-lg font-bold tracking-tight">
+            Allure
+          </span>
+          <NotificationBell />
+        </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -36,23 +51,13 @@ export function AppSidebar() {
             <SidebarMenu>
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  {item.disabled ? (
-                    <SidebarMenuButton
-                      tooltip={item.title + " (coming soon)"}
-                      className="opacity-50 cursor-not-allowed"
-                    >
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </SidebarMenuButton>
-                  ) : (
-                    <SidebarMenuButton
-                      tooltip={item.title}
-                      render={<Link href={item.url} />}
-                    >
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </SidebarMenuButton>
-                  )}
+                  <SidebarMenuButton
+                    tooltip={item.title}
+                    render={<Link href={item.url} />}
+                  >
+                    <item.icon />
+                    <span>{item.title}</span>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -61,15 +66,37 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip="Settings"
-              render={<Link href="#" />}
-            >
-              <Settings />
-              <span>Settings</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          {user && (
+            <>
+              <SidebarSeparator />
+              <SidebarMenuItem>
+                <SidebarMenuButton tooltip={`${user.name} (${user.role})`} className="cursor-default">
+                  <User />
+                  <div className="flex flex-col items-start min-w-0">
+                    <span className="truncate text-xs font-medium">{user.name}</span>
+                    <span className="text-[10px] text-muted-foreground capitalize">{user.role}</span>
+                  </div>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton tooltip="Sign out" onClick={handleLogout}>
+                  <LogOut />
+                  <span>Sign out</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </>
+          )}
+          {!user && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="Settings"
+                render={<Link href="#" />}
+              >
+                <Settings />
+                <span>Settings</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />

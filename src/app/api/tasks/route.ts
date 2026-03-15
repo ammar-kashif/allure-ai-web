@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
 import { listTasks, createTask } from "@/lib/db/tasks"
+import { logActivity } from "@/lib/db/activity-log"
 
 const createTaskSchema = z.object({
   title: z.string().min(1),
@@ -31,5 +32,6 @@ export async function POST(request: NextRequest) {
   }
 
   const task = createTask(parsed.data)
+  logActivity({ action: "created", entityType: "task", entityId: task.id, detail: task.title })
   return NextResponse.json(task, { status: 201 })
 }

@@ -87,13 +87,13 @@ def test_calculate_speaker_stats():
 
 
 def test_calculate_speaker_stats_filters_low_speakers():
-    """Speakers with <1% talk time are excluded from results."""
+    """Speakers with <2% talk time are excluded from results."""
     segments = [
         {"start": 0.0, "end": 99.0, "text": "long talk", "speaker": "Speaker 1", "confidence": 0.9},
-        {"start": 99.0, "end": 99.05, "text": "tiny", "speaker": "Speaker 2", "confidence": 0.8},
+        {"start": 99.0, "end": 99.5, "text": "tiny", "speaker": "Speaker 2", "confidence": 0.8},
     ]
     stats = calculate_speaker_stats(segments, total_duration=100.0)
-    # Speaker 2 has 0.05s out of ~99.05s total talk => ~0.05% => filtered
+    # Speaker 2 has 0.5s out of ~99.5s total talk => ~0.5% => filtered (< 2%)
     assert len(stats) == 1
     assert stats[0]["label"] == "Speaker 1"
 

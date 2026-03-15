@@ -31,6 +31,11 @@ function createDatabase(): Database.Database {
     { table: "tasks", column: "due_date", definition: "TEXT" },
     { table: "tasks", column: "assignee", definition: "TEXT" },
     { table: "tasks", column: "tags", definition: "TEXT NOT NULL DEFAULT '[]'" },
+    { table: "tasks", column: "milestone_id", definition: "TEXT" },
+    { table: "tasks", column: "created_by", definition: "TEXT" },
+    { table: "tasks", column: "estimate_hours", definition: "REAL" },
+    { table: "projects", column: "created_by", definition: "TEXT" },
+    { table: "recordings", column: "created_by", definition: "TEXT" },
   ]
 
   for (const m of migrations) {

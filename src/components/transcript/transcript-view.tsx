@@ -1,15 +1,25 @@
 "use client"
 
-import { useEffect, useRef, useCallback } from "react"
+import { useEffect, useRef } from "react"
 import { UtteranceBubble } from "@/components/transcript/utterance-bubble"
 import { useEvidenceHighlight } from "@/stores/evidence-highlight"
 import type { Transcript } from "@/types/recording"
 
 interface TranscriptViewProps {
   transcript: Transcript
+  playingUtteranceIndex?: number | null
+  onSeek?: (seconds: number) => void
+  onRenameSpeaker?: (oldLabel: string, newLabel: string) => void
+  speakerRoles?: Record<string, string>
 }
 
-export function TranscriptView({ transcript }: TranscriptViewProps) {
+export function TranscriptView({
+  transcript,
+  playingUtteranceIndex = null,
+  onSeek,
+  onRenameSpeaker,
+  speakerRoles,
+}: TranscriptViewProps) {
   const highlightIndex = useEvidenceHighlight((s) => s.highlightUtteranceIndex)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -42,6 +52,7 @@ export function TranscriptView({ transcript }: TranscriptViewProps) {
           index > 0 ? utterances[index - 1].speaker : null
         const isSameSpeaker = utterance.speaker === prevSpeaker
         const isHighlighted = highlightIndex === index
+        const isPlaying = playingUtteranceIndex === index
 
         return (
           <div
@@ -51,8 +62,12 @@ export function TranscriptView({ transcript }: TranscriptViewProps) {
           >
             <UtteranceBubble
               utterance={utterance}
+              speakerRole={speakerRoles?.[utterance.speaker]}
               showSpeaker={!isSameSpeaker}
               highlighted={isHighlighted}
+              isPlaying={isPlaying}
+              onSeek={onSeek}
+              onRenameSpeaker={onRenameSpeaker}
             />
           </div>
         )

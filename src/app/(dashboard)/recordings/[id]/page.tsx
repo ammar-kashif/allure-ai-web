@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, Loader2, MoreVertical, Pencil, Trash2 } from "lucide-react"
 
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,21 +16,24 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { StatusBadge } from "@/components/recording/status-badge"
 import { TranscriptView } from "@/components/transcript/transcript-view"
+import { AudioPlayer, type AudioPlayerHandle } from "@/components/transcript/audio-player"
+import { SpeakerStatsPanel } from "@/components/transcript/speaker-stats-panel"
 import { OutcomesTab } from "@/components/outcome/outcomes-tab"
+import { DecisionChartTab } from "@/components/chart/decision-chart-tab"
+import { DocumentTab } from "@/components/document/document-tab"
+import { CommentThread } from "@/components/comment/comment-thread"
 import {
   useRecording,
   useRecordingStatus,
   useTranscript,
   useRenameRecording,
   useDeleteRecording,
+  useRenameSpeaker,
+  useUpdateSpeakerRole,
 } from "@/hooks/use-recordings"
 import { useProjects } from "@/hooks/use-projects"
-import { useEvidenceHighlight } from "@/stores/evidence-highlight"
-import { formatDuration, formatTimestamp } from "@/lib/utils"
-import { cn } from "@/lib/utils"
-
-const TAB_MAP = { info: 0, transcript: 1, outcomes: 2 } as const
-const TAB_NAMES = ["info", "transcript", "outcomes"] as const
+import { useEvidenceHighlight, type TabId } from "@/stores/evidence-highlight"
+import { formatDuration, formatTimestamp, cn } from "@/lib/utils"
 
 export default function RecordingDetailPage({
   params,
@@ -45,21 +48,17 @@ export default function RecordingDetailPage({
   const isProcessing = recording?.status === "processing"
   const isReady = recording?.status === "ready"
 
-  // Poll status while processing
   useRecordingStatus(id, isProcessing)
 
-  // Fetch transcript only when ready
-  const {
-    data: transcript,
-    isLoading: isTranscriptLoading,
-  } = useTranscript(id, isReady)
+  const { data: transcript, isLoading: isTranscriptLoading } = useTranscript(
+    id,
+    isReady
+  )
 
-  // Evidence highlight store controls active tab
   const activeTab = useEvidenceHighlight((s) => s.activeTab)
   const setActiveTab = useEvidenceHighlight((s) => s.setActiveTab)
   const setHighlight = useEvidenceHighlight((s) => s.setHighlight)
 
-  // Apply highlight from URL search param (e.g. ?highlight=2)
   const searchParams = useSearchParams()
   useEffect(() => {
     const h = searchParams.get("highlight")
@@ -69,11 +68,11 @@ export default function RecordingDetailPage({
     }
   }, [searchParams, isReady, setHighlight])
 
-  // Rename
+  // Rename recording
   const renameMutation = useRenameRecording()
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState("")
-  const inputRef = useRef<HTMLInputElement>(null)
+  const titleInputRef = useRef<HTMLInputElement>(null)
 
   const startEditing = useCallback(() => {
     if (recording) {
@@ -83,9 +82,9 @@ export default function RecordingDetailPage({
   }, [recording])
 
   useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus()
-      inputRef.current.select()
+    if (isEditing && titleInputRef.current) {
+      titleInputRef.current.focus()
+      titleInputRef.current.select()
     }
   }, [isEditing])
 
@@ -97,15 +96,16 @@ export default function RecordingDetailPage({
     setIsEditing(false)
   }, [editTitle, recording?.title, id, renameMutation])
 
-  const cancelEditing = useCallback(() => {
-    setIsEditing(false)
-  }, [])
+  const cancelEditing = useCallback(() => setIsEditing(false), [])
 
   // Delete
   const deleteMutation = useDeleteRecording()
-
   const handleDelete = useCallback(() => {
-    if (!window.confirm("Are you sure you want to delete this recording? This cannot be undone.")) {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this recording? This cannot be undone."
+      )
+    ) {
       return
     }
     deleteMutation.mutate(id, {
@@ -113,23 +113,53 @@ export default function RecordingDetailPage({
     })
   }, [id, deleteMutation, router])
 
-  if (isLoading) {
-    return <RecordingDetailSkeleton />
+  // Audio playback
+  const audioPlayerRef = useRef<AudioPlayerHandle>(null)
+  const [playingIndex, setPlayingIndex] = useState<number | null>(null)
+  const audioUrl = `/api/recordings/${id}/audio`
+
+  const handleSeek = useCallback((seconds: number) => {
+    audioPlayerRef.current?.seekTo(seconds)
+  }, [])
+
+  // Speaker rename
+  const renameSpeakerMutation = useRenameSpeaker()
+  const handleRenameSpeaker = useCallback(
+    (oldLabel: string, newLabel: string) => {
+      renameSpeakerMutation.mutate({ recordingId: id, renames: { [oldLabel]: newLabel } })
+    },
+    [id, renameSpeakerMutation]
+  )
+
+  // Speaker role update
+  const updateRoleMutation = useUpdateSpeakerRole()
+  const handleRoleChange = useCallback(
+    (label: string, newRole: string) => {
+      updateRoleMutation.mutate({ recordingId: id, roles: { [label]: newRole } })
+    },
+    [id, updateRoleMutation]
+  )
+
+  // Build a label → role lookup map for use in utterance bubbles
+  const speakerRoles: Record<string, string> = {}
+  if (transcript?.speakers) {
+    for (const spk of transcript.speakers) {
+      if (spk.role) speakerRoles[spk.label] = spk.role
+    }
   }
+
+  if (isLoading) return <RecordingDetailSkeleton />
 
   if (error || !recording) {
     return (
       <div className="space-y-6">
-        <BackButton />
+        <BackLink />
         <div className="py-12 text-center">
           <h2 className="text-xl font-semibold">Recording not found</h2>
           <p className="mt-2 text-muted-foreground">
             The recording you are looking for does not exist or has been removed.
           </p>
-          <Link
-            href="/recordings"
-            className={cn(buttonVariants({ variant: "outline" }), "mt-4 inline-flex")}
-          >
+          <Link href="/recordings" className="mt-4 inline-flex underline text-sm text-muted-foreground">
             Back to Recordings
           </Link>
         </div>
@@ -139,14 +169,14 @@ export default function RecordingDetailPage({
 
   return (
     <div className="space-y-8">
-      <BackButton />
+      <BackLink />
 
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center gap-3">
           {isEditing ? (
             <input
-              ref={inputRef}
+              ref={titleInputRef}
               className="text-[1.75rem] font-heading font-bold tracking-[-0.02em] bg-transparent border-b border-primary outline-none"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
@@ -158,7 +188,7 @@ export default function RecordingDetailPage({
             />
           ) : (
             <h2
-              className="text-[1.75rem] font-heading font-bold tracking-[-0.02em] cursor-pointer hover:text-muted-foreground transition-colors duration-[var(--duration-fast)]"
+              className="text-[1.75rem] font-heading font-bold tracking-[-0.02em] cursor-pointer hover:opacity-70 transition-opacity"
               onClick={startEditing}
               title="Click to rename"
             >
@@ -168,10 +198,10 @@ export default function RecordingDetailPage({
           <StatusBadge status={recording.status} />
 
           <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="ghost" size="icon" className="h-8 w-8" />}
-            >
-              <MoreVertical className="h-4 w-4" />
+            <DropdownMenuTrigger>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={startEditing}>
@@ -192,12 +222,15 @@ export default function RecordingDetailPage({
           <span>{formatTimestamp(recording.createdAt)}</span>
           <span>{formatDuration(recording.durationMs)}</span>
           {recording.projectId && (
-            <span>{projectList.find((p) => p.id === recording.projectId)?.name || "Project assigned"}</span>
+            <span>
+              {projectList.find((p) => p.id === recording.projectId)?.name ||
+                "Project assigned"}
+            </span>
           )}
         </div>
       </div>
 
-      {/* Content based on status */}
+      {/* Status-dependent content */}
       {recording.status === "unassigned" && (
         <div className="rounded-xl border border-dashed p-8 text-center shadow-[var(--shadow-xs)]">
           <p className="text-muted-foreground">
@@ -205,7 +238,7 @@ export default function RecordingDetailPage({
           </p>
           <Link
             href="/recordings"
-            className={cn(buttonVariants({ variant: "outline" }), "mt-4 inline-flex")}
+            className="mt-4 inline-flex underline text-sm text-muted-foreground"
           >
             Go to Recording Hub
           </Link>
@@ -223,54 +256,85 @@ export default function RecordingDetailPage({
         <div className="rounded-lg border border-destructive bg-destructive/10 p-4">
           <p className="font-medium text-destructive">Transcription Error</p>
           <p className="mt-1 text-sm text-destructive/80">
-            {recording.errorMessage || "An unknown error occurred during transcription."}
+            {recording.errorMessage ||
+              "An unknown error occurred during transcription."}
           </p>
         </div>
       )}
 
       {recording.status === "ready" && (
         <Tabs
-          value={TAB_MAP[activeTab]}
-          onValueChange={(value: number) => {
-            setActiveTab(TAB_NAMES[value])
-          }}
+          value={activeTab}
+          onValueChange={(val: string) => setActiveTab(val as TabId)}
         >
           <TabsList>
-            <TabsTrigger value={0}>Info</TabsTrigger>
-            <TabsTrigger value={1}>Transcript</TabsTrigger>
-            <TabsTrigger value={2}>Outcomes</TabsTrigger>
+            <TabsTrigger value="info">Info</TabsTrigger>
+            <TabsTrigger value="transcript">Transcript</TabsTrigger>
+            <TabsTrigger value="outcomes">Outcomes</TabsTrigger>
+            <TabsTrigger value="chart">Decision Chart</TabsTrigger>
+            <TabsTrigger value="documents">Documents</TabsTrigger>
           </TabsList>
 
-          <TabsContent value={0}>
+          {/* Info tab */}
+          <TabsContent value="info">
             <div className="space-y-4 pt-4">
               <div className="rounded-xl bg-card p-5 shadow-[var(--shadow-card)] space-y-3">
-                <h3 className="font-heading font-semibold tracking-[-0.01em]">Recording Info</h3>
-                <div className="grid grid-cols-2 gap-2 text-[0.9375rem]">
-                  <span className="text-muted-foreground">Title</span>
-                  <span>{recording.title}</span>
-                  <span className="text-muted-foreground">Duration</span>
-                  <span>{formatDuration(recording.durationMs)}</span>
-                  <span className="text-muted-foreground">Created</span>
-                  <span>{formatTimestamp(recording.createdAt)}</span>
-                  <span className="text-muted-foreground">Status</span>
-                  <span className="capitalize">{recording.status}</span>
+                <h3 className="font-heading font-semibold tracking-[-0.01em]">
+                  Recording Info
+                </h3>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-[0.9375rem]">
+                  <dt className="text-muted-foreground">Title</dt>
+                  <dd>{recording.title}</dd>
+                  <dt className="text-muted-foreground">Duration</dt>
+                  <dd>{formatDuration(recording.durationMs)}</dd>
+                  <dt className="text-muted-foreground">Created</dt>
+                  <dd>{formatTimestamp(recording.createdAt)}</dd>
+                  <dt className="text-muted-foreground">Status</dt>
+                  <dd className="capitalize">{recording.status}</dd>
                   {recording.projectId && (
                     <>
-                      <span className="text-muted-foreground">Project</span>
-                      <span>{projectList.find((p) => p.id === recording.projectId)?.name || recording.projectId}</span>
+                      <dt className="text-muted-foreground">Project</dt>
+                      <dd>
+                        {projectList.find((p) => p.id === recording.projectId)
+                          ?.name || recording.projectId}
+                      </dd>
                     </>
                   )}
-                </div>
+                </dl>
               </div>
             </div>
           </TabsContent>
 
-          <TabsContent value={1}>
-            <div className="pt-4">
+          {/* Transcript tab */}
+          <TabsContent value="transcript">
+            <div className="pt-4 space-y-4">
               {isTranscriptLoading ? (
                 <TranscriptSkeleton />
               ) : transcript ? (
-                <TranscriptView transcript={transcript} />
+                <>
+                  {transcript.speakers && transcript.speakers.length > 0 && (
+                    <SpeakerStatsPanel
+                      speakers={transcript.speakers}
+                      onRename={handleRenameSpeaker}
+                      onRoleChange={handleRoleChange}
+                    />
+                  )}
+
+                  <AudioPlayer
+                    ref={audioPlayerRef}
+                    audioUrl={audioUrl}
+                    utterances={transcript.utterances}
+                    onCurrentUtteranceChange={setPlayingIndex}
+                  />
+
+                  <TranscriptView
+                    transcript={transcript}
+                    playingUtteranceIndex={playingIndex}
+                    onSeek={handleSeek}
+                    onRenameSpeaker={handleRenameSpeaker}
+                    speakerRoles={speakerRoles}
+                  />
+                </>
               ) : (
                 <div className="py-12 text-center text-muted-foreground">
                   No transcript content available
@@ -279,9 +343,32 @@ export default function RecordingDetailPage({
             </div>
           </TabsContent>
 
-          <TabsContent value={2}>
+          {/* Outcomes tab */}
+          <TabsContent value="outcomes">
             <div className="pt-4">
-              <OutcomesTab recordingId={id} />
+              <OutcomesTab recordingId={id} projectId={recording.projectId ?? undefined} />
+            </div>
+          </TabsContent>
+
+          {/* Decision Chart tab */}
+          <TabsContent value="chart">
+            <div className="pt-4">
+              <DecisionChartTab recordingId={id} />
+            </div>
+          </TabsContent>
+
+          {/* Documents tab */}
+          <TabsContent value="documents">
+            <div className="pt-4 space-y-6">
+              <DocumentTab
+                recordingId={id}
+                transcriptUtterances={transcript?.utterances.map((u) => ({
+                  speaker: u.speaker,
+                  text: u.text,
+                  startTime: u.startTime,
+                }))}
+              />
+              <CommentThread entityType="recording" entityId={id} className="pt-4 border-t" />
             </div>
           </TabsContent>
         </Tabs>
@@ -290,13 +377,13 @@ export default function RecordingDetailPage({
   )
 }
 
-function BackButton() {
+function BackLink() {
   return (
     <Link
       href="/recordings"
-      className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2")}
+      className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors -ml-1"
     >
-      <ArrowLeft className="mr-1 h-4 w-4" />
+      <ArrowLeft className="h-4 w-4" />
       Recordings
     </Link>
   )
@@ -305,9 +392,9 @@ function BackButton() {
 function RecordingDetailSkeleton() {
   return (
     <div className="space-y-6">
-      <Skeleton className="h-8 w-24" />
+      <Skeleton className="h-6 w-20" />
       <div className="space-y-2">
-        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-9 w-64" />
         <Skeleton className="h-4 w-48" />
       </div>
       <TranscriptSkeleton />
@@ -319,9 +406,11 @@ function TranscriptSkeleton() {
   return (
     <div className="space-y-3">
       {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="space-y-1">
-          <Skeleton className="h-3 w-24" />
-          <Skeleton className="h-16 w-[70%]" />
+        <div key={i} className="space-y-1.5">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton
+            className={cn("h-14", i % 2 === 0 ? "w-[65%]" : "w-[80%]")}
+          />
         </div>
       ))}
     </div>

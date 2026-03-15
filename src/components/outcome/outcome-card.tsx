@@ -1,13 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { ExternalLink, Check, Loader2 } from "lucide-react"
+import { ExternalLink, Check, Loader2, FileText } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { usePromoteOutcome } from "@/hooks/use-outcomes"
 import { useEvidenceHighlight } from "@/stores/evidence-highlight"
-import type { Outcome, EvidenceRef } from "@/types/outcome"
+import type { Outcome, EvidenceRef, SlideRef } from "@/types/outcome"
 import { cn } from "@/lib/utils"
 
 function formatTimestamp(seconds: number): string {
@@ -56,12 +56,19 @@ export function OutcomeCard({
     )
   }
 
+  const setActiveTab = useEvidenceHighlight((s) => s.setActiveTab)
+
   const handleEvidenceClick = (ref: EvidenceRef) => {
     setHighlight(ref.segmentIndex)
   }
 
+  const handleSlideRefClick = () => {
+    setActiveTab("documents")
+  }
+
   const primaryRef = outcome.evidenceRefs[0]
   const extraRefs = outcome.evidenceRefs.slice(1)
+  const slideRefs = outcome.slideRefs ?? []
 
   return (
     <div
@@ -123,6 +130,15 @@ export function OutcomeCard({
         </div>
       )}
 
+      {/* Slide references */}
+      {slideRefs.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {slideRefs.map((ref, i) => (
+            <SlideRefLink key={i} ref_={ref} onClick={handleSlideRefClick} />
+          ))}
+        </div>
+      )}
+
       {/* Promote / Promoted */}
       {canPromote && (
         <div className="mt-3">
@@ -168,5 +184,38 @@ function EvidenceLink({
         {formatTimestamp(ref_.timestamp)} -- {ref_.speaker}
       </span>
     </button>
+  )
+}
+
+function SlideRefLink({
+  ref_,
+  onClick,
+}: {
+  ref_: SlideRef
+  onClick: () => void
+}) {
+  const label = ref_.slideTitle
+    ? `Slide ${ref_.slideIndex + 1}: ${ref_.slideTitle}`
+    : `Slide ${ref_.slideIndex + 1}`
+
+  return (
+    <div className="space-y-0.5">
+      <button
+        type="button"
+        onClick={onClick}
+        className="inline-flex items-center gap-1 text-xs text-violet-600 hover:text-violet-500 hover:underline"
+        title={ref_.relevance}
+      >
+        <FileText className="size-3 shrink-0" />
+        <span className="truncate max-w-[240px]">
+          {label} — {ref_.docFilename}
+        </span>
+      </button>
+      {ref_.relevance && (
+        <p className="ml-4 text-[11px] text-muted-foreground leading-snug line-clamp-1">
+          {ref_.relevance}
+        </p>
+      )}
+    </div>
   )
 }

@@ -28,8 +28,17 @@ export interface Utterance {
   endTime: number; // seconds
 }
 
+export interface SpeakerStats {
+  label: string;
+  talkTimePct: number;
+  utteranceCount: number;
+  role?: string;
+}
+
 export interface Transcript {
   id: string;
   recordingId: string;
+  duration: number; // seconds
+  speakers: SpeakerStats[];
   utterances: Utterance[];
 }

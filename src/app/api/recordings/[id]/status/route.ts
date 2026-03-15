@@ -17,7 +17,11 @@ export async function GET(
 
   // If no backend ID, return local status
   if (!recording.backendId) {
-    return NextResponse.json({ status: recording.status, extraction_status: "none" })
+    return NextResponse.json({
+      status: recording.status,
+      extraction_status: "none",
+      chart_status: "none",
+    })
   }
 
   try {
@@ -26,7 +30,11 @@ export async function GET(
     )
 
     if (!response.ok) {
-      return NextResponse.json({ status: recording.status, extraction_status: "none" })
+      return NextResponse.json({
+        status: recording.status,
+        extraction_status: "none",
+        chart_status: "none",
+      })
     }
 
     const data = await response.json()
@@ -43,20 +51,40 @@ export async function GET(
 
     const mappedStatus = statusMap[data.status] || recording.status
 
-    // Update local DB if status changed
-    if (mappedStatus !== recording.status) {
+    // Update local DB if status or duration changed
+    const durationMs = typeof data.duration_ms === "number" ? data.duration_ms : undefined
+    if (mappedStatus !== recording.status || (durationMs && recording.durationMs === 0)) {
       updateRecording(id, {
         status: mappedStatus as "processing" | "ready" | "error",
         ...(data.error ? { errorMessage: data.error } : {}),
+        ...(durationMs ? { durationMs } : {}),
       })
+
+      // Fire notification when transcript becomes ready
+      if (mappedStatus === "ready" && recording.status !== "ready") {
+        try {
+          const { createNotification } = await import("@/lib/db/notifications")
+          createNotification({
+            type: "transcript_ready",
+            title: "Transcript ready",
+            body: `"${recording.title}" has been transcribed and is ready for review.`,
+            link: `/recordings/${id}`,
+          })
+        } catch { /* non-fatal */ }
+      }
     }
 
     return NextResponse.json({
       status: mappedStatus,
       extraction_status: data.extraction_status ?? "none",
+      chart_status: data.chart_status ?? "none",
     })
   } catch {
     // If backend is unavailable, return local status
-    return NextResponse.json({ status: recording.status, extraction_status: "none" })
+    return NextResponse.json({
+      status: recording.status,
+      extraction_status: "none",
+      chart_status: "none",
+    })
   }
 }

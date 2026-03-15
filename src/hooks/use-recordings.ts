@@ -126,6 +126,58 @@ export function useDeleteRecording(): UseMutationResult<
   })
 }
 
+export function useRenameSpeaker(): UseMutationResult<
+  void,
+  Error,
+  { recordingId: string; renames: Record<string, string> }
+> {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      recordingId,
+      renames,
+    }: {
+      recordingId: string
+      renames: Record<string, string>
+    }) =>
+      apiClient.patch<void>(`/api/recordings/${recordingId}/speakers`, {
+        renames,
+      }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["transcript", variables.recordingId],
+      })
+    },
+  })
+}
+
+export function useUpdateSpeakerRole(): UseMutationResult<
+  void,
+  Error,
+  { recordingId: string; roles: Record<string, string> }
+> {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      recordingId,
+      roles,
+    }: {
+      recordingId: string
+      roles: Record<string, string>
+    }) =>
+      apiClient.patch<void>(`/api/recordings/${recordingId}/speakers/roles`, {
+        roles,
+      }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["transcript", variables.recordingId],
+      })
+    },
+  })
+}
+
 export function useAssignProject(): UseMutationResult<
   Recording,
   Error,

@@ -36,20 +36,35 @@ def init_db(db_path: str | None = None) -> None:
             error TEXT,
             extraction_status TEXT NOT NULL DEFAULT 'none',
             extraction_error TEXT,
-            outcomes TEXT NOT NULL DEFAULT '[]'
+            outcomes TEXT NOT NULL DEFAULT '[]',
+            chart_status TEXT NOT NULL DEFAULT 'none',
+            chart_plantuml TEXT,
+            chart_error TEXT,
+            documents TEXT NOT NULL DEFAULT '[]'
         )
         """
     )
+    # Add columns to existing databases that predate this schema
+    for col, definition in [
+        ("chart_status", "TEXT NOT NULL DEFAULT 'none'"),
+        ("chart_plantuml", "TEXT"),
+        ("chart_error", "TEXT"),
+        ("documents", "TEXT NOT NULL DEFAULT '[]'"),
+    ]:
+        try:
+            _conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {definition}")
+        except Exception:
+            pass  # Column already exists
     _conn.commit()
 
 
 def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     """Convert a sqlite3.Row to a dict, deserializing JSON fields."""
     d = dict(row)
-    for key in ("result", "outcomes"):
+    for key in ("result", "outcomes", "documents"):
         if d.get(key) is not None:
             d[key] = json.loads(d[key])
-        elif key == "outcomes":
+        elif key in ("outcomes", "documents"):
             d[key] = []
     return d
 
@@ -69,7 +84,7 @@ def update_job(job_id: str, **kwargs: Any) -> dict[str, Any]:
     """Update job fields."""
     conn = _get_conn()
     # Serialize JSON fields
-    for key in ("result", "outcomes"):
+    for key in ("result", "outcomes", "documents"):
         if key in kwargs:
             kwargs[key] = json.dumps(kwargs[key])
 

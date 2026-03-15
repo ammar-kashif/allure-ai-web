@@ -68,7 +68,7 @@ export function createRecording(data: {
 
 export function updateRecording(
   id: string,
-  data: Partial<Pick<Recording, "title" | "status" | "projectId" | "backendId" | "errorMessage">>
+  data: Partial<Pick<Recording, "title" | "status" | "projectId" | "backendId" | "errorMessage" | "durationMs">>
 ): Recording {
   const db = getDb()
   const sets: string[] = []
@@ -93,6 +93,10 @@ export function updateRecording(
   if (data.errorMessage !== undefined) {
     sets.push("error_message = ?")
     values.push(data.errorMessage)
+  }
+  if (data.durationMs !== undefined) {
+    sets.push("duration_ms = ?")
+    values.push(data.durationMs)
   }
 
   sets.push("updated_at = datetime('now')")

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 import { getRecording } from "@/lib/db/recordings"
 import { upsertOutcomes } from "@/lib/db/outcomes"
-import type { Outcome, EvidenceRef } from "@/types/outcome"
+import type { Outcome, EvidenceRef, SlideRef } from "@/types/outcome"
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000"
 
@@ -13,6 +13,7 @@ interface BackendOutcome {
   detail: string
   confidence: number
   evidence_refs: { segment_index: number; speaker: string; timestamp: number; text_snippet?: string }[]
+  slide_refs?: { doc_filename: string; slide_index: number; slide_title?: string; relevance?: string }[]
   promoted: boolean
   promoted_id: string | null
 }
@@ -36,6 +37,14 @@ function transformOutcome(bo: BackendOutcome): Outcome {
         speaker: ref.speaker,
         timestamp: ref.timestamp,
         textSnippet: ref.text_snippet,
+      })
+    ),
+    slideRefs: (bo.slide_refs || []).map(
+      (ref): SlideRef => ({
+        docFilename: ref.doc_filename,
+        slideIndex: ref.slide_index,
+        slideTitle: ref.slide_title,
+        relevance: ref.relevance,
       })
     ),
     promoted: bo.promoted ?? false,

@@ -1,11 +1,13 @@
 "use client"
 
-import { useRef } from "react"
+import { useRef, useState } from "react"
 import { Upload } from "lucide-react"
-import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { useUploadRecording } from "@/hooks/use-recordings"
+import {
+  RecordingPrepareSheet,
+  type AudioPayload,
+} from "@/components/recording/recording-prepare-sheet"
 
 const ACCEPTED_FORMATS = ".webm,.mp3,.wav,.m4a,.mp4"
 
@@ -16,7 +18,7 @@ function getTitle(filename: string): string {
 
 export function UploadButton() {
   const inputRef = useRef<HTMLInputElement>(null)
-  const uploadRecording = useUploadRecording()
+  const [pendingPayload, setPendingPayload] = useState<AudioPayload | null>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -25,26 +27,15 @@ export function UploadButton() {
     const recordingId = crypto.randomUUID()
     const title = getTitle(file.name)
 
-    const formData = new FormData()
-    formData.append("file", file, file.name)
-    formData.append("recordingId", recordingId)
-    formData.append("title", title)
-    formData.append("durationMs", "0")
-
-    uploadRecording.mutate(formData, {
-      onSuccess: () => {
-        toast.success("File uploaded", {
-          description: `"${title}" is ready for project assignment.`,
-        })
-      },
-      onError: () => {
-        toast.error("Upload failed", {
-          description: "The file could not be uploaded. Please try again.",
-        })
-      },
+    setPendingPayload({
+      file,
+      recordingId,
+      title,
+      durationMs: 0,
+      source: "upload",
     })
 
-    // Reset input so the same file can be re-selected
+    // Reset input so the same file can be re-selected later
     if (inputRef.current) inputRef.current.value = ""
   }
 
@@ -62,11 +53,15 @@ export function UploadButton() {
         variant="outline"
         size="default"
         onClick={() => inputRef.current?.click()}
-        disabled={uploadRecording.isPending}
       >
         <Upload data-icon="inline-start" className="size-4" />
-        {uploadRecording.isPending ? "Uploading..." : "Upload Audio"}
+        Upload Audio
       </Button>
+
+      <RecordingPrepareSheet
+        payload={pendingPayload}
+        onClose={() => setPendingPayload(null)}
+      />
     </>
   )
 }
