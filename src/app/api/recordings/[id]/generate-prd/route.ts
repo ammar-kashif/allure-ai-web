@@ -1,16 +1,31 @@
 import { NextRequest, NextResponse } from "next/server"
 
 import { createDocument } from "@/lib/db/documents"
+import { getRecording } from "@/lib/db/recordings"
+
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000"
 
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+  const recording = getRecording(id)
+
+  if (!recording) {
+    return NextResponse.json({ error: "Recording not found" }, { status: 404 })
+  }
+
+  if (!recording.backendId) {
+    return NextResponse.json(
+      { error: "Recording has not been sent to backend" },
+      { status: 400 }
+    )
+  }
 
   try {
     const backendRes = await fetch(
-      `http://localhost:8000/recordings/${id}/generate-prd`,
+      `${BACKEND_URL}/recordings/${recording.backendId}/generate-prd`,
       { method: "POST" }
     )
 

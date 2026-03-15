@@ -300,15 +300,11 @@ async def generate_prd_endpoint(job_id: str):
 
 
 @app.post("/recordings/{job_id}/generate-diagram")
-async def generate_diagram_endpoint(job_id: str, body: dict):
-    """Generate a Mermaid diagram from a recording's extracted outcomes."""
-    diagram_type = body.get("type")
-    if diagram_type not in ("user_flow", "erd"):
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid type. Must be 'user_flow' or 'erd'",
-        )
+async def generate_diagram_endpoint(job_id: str):
+    """Generate a Mermaid diagram from a recording's extracted outcomes.
 
+    Automatically selects the best diagram type (user_flow or erd) based on content.
+    """
     job = get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -318,7 +314,7 @@ async def generate_diagram_endpoint(job_id: str, body: dict):
 
     from document_generation import generate_diagram
 
-    content = await asyncio.to_thread(generate_diagram, job_id, diagram_type, app.state)
+    content, diagram_type = await asyncio.to_thread(generate_diagram, job_id, app.state)
     type_label = "User Flow" if diagram_type == "user_flow" else "ERD"
     return {
         "content": content,

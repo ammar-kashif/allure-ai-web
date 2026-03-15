@@ -114,16 +114,53 @@ def generate_prd(job_id: str, app_state: object) -> str:
     return response["choices"][0]["message"]["content"]
 
 
-def generate_diagram(job_id: str, diagram_type: str, app_state: object) -> str:
+DIAGRAM_TYPE_SELECTOR_PROMPT = """You are an analyst deciding what type of diagram best represents meeting outcomes.
+
+Given the meeting outcomes below, decide which diagram type would be most useful:
+- "user_flow" — a flowchart showing user journeys, processes, decision points, or workflows discussed
+- "erd" — an entity relationship diagram showing data entities, their attributes, and relationships
+
+Choose "user_flow" if the outcomes focus on processes, steps, decisions, or user interactions.
+Choose "erd" if the outcomes focus on data models, entities, relationships, or system structure.
+
+Respond with ONLY "user_flow" or "erd", nothing else."""
+
+
+def select_diagram_type(outcomes: list[dict[str, Any]], app_state: object) -> str:
+    """Use LLM to auto-select the best diagram type based on outcomes content."""
+    formatted = format_outcomes_for_generation(outcomes)
+
+    messages = [
+        {"role": "system", "content": DIAGRAM_TYPE_SELECTOR_PROMPT},
+        {
+            "role": "user",
+            "content": f"Meeting outcomes:\n\n{formatted}",
+        },
+    ]
+
+    response = app_state.llm.create_chat_completion(
+        messages=messages,
+        temperature=0.0,
+        max_tokens=20,
+    )
+
+    selected = response["choices"][0]["message"]["content"].strip().lower()
+    if selected not in ("user_flow", "erd"):
+        selected = "user_flow"  # safe default
+    return selected
+
+
+def generate_diagram(job_id: str, app_state: object) -> tuple[str, str]:
     """Generate a Mermaid diagram from a recording's outcomes via LLM.
+
+    Auto-selects the best diagram type (user_flow or erd) based on content.
 
     Args:
         job_id: The recording job ID.
-        diagram_type: Either "user_flow" or "erd".
         app_state: FastAPI app state with .llm attribute.
 
     Returns:
-        Raw Mermaid code string.
+        Tuple of (mermaid_code, diagram_type).
     """
     job = get_job(job_id)
     if job is None:
@@ -133,12 +170,12 @@ def generate_diagram(job_id: str, diagram_type: str, app_state: object) -> str:
     if not outcomes:
         raise ValueError(f"Job {job_id} has no outcomes")
 
+    diagram_type = select_diagram_type(outcomes, app_state)
+
     if diagram_type == "user_flow":
         system_prompt = USERFLOW_SYSTEM_PROMPT
-    elif diagram_type == "erd":
-        system_prompt = ERD_SYSTEM_PROMPT
     else:
-        raise ValueError(f"Invalid diagram type: {diagram_type}")
+        system_prompt = ERD_SYSTEM_PROMPT
 
     formatted = format_outcomes_for_generation(outcomes)
 
@@ -156,4 +193,4 @@ def generate_diagram(job_id: str, diagram_type: str, app_state: object) -> str:
         max_tokens=2048,
     )
 
-    return response["choices"][0]["message"]["content"]
+    return response["choices"][0]["message"]["content"], diagram_type

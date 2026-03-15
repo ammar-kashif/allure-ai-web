@@ -5,7 +5,6 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   ArrowLeft,
-  ChevronDown,
   FileText,
   Loader2,
   MoreVertical,
@@ -265,49 +264,25 @@ export default function RecordingDetailPage({
             {generatePrd.isPending ? "Generating..." : "Generate PRD"}
           </Button>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={generateDiagram.isPending}
-                />
-              }
-            >
-              {generateDiagram.isPending ? (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              ) : (
-                <Share2 className="mr-1.5 h-4 w-4" />
-              )}
-              {generateDiagram.isPending ? "Generating..." : "Generate Diagram"}
-              <ChevronDown className="ml-1 h-3 w-3" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem
-                onClick={() => {
-                  generateDiagram.mutate({ type: "user_flow" }, {
-                    onSuccess: (result) => {
-                      router.push(`/documents/${result.id}`)
-                    },
-                  })
-                }}
-              >
-                User Flow
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  generateDiagram.mutate({ type: "erd" }, {
-                    onSuccess: (result) => {
-                      router.push(`/documents/${result.id}`)
-                    },
-                  })
-                }}
-              >
-                ERD
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={generateDiagram.isPending}
+            onClick={() => {
+              generateDiagram.mutate(undefined, {
+                onSuccess: (result) => {
+                  router.push(`/documents/${result.id}`)
+                },
+              })
+            }}
+          >
+            {generateDiagram.isPending ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <Share2 className="mr-1.5 h-4 w-4" />
+            )}
+            {generateDiagram.isPending ? "Generating..." : "Generate Diagram"}
+          </Button>
         </div>
 
         <Tabs

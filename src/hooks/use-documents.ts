@@ -50,14 +50,13 @@ export function useGeneratePrd(
 
 export function useGenerateDiagram(
   recordingId: string
-): UseMutationResult<Document, Error, { type: "user_flow" | "erd" }> {
+): UseMutationResult<Document, Error, void> {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: { type: "user_flow" | "erd" }) =>
+    mutationFn: () =>
       apiClient.post<Document>(
-        `/api/recordings/${recordingId}/generate-diagram`,
-        data
+        `/api/recordings/${recordingId}/generate-diagram`
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["documents"] })

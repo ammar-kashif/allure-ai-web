@@ -1,36 +1,32 @@
 import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
 
 import { createDocument } from "@/lib/db/documents"
+import { getRecording } from "@/lib/db/recordings"
 
-const generateDiagramSchema = z.object({
-  type: z.enum(["user_flow", "erd"]),
-})
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000"
 
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+  const recording = getRecording(id)
 
-  const body = await request.json()
-  const parsed = generateDiagramSchema.safeParse(body)
+  if (!recording) {
+    return NextResponse.json({ error: "Recording not found" }, { status: 404 })
+  }
 
-  if (!parsed.success) {
+  if (!recording.backendId) {
     return NextResponse.json(
-      { error: "Validation failed", details: parsed.error.issues },
+      { error: "Recording has not been sent to backend" },
       { status: 400 }
     )
   }
 
   try {
     const backendRes = await fetch(
-      `http://localhost:8000/recordings/${id}/generate-diagram`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: parsed.data.type }),
-      }
+      `${BACKEND_URL}/recordings/${recording.backendId}/generate-diagram`,
+      { method: "POST" }
     )
 
     if (!backendRes.ok) {
@@ -45,7 +41,7 @@ export async function POST(
 
     const doc = createDocument({
       title: data.title,
-      type: parsed.data.type,
+      type: data.type,
       content: data.content,
       sourceRecordingId: id,
     })
