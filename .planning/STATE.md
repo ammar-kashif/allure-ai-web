@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 ## Current Position
 
 Phase: 4 of 4 (Document Generation and Demo Polish)
-Plan: 1 of 4 in current phase (1 done)
+Plan: 2 of 4 in current phase (2 done)
 Status: In Progress
-Last activity: 2026-03-15 — Plan 04-00 Wave 0 Test Stubs complete
+Last activity: 2026-03-15 — Plan 04-01 Document Generation Data Layer complete
 
-Progress: [████████░░] 84%
+Progress: [█████████░] 88%
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Progress: [████████░░] 84%
 | Phase 03 P01 | 3min | 2 tasks | 6 files |
 | Phase 03 P02 | 4min | 2 tasks | 12 files |
 | Phase 03 P03 | 8min | 2 tasks | 10 files |
+| Phase 04 P01 | 11min | 2 tasks | 14 files |
 | Phase 04 P00 | 1min | 1 task | 4 files |
 
 ## Accumulated Context
@@ -107,6 +108,9 @@ Recent decisions affecting current work:
 - [Phase 03-03]: PointerSensor with distance:5 activation to distinguish click from drag on kanban cards
 - [Phase 03-03]: globalThis DB singleton pattern to survive Next.js HMR without connection leaks
 - [Phase 03-03]: sourceHighlightIndex via LEFT JOIN for task-to-evidence deep linking with URL query params
+- [Phase 04-01]: Synchronous-in-thread LLM generation (asyncio.to_thread) instead of job queue for document generation
+- [Phase 04-01]: Documents stored in frontend SQLite, not backend storage, consistent with tasks/outcomes pattern
+- [Phase 04-01]: Document count via array length from /api/documents for dashboard stat (no separate count endpoint)
 - [Phase 04-00]: Used it.todo() for vitest stubs (recognized as todo, not failures)
 - [Phase 04-00]: Used @pytest.mark.skip for pytest stubs (recognized as skipped, not failures)
 
@@ -127,6 +131,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-15T09:45:53Z
-Stopped at: Completed 04-00-PLAN.md
-Resume file: .planning/phases/04-document-generation-and-demo-polish/04-00-SUMMARY.md
+Last session: 2026-03-15T09:56:29Z
+Stopped at: Completed 04-01-PLAN.md
+Resume file: .planning/phases/04-document-generation-and-demo-polish/04-01-SUMMARY.md
