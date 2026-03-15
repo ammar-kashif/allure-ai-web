@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-stopped_at: Completed 04-00-PLAN.md
-last_updated: "2026-03-15T09:47:25.745Z"
-last_activity: 2026-03-14 — Plan 03-03 Kanban Board complete
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-03-15T11:25:04Z"
+last_activity: 2026-03-15 — Plan 04-02 Document Generation UI complete
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 19
-  completed_plans: 16
-  percent: 94
+  completed_plans: 17
+  percent: 95
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-11)
 ## Current Position
 
 Phase: 4 of 4 (Document Generation and Demo Polish)
-Plan: 2 of 4 in current phase (2 done)
+Plan: 3 of 4 in current phase (3 done)
 Status: In Progress
-Last activity: 2026-03-15 — Plan 04-01 Document Generation Data Layer complete
+Last activity: 2026-03-15 — Plan 04-02 Document Generation UI complete
 
-Progress: [█████████░] 88%
+Progress: [█████████░] 95%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [█████████░] 88%
 | Phase 03 P03 | 8min | 2 tasks | 10 files |
 | Phase 04 P01 | 11min | 2 tasks | 14 files |
 | Phase 04 P00 | 1min | 1 task | 4 files |
+| Phase 04 P02 | 25min | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,10 @@ Recent decisions affecting current work:
 - [Phase 04-01]: Document count via array length from /api/documents for dashboard stat (no separate count endpoint)
 - [Phase 04-00]: Used it.todo() for vitest stubs (recognized as todo, not failures)
 - [Phase 04-00]: Used @pytest.mark.skip for pytest stubs (recognized as skipped, not failures)
+- [Phase 04-02]: Used mermaid.parse() for syntax validation before render, with error fallback showing raw code
+- [Phase 04-02]: Generate Diagram uses DropdownMenu with User Flow and ERD options
+- [Phase 04-02]: Fixed generation proxy routes to use recording.backendId for correct backend dispatch
+- [Phase 04-02]: Added inline PRD and Diagram tabs on recording detail for immediate viewing
 
 ### Pending Todos
 
@@ -131,6 +136,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-15T09:56:29Z
-Stopped at: Completed 04-01-PLAN.md
-Resume file: .planning/phases/04-document-generation-and-demo-polish/04-01-SUMMARY.md
+Last session: 2026-03-15T11:25:04Z
+Stopped at: Completed 04-02-PLAN.md
+Resume file: .planning/phases/04-document-generation-and-demo-polish/04-02-SUMMARY.md
