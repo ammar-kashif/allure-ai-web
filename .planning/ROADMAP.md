@@ -109,16 +109,17 @@ Plans:
 - [ ] 03-03-PLAN.md -- Kanban board with drag-and-drop, end-to-end verification checkpoint
 
 ### Phase 4: Document Generation and Demo Polish
-**Goal**: Users can generate PRD documents and Mermaid diagrams from project data (stretch goals completed if time permits)
+**Goal**: Users can generate PRD documents and Mermaid diagrams (user flow flowchart, ERD) from a recording's extracted outcomes, view them on dedicated pages, and see a Documents Generated stat on the dashboard
 **Depends on**: Phase 2, Phase 3
 **Requirements**: DOC-01, DOC-02, DOC-03
 **Success Criteria** (what must be TRUE):
   1. User can generate a PRD from approved outcomes and requirements using a template
   2. User can generate Mermaid diagrams (user flow, ERD) from project data and they render without syntax errors
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: TBD
+- [ ] 04-01-PLAN.md -- Data layer and backend: documents table, CRUD module, API routes, backend LLM generation endpoints, hooks, sidebar + dashboard updates
+- [ ] 04-02-PLAN.md -- UI pages: documents list with filter tabs, document detail with Mermaid rendering, generate buttons on recording detail, visual verification
 
 ## Progress
 
@@ -133,4 +134,4 @@ Note: Phase 3 can be worked on in parallel with Phase 2 by a different team memb
 | 2. AI Extraction and Promotion | 2/3 | In Progress | - |
 | 2.1. UI/UX Overhaul - Modern SaaS Dashboard | 3/3 | Complete   | 2026-03-13 |
 | 3. Task Management | 3/3 | Complete   | 2026-03-13 |
-| 4. Document Generation and Demo Polish | 0/1 | Not started | - |
+| 4. Document Generation and Demo Polish | 0/2 | Not started | - |
