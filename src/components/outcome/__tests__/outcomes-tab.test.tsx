@@ -15,6 +15,10 @@ vi.mock("@/hooks/use-outcomes", () => ({
     mutate: vi.fn(),
     isPending: false,
   }),
+  useExtract: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
 }))
 
 vi.mock("@/stores/evidence-highlight", () => ({
