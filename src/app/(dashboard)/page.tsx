@@ -1,6 +1,6 @@
 "use client"
 
-import { Mic, Brain, CheckSquare } from "lucide-react"
+import { Mic, Brain, CheckSquare, FileText } from "lucide-react"
 import { useDashboardStats } from "@/hooks/use-dashboard-stats"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { RecentRecordings } from "@/components/dashboard/recent-recordings"
@@ -12,7 +12,8 @@ function DashboardSkeleton() {
   return (
     <div className="space-y-6">
       <Skeleton className="h-8 w-48" />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <Skeleton className="h-24 rounded-xl" />
         <Skeleton className="h-24 rounded-xl" />
         <Skeleton className="h-24 rounded-xl" />
         <Skeleton className="h-24 rounded-xl" />
@@ -30,6 +31,7 @@ export default function DashboardPage() {
     totalRecordings,
     outcomesExtracted,
     tasksCreated,
+    documentsGenerated,
     isLoading,
     recordings,
     allOutcomes,
@@ -49,7 +51,7 @@ export default function DashboardPage() {
         Dashboard
       </h1>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
         <div className="animate-stagger" style={{ "--stagger-index": 0 } as React.CSSProperties}>
           <StatCard title="Total Recordings" value={totalRecordings} icon={Mic} />
         </div>
@@ -59,13 +61,16 @@ export default function DashboardPage() {
         <div className="animate-stagger" style={{ "--stagger-index": 2 } as React.CSSProperties}>
           <StatCard title="Tasks Created" value={tasksCreated} icon={CheckSquare} />
         </div>
+        <div className="animate-stagger" style={{ "--stagger-index": 3 } as React.CSSProperties}>
+          <StatCard title="Documents Generated" value={documentsGenerated} icon={FileText} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="animate-stagger" style={{ "--stagger-index": 3 } as React.CSSProperties}>
+        <div className="animate-stagger" style={{ "--stagger-index": 4 } as React.CSSProperties}>
           <RecentRecordings recordings={recordings} />
         </div>
-        <div className="animate-stagger" style={{ "--stagger-index": 4 } as React.CSSProperties}>
+        <div className="animate-stagger" style={{ "--stagger-index": 5 } as React.CSSProperties}>
           <RecentOutcomes outcomes={allOutcomes} />
         </div>
       </div>

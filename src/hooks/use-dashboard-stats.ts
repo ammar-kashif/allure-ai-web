@@ -1,15 +1,17 @@
 "use client"
 
 import { useRecordings } from "@/hooks/use-recordings"
-import { useQueries } from "@tanstack/react-query"
+import { useQueries, useQuery } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api/client"
 import type { OutcomesResponse } from "@/types/outcome"
 import type { Recording } from "@/types/recording"
+import type { Document } from "@/lib/db/documents"
 
 interface DashboardStats {
   totalRecordings: number
   outcomesExtracted: number
   tasksCreated: number
+  documentsGenerated: number
   isLoading: boolean
   recordings: Recording[]
   allOutcomes: Array<
@@ -36,6 +38,13 @@ export function useDashboardStats(): DashboardStats {
     })),
   })
 
+  // Fetch document count
+  const { data: documents = [], isLoading: documentsLoading } = useQuery({
+    queryKey: ["documents", "all"],
+    queryFn: () => apiClient.get<Document[]>("/api/documents"),
+    staleTime: 30_000,
+  })
+
   const outcomesLoading = outcomeQueries.some((q) => q.isLoading)
 
   // Flatten all outcomes with their recording IDs
@@ -47,12 +56,14 @@ export function useDashboardStats(): DashboardStats {
 
   const outcomesExtracted = allOutcomes.length
   const tasksCreated = allOutcomes.filter((o) => o.promoted).length
+  const documentsGenerated = documents.length
 
   return {
     totalRecordings: recordings.length,
     outcomesExtracted,
     tasksCreated,
-    isLoading: recordingsLoading || outcomesLoading,
+    documentsGenerated,
+    isLoading: recordingsLoading || outcomesLoading || documentsLoading,
     recordings,
     allOutcomes,
   }

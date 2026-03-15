@@ -19,7 +19,7 @@ const navItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Recordings", url: "/recordings", icon: Mic },
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
-  { title: "Documents", url: "#", icon: FileText, disabled: true },
+  { title: "Documents", url: "/documents", icon: FileText },
 ]
 
 export function AppSidebar() {
@@ -36,23 +36,13 @@ export function AppSidebar() {
             <SidebarMenu>
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  {item.disabled ? (
-                    <SidebarMenuButton
-                      tooltip={item.title + " (coming soon)"}
-                      className="opacity-50 cursor-not-allowed"
-                    >
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </SidebarMenuButton>
-                  ) : (
-                    <SidebarMenuButton
-                      tooltip={item.title}
-                      render={<Link href={item.url} />}
-                    >
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </SidebarMenuButton>
-                  )}
+                  <SidebarMenuButton
+                    tooltip={item.title}
+                    render={<Link href={item.url} />}
+                  >
+                    <item.icon />
+                    <span>{item.title}</span>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
