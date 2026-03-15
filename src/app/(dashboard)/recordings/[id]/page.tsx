@@ -32,14 +32,18 @@ import {
   useRenameRecording,
   useDeleteRecording,
 } from "@/hooks/use-recordings"
-import { useGeneratePrd, useGenerateDiagram } from "@/hooks/use-documents"
+import {
+  useGeneratePrd,
+  useGenerateDiagram,
+  useDocumentsByRecording,
+} from "@/hooks/use-documents"
+import { MermaidDiagram } from "@/components/document/mermaid-diagram"
 import { useProjects } from "@/hooks/use-projects"
 import { useEvidenceHighlight } from "@/stores/evidence-highlight"
 import { formatDuration, formatTimestamp } from "@/lib/utils"
 import { cn } from "@/lib/utils"
 
-const TAB_MAP = { info: 0, transcript: 1, outcomes: 2 } as const
-const TAB_NAMES = ["info", "transcript", "outcomes"] as const
+import type { TabId } from "@/stores/evidence-highlight"
 
 export default function RecordingDetailPage({
   params,
@@ -113,6 +117,13 @@ export default function RecordingDetailPage({
   // Document generation
   const generatePrd = useGeneratePrd(id)
   const generateDiagram = useGenerateDiagram(id)
+
+  // Fetch documents for this recording
+  const { data: recordingDocs = [] } = useDocumentsByRecording(id, isReady)
+  const latestPrd = recordingDocs.find((d) => d.type === "prd")
+  const latestDiagram = recordingDocs.find(
+    (d) => d.type === "user_flow" || d.type === "erd"
+  )
 
   // Delete
   const deleteMutation = useDeleteRecording()
@@ -250,9 +261,7 @@ export default function RecordingDetailPage({
             disabled={generatePrd.isPending}
             onClick={() => {
               generatePrd.mutate(undefined, {
-                onSuccess: (result) => {
-                  router.push(`/documents/${result.id}`)
-                },
+                onSuccess: () => setActiveTab("prd"),
               })
             }}
           >
@@ -261,7 +270,7 @@ export default function RecordingDetailPage({
             ) : (
               <FileText className="mr-1.5 h-4 w-4" />
             )}
-            {generatePrd.isPending ? "Generating..." : "Generate PRD"}
+            {generatePrd.isPending ? "Generating..." : latestPrd ? "Regenerate PRD" : "Generate PRD"}
           </Button>
 
           <Button
@@ -270,9 +279,7 @@ export default function RecordingDetailPage({
             disabled={generateDiagram.isPending}
             onClick={() => {
               generateDiagram.mutate(undefined, {
-                onSuccess: (result) => {
-                  router.push(`/documents/${result.id}`)
-                },
+                onSuccess: () => setActiveTab("diagram"),
               })
             }}
           >
@@ -281,23 +288,25 @@ export default function RecordingDetailPage({
             ) : (
               <Share2 className="mr-1.5 h-4 w-4" />
             )}
-            {generateDiagram.isPending ? "Generating..." : "Generate Diagram"}
+            {generateDiagram.isPending ? "Generating..." : latestDiagram ? "Regenerate Diagram" : "Generate Diagram"}
           </Button>
         </div>
 
         <Tabs
-          value={TAB_MAP[activeTab]}
-          onValueChange={(value: number) => {
-            setActiveTab(TAB_NAMES[value])
+          value={activeTab}
+          onValueChange={(value: string) => {
+            setActiveTab(value as TabId)
           }}
         >
           <TabsList>
-            <TabsTrigger value={0}>Info</TabsTrigger>
-            <TabsTrigger value={1}>Transcript</TabsTrigger>
-            <TabsTrigger value={2}>Outcomes</TabsTrigger>
+            <TabsTrigger value="info">Info</TabsTrigger>
+            <TabsTrigger value="transcript">Transcript</TabsTrigger>
+            <TabsTrigger value="outcomes">Outcomes</TabsTrigger>
+            {latestPrd && <TabsTrigger value="prd">PRD</TabsTrigger>}
+            {latestDiagram && <TabsTrigger value="diagram">Diagram</TabsTrigger>}
           </TabsList>
 
-          <TabsContent value={0}>
+          <TabsContent value="info">
             <div className="space-y-4 pt-4">
               <div className="rounded-xl bg-card p-5 shadow-[var(--shadow-card)] space-y-3">
                 <h3 className="font-heading font-semibold tracking-[-0.01em]">Recording Info</h3>
@@ -321,7 +330,7 @@ export default function RecordingDetailPage({
             </div>
           </TabsContent>
 
-          <TabsContent value={1}>
+          <TabsContent value="transcript">
             <div className="pt-4">
               {isTranscriptLoading ? (
                 <TranscriptSkeleton />
@@ -335,11 +344,29 @@ export default function RecordingDetailPage({
             </div>
           </TabsContent>
 
-          <TabsContent value={2}>
+          <TabsContent value="outcomes">
             <div className="pt-4">
               <OutcomesTab recordingId={id} />
             </div>
           </TabsContent>
+
+          {latestPrd && (
+            <TabsContent value="prd">
+              <div className="pt-4">
+                <PrdContent content={latestPrd.content} />
+              </div>
+            </TabsContent>
+          )}
+
+          {latestDiagram && (
+            <TabsContent value="diagram">
+              <div className="pt-4">
+                <div className="rounded-xl bg-card p-6 shadow-[var(--shadow-card)]">
+                  <MermaidDiagram code={latestDiagram.content} />
+                </div>
+              </div>
+            </TabsContent>
+          )}
         </Tabs>
         </>
       )}
@@ -381,6 +408,40 @@ function TranscriptSkeleton() {
           <Skeleton className="h-16 w-[70%]" />
         </div>
       ))}
+    </div>
+  )
+}
+
+function PrdContent({ content }: { content: string }) {
+  const lines = content.split("\n")
+
+  return (
+    <div className="rounded-xl bg-card p-6 shadow-[var(--shadow-card)] space-y-1">
+      {lines.map((line, i) => {
+        const trimmed = line.trim()
+
+        if (trimmed.startsWith("## ") || (trimmed.startsWith("**") && trimmed.endsWith("**"))) {
+          const text = trimmed.replace(/^##\s*/, "").replace(/^\*\*|\*\*$/g, "")
+          return (
+            <h3
+              key={i}
+              className="font-heading font-semibold text-lg pt-4 first:pt-0"
+            >
+              {text}
+            </h3>
+          )
+        }
+
+        if (trimmed === "") {
+          return <div key={i} className="h-2" />
+        }
+
+        return (
+          <p key={i} className="text-base leading-relaxed text-foreground/90">
+            {line}
+          </p>
+        )
+      })}
     </div>
   )
 }

@@ -20,6 +20,20 @@ export function useDocuments(type?: string): UseQueryResult<Document[]> {
   })
 }
 
+export function useDocumentsByRecording(
+  recordingId: string,
+  enabled = true
+): UseQueryResult<Document[]> {
+  return useQuery({
+    queryKey: ["documents", "recording", recordingId],
+    queryFn: () =>
+      apiClient.get<Document[]>(
+        `/api/documents?sourceRecordingId=${recordingId}`
+      ),
+    enabled: !!recordingId && enabled,
+  })
+}
+
 export function useDocument(id: string): UseQueryResult<Document> {
   return useQuery({
     queryKey: ["documents", id],
@@ -42,7 +56,7 @@ export function useGeneratePrd(
       queryClient.invalidateQueries({ queryKey: ["documents"] })
       toast.success("PRD generated successfully")
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast.error(`Failed to generate PRD: ${error.message}`)
     },
   })

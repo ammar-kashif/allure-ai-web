@@ -56,6 +56,7 @@ export function getDocument(id: string): Document | null {
 
 export function listDocuments(filters?: {
   type?: string | null
+  sourceRecordingId?: string | null
 }): Document[] {
   const db = getDb()
   const conditions: string[] = []
@@ -64,6 +65,11 @@ export function listDocuments(filters?: {
   if (filters?.type) {
     conditions.push("type = ?")
     params.push(filters.type)
+  }
+
+  if (filters?.sourceRecordingId) {
+    conditions.push("source_recording_id = ?")
+    params.push(filters.sourceRecordingId)
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""

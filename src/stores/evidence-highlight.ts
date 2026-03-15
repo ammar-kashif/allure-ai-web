@@ -1,6 +1,6 @@
 import { create } from "zustand"
 
-export type TabId = "info" | "transcript" | "outcomes"
+export type TabId = "info" | "transcript" | "outcomes" | "prd" | "diagram"
 
 interface EvidenceHighlightState {
   highlightUtteranceIndex: number | null
