@@ -54,11 +54,11 @@ export function RecordingFAB() {
     <button
       onClick={handleClick}
       className={cn(
-        "fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full shadow-lg transition-all duration-200",
-        "focus:outline-none focus:ring-2 focus:ring-offset-2",
+        "fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full transition-[transform,box-shadow,background-color] duration-[var(--duration-normal)] ease-[var(--ease-out)]",
+        "focus:outline-none focus-visible:shadow-[var(--shadow-focus)]",
         isRecording
-          ? "animate-pulse bg-red-500 px-4 py-3 text-white hover:bg-red-600 focus:ring-red-500"
-          : "bg-primary text-primary-foreground hover:bg-primary/90 focus:ring-primary p-4"
+          ? "animate-pulse bg-red-500 px-5 py-3 text-white shadow-[var(--shadow-lg)] hover:bg-red-600 hover:shadow-[var(--shadow-xl)] active:scale-95"
+          : "bg-primary text-primary-foreground shadow-[var(--shadow-lg)] hover:shadow-[var(--shadow-xl)] hover:-translate-y-0.5 hover:brightness-110 active:scale-95 p-4"
       )}
       aria-label={isRecording ? "Stop recording" : "Start recording"}
     >

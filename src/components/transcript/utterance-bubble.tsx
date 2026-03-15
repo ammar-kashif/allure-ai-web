@@ -42,7 +42,7 @@ export function UtteranceBubble({
   return (
     <div
       className={cn(
-        "max-w-[85%] rounded-lg px-4 py-3 transition-colors duration-1000",
+        "max-w-[85%] rounded-xl px-4 py-3 transition-[background-color] duration-1000 ease-[var(--ease-out)]",
         highlighted ? "bg-yellow-200/60" : colors.bg
       )}
     >
@@ -63,7 +63,7 @@ export function UtteranceBubble({
           </span>
         </div>
       )}
-      <p className="text-base">{utterance.text}</p>
+      <p className="text-[0.9375rem] leading-relaxed">{utterance.text}</p>
     </div>
   )
 }

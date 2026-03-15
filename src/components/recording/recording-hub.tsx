@@ -195,7 +195,11 @@ export function RecordingHub() {
         {projects.length > 0 && (
           <Select value={projectFilter} onValueChange={(v) => setProjectFilter(v ?? "all")}>
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="All Projects" />
+              <SelectValue>
+                {projectFilter === "all"
+                  ? "All Projects"
+                  : projectNameMap.get(projectFilter) || projectFilter}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Projects</SelectItem>

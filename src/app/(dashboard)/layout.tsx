@@ -18,10 +18,10 @@ export default function DashboardLayout({
         <SidebarProvider>
           <AppSidebar />
           <SidebarInset>
-            <header className="flex h-14 items-center gap-2 border-b px-6">
+            <header className="flex h-14 items-center gap-2 px-6 shadow-[var(--shadow-sm)]">
               <SidebarTrigger />
             </header>
-            <main className="flex-1 px-6 py-8">{children}</main>
+            <main className="flex-1 px-6 py-8 animate-fade-in-up">{children}</main>
           </SidebarInset>
           <RecordingFAB />
           <Toaster position="bottom-left" richColors closeButton />

@@ -36,14 +36,14 @@ export function RecentOutcomes({ outcomes }: RecentOutcomesProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-heading">Recent Outcomes</CardTitle>
+        <CardTitle className="font-heading tracking-[-0.01em]">Recent Outcomes</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {topOutcomes.map((outcome) => (
           <Link
             key={outcome.id}
             href={`/recordings/${outcome.recordingId}`}
-            className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-muted/50"
+            className="flex items-center justify-between rounded-lg p-3 transition-[background-color,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-muted/50 active:scale-[0.995]"
           >
             <div className="flex flex-col gap-0.5">
               <span className="text-base font-medium">{outcome.title}</span>
@@ -67,7 +67,7 @@ export function RecentOutcomes({ outcomes }: RecentOutcomesProps) {
         ))}
         <Link
           href="/recordings"
-          className="mt-2 block text-center text-base text-primary hover:underline"
+          className="mt-3 block text-center text-[0.8125rem] font-medium text-primary transition-colors duration-[var(--duration-fast)] hover:text-primary/80"
         >
           View all recordings
         </Link>

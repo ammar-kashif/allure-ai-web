@@ -150,3 +150,98 @@
     @apply font-sans;
   }
 }
+
+/* ── Premium Design System: Shadows & Motion ── */
+:root {
+  /* Layered shadow scale — the core visual upgrade */
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.10);
+  --shadow-xl: 0 16px 48px rgba(0,0,0,0.12);
+
+  /* Compound card shadow — always use instead of single-value shadows */
+  --shadow-card:
+    0 0 0 1px rgba(0,0,0,0.05),
+    0 1px 2px rgba(0,0,0,0.04),
+    0 4px 16px rgba(0,0,0,0.05);
+  --shadow-card-hover:
+    0 0 0 1px rgba(0,0,0,0.05),
+    0 4px 8px rgba(0,0,0,0.06),
+    0 8px 32px rgba(0,0,0,0.08);
+
+  /* Focus ring shadow */
+  --shadow-focus: 0 0 0 3px oklch(0.55 0.22 265 / 0.15);
+
+  /* Motion tokens */
+  --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+}
+
+.dark {
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.15);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.25);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.3);
+  --shadow-xl: 0 16px 48px rgba(0,0,0,0.35);
+
+  --shadow-card:
+    0 0 0 1px rgba(255,255,255,0.06),
+    0 1px 2px rgba(0,0,0,0.2),
+    0 4px 16px rgba(0,0,0,0.15);
+  --shadow-card-hover:
+    0 0 0 1px rgba(255,255,255,0.08),
+    0 4px 8px rgba(0,0,0,0.25),
+    0 8px 32px rgba(0,0,0,0.2);
+
+  --shadow-focus: 0 0 0 3px oklch(0.488 0.243 264.376 / 0.25);
+}
+
+/* ── Entrance Animations ── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp var(--duration-slow) var(--ease-out) both;
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--duration-normal) var(--ease-out) both;
+}
+
+.animate-scale-in {
+  animation: scaleIn var(--duration-normal) var(--ease-out) both;
+}
+
+/* Staggered entrance for lists/grids — set --stagger-index on each child */
+.animate-stagger {
+  animation: fadeInUp var(--duration-slow) var(--ease-out) both;
+  animation-delay: calc(var(--stagger-index, 0) * 60ms);
+}

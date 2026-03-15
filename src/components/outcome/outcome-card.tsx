@@ -66,16 +66,16 @@ export function OutcomeCard({
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card p-4 shadow-sm hover:shadow-md transition-shadow border-l-4",
+        "rounded-xl bg-card p-5 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] transition-[box-shadow,transform] duration-[var(--duration-normal)] ease-[var(--ease-out)] hover:-translate-y-px border-l-4",
         isHighConfidence ? "border-l-green-500" : "border-l-amber-500"
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-1">
-          <h4 className="font-bold leading-tight line-clamp-1">
+          <h4 className="font-semibold leading-tight tracking-[-0.01em] line-clamp-1">
             {outcome.title}
           </h4>
-          <p className="text-base text-muted-foreground line-clamp-2">
+          <p className="text-[0.8125rem] leading-relaxed text-muted-foreground line-clamp-2">
             {outcome.detail}
           </p>
         </div>

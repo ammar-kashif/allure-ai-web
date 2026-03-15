@@ -38,10 +38,10 @@ export function SummaryBanner({ outcomes }: SummaryBannerProps) {
   )
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-primary/5 px-4 py-3">
+    <div className="flex flex-wrap items-center gap-3 rounded-xl bg-primary/5 px-5 py-3.5 shadow-[var(--shadow-xs)]">
       <div className="flex items-center gap-1.5">
-        <span className="text-2xl font-heading font-bold">{total}</span>
-        <span className="text-base text-muted-foreground">outcomes</span>
+        <span className="text-2xl font-heading font-semibold tracking-[-0.02em]">{total}</span>
+        <span className="text-[0.8125rem] text-muted-foreground">outcomes</span>
       </div>
 
       <div className="h-6 w-px bg-border" />

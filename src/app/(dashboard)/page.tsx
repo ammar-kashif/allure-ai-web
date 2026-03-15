@@ -44,28 +44,30 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-heading font-bold tracking-tight">
+    <div className="space-y-8">
+      <h1 className="text-[1.75rem] font-heading font-bold tracking-[-0.02em] text-foreground">
         Dashboard
       </h1>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <StatCard title="Total Recordings" value={totalRecordings} icon={Mic} />
-        <StatCard
-          title="Outcomes Extracted"
-          value={outcomesExtracted}
-          icon={Brain}
-        />
-        <StatCard
-          title="Tasks Created"
-          value={tasksCreated}
-          icon={CheckSquare}
-        />
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div className="animate-stagger" style={{ "--stagger-index": 0 } as React.CSSProperties}>
+          <StatCard title="Total Recordings" value={totalRecordings} icon={Mic} />
+        </div>
+        <div className="animate-stagger" style={{ "--stagger-index": 1 } as React.CSSProperties}>
+          <StatCard title="Outcomes Extracted" value={outcomesExtracted} icon={Brain} />
+        </div>
+        <div className="animate-stagger" style={{ "--stagger-index": 2 } as React.CSSProperties}>
+          <StatCard title="Tasks Created" value={tasksCreated} icon={CheckSquare} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <RecentRecordings recordings={recordings} />
-        <RecentOutcomes outcomes={allOutcomes} />
+        <div className="animate-stagger" style={{ "--stagger-index": 3 } as React.CSSProperties}>
+          <RecentRecordings recordings={recordings} />
+        </div>
+        <div className="animate-stagger" style={{ "--stagger-index": 4 } as React.CSSProperties}>
+          <RecentOutcomes outcomes={allOutcomes} />
+        </div>
       </div>
     </div>
   )

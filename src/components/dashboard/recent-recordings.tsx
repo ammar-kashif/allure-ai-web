@@ -42,18 +42,18 @@ export function RecentRecordings({ recordings }: RecentRecordingsProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-heading">Recent Recordings</CardTitle>
+        <CardTitle className="font-heading tracking-[-0.01em]">Recent Recordings</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {recent.map((recording) => (
           <Link
             key={recording.id}
             href={`/recordings/${recording.id}`}
-            className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-muted/50"
+            className="flex items-center justify-between rounded-lg p-3 transition-[background-color,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-muted/50 active:scale-[0.995]"
           >
             <div className="flex flex-col gap-0.5">
               <span className="text-base font-medium">{recording.title}</span>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-[0.8125rem] text-muted-foreground">
                 {formatDuration(recording.durationMs)} &middot;{" "}
                 {formatRelativeTime(recording.createdAt)}
               </span>
@@ -63,7 +63,7 @@ export function RecentRecordings({ recordings }: RecentRecordingsProps) {
         ))}
         <Link
           href="/recordings"
-          className="mt-2 block text-center text-base text-primary hover:underline"
+          className="mt-3 block text-center text-[0.8125rem] font-medium text-primary transition-colors duration-[var(--duration-fast)] hover:text-primary/80"
         >
           View all recordings
         </Link>
