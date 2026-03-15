@@ -89,7 +89,7 @@ export function OutcomesTab({ recordingId }: OutcomesTabProps) {
         if (typeOutcomes.length === 0) return null
         return (
           <OutcomeSection key={type} type={type} count={typeOutcomes.length}>
-            {typeOutcomes.map((outcome, i) => (
+            {typeOutcomes.map((outcome) => (
               <OutcomeCard
                 key={outcome.id}
                 outcome={outcome}
