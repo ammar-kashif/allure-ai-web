@@ -115,9 +115,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. User can generate a PRD from approved outcomes and requirements using a template
   2. User can generate Mermaid diagrams (user flow, ERD) from project data and they render without syntax errors
-**Plans**: 2 plans
+**Plans**: 3 plans
 
 Plans:
+- [ ] 04-00-PLAN.md -- Wave 0: Test stubs for document CRUD, API routes, backend generation, Mermaid rendering
 - [ ] 04-01-PLAN.md -- Data layer and backend: documents table, CRUD module, API routes, backend LLM generation endpoints, hooks, sidebar + dashboard updates
 - [ ] 04-02-PLAN.md -- UI pages: documents list with filter tabs, document detail with Mermaid rendering, generate buttons on recording detail, visual verification
 
@@ -134,4 +135,4 @@ Note: Phase 3 can be worked on in parallel with Phase 2 by a different team memb
 | 2. AI Extraction and Promotion | 2/3 | In Progress | - |
 | 2.1. UI/UX Overhaul - Modern SaaS Dashboard | 3/3 | Complete   | 2026-03-13 |
 | 3. Task Management | 3/3 | Complete   | 2026-03-13 |
-| 4. Document Generation and Demo Polish | 0/2 | Not started | - |
+| 4. Document Generation and Demo Polish | 0/3 | Not started | - |
