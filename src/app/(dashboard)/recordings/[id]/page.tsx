@@ -3,7 +3,16 @@
 import { use, useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Loader2, MoreVertical, Pencil, Trash2 } from "lucide-react"
+import {
+  ArrowLeft,
+  ChevronDown,
+  FileText,
+  Loader2,
+  MoreVertical,
+  Pencil,
+  Share2,
+  Trash2,
+} from "lucide-react"
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
@@ -24,6 +33,7 @@ import {
   useRenameRecording,
   useDeleteRecording,
 } from "@/hooks/use-recordings"
+import { useGeneratePrd, useGenerateDiagram } from "@/hooks/use-documents"
 import { useProjects } from "@/hooks/use-projects"
 import { useEvidenceHighlight } from "@/stores/evidence-highlight"
 import { formatDuration, formatTimestamp } from "@/lib/utils"
@@ -100,6 +110,10 @@ export default function RecordingDetailPage({
   const cancelEditing = useCallback(() => {
     setIsEditing(false)
   }, [])
+
+  // Document generation
+  const generatePrd = useGeneratePrd(id)
+  const generateDiagram = useGenerateDiagram(id)
 
   // Delete
   const deleteMutation = useDeleteRecording()
@@ -229,6 +243,73 @@ export default function RecordingDetailPage({
       )}
 
       {recording.status === "ready" && (
+        <>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={generatePrd.isPending}
+            onClick={() => {
+              generatePrd.mutate(undefined, {
+                onSuccess: (result) => {
+                  router.push(`/documents/${result.id}`)
+                },
+              })
+            }}
+          >
+            {generatePrd.isPending ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="mr-1.5 h-4 w-4" />
+            )}
+            {generatePrd.isPending ? "Generating..." : "Generate PRD"}
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={generateDiagram.isPending}
+                />
+              }
+            >
+              {generateDiagram.isPending ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <Share2 className="mr-1.5 h-4 w-4" />
+              )}
+              {generateDiagram.isPending ? "Generating..." : "Generate Diagram"}
+              <ChevronDown className="ml-1 h-3 w-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem
+                onClick={() => {
+                  generateDiagram.mutate({ type: "user_flow" }, {
+                    onSuccess: (result) => {
+                      router.push(`/documents/${result.id}`)
+                    },
+                  })
+                }}
+              >
+                User Flow
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  generateDiagram.mutate({ type: "erd" }, {
+                    onSuccess: (result) => {
+                      router.push(`/documents/${result.id}`)
+                    },
+                  })
+                }}
+              >
+                ERD
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
         <Tabs
           value={TAB_MAP[activeTab]}
           onValueChange={(value: number) => {
@@ -285,6 +366,7 @@ export default function RecordingDetailPage({
             </div>
           </TabsContent>
         </Tabs>
+        </>
       )}
     </div>
   )
