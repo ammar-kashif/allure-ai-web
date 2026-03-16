@@ -2,74 +2,102 @@
 
 ## What This Is
 
-Allure is a local-first, AI-powered project management tool that turns meeting recordings into execution-ready project plans. Users record inside Allure, get speaker-labeled transcripts via Whisper STT, and AI extracts structured outcomes (decisions, action items, requirements, blockers) with confidence scoring. Approved outcomes promote directly into tasks, milestones, and documentation. Built as a Final Year Project (FYP) by a team of 2-3.
+Allure is a local-first, AI-powered project management tool that turns meeting recordings into execution-ready project plans. Users record inside Allure, get speaker-labeled transcripts via Moonshine Voice STT, and AI extracts structured outcomes (decisions, action items, requirements, blockers) with confidence scoring and evidence links. Approved outcomes promote directly into tasks and requirement records with backlinks. Generated PRDs and Mermaid diagrams round out the documentation pipeline. Built as a Final Year Project (FYP) by a team of 2-3.
 
 ## Core Value
 
 Recording a meeting and getting a reviewable, structured project plan out of it — with evidence links and confidence gating — in under 5 minutes.
 
+## Current State
+
+**Shipped:** v1.0 MVP (2026-03-16)
+**Codebase:** 10,333 LOC TypeScript + 2,278 LOC Python
+**Tech stack:** Next.js 15, FastAPI, SQLite, TanStack Query, Mermaid, shadcn/ui
+
+**What's working:**
+- Full Record → Transcribe → Extract → Tasks pipeline
+- Modern SaaS dashboard with sidebar nav, indigo theme, stat cards
+- Task management with CRUD, list view, drag-and-drop Kanban
+- Document generation (PRD + Mermaid user flow/ERD diagrams)
+- Confidence-gated outcome review with evidence cross-navigation
+
 ## Requirements
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ REC-01: Global one-tap recording — v1.0
+- ✓ REC-02: Browser audio capture via Web Audio API — v1.0
+- ✓ REC-03: Recording auto-save with crash recovery — v1.0
+- ✓ REC-04: Recording Hub with status views — v1.0
+- ✓ REC-05: Project assignment for recordings — v1.0
+- ✓ REC-06: Unassigned recordings are private — v1.0
+- ✓ STT-01: Backend STT processing — v1.0
+- ✓ STT-02: Timestamped transcript utterances — v1.0
+- ✓ STT-03: Speaker diarization labels — v1.0
+- ✓ STT-04: Real-time processing status updates — v1.0
+- ✓ BE-01: FastAPI server with CORS and health check — v1.0
+- ✓ BE-02: Audio file upload with validation — v1.0
+- ✓ BE-03: Moonshine Voice STT integration — v1.0
+- ✓ BE-04: Speaker diarization with SpeechBrain — v1.0
+- ✓ BE-05: Transcript retrieval endpoint — v1.0
+- ✓ BE-06: Processing status endpoint — v1.0
+- ✓ EXT-01: AI extraction of structured outcomes — v1.0
+- ✓ EXT-02: Outcomes with title, detail, confidence, evidence — v1.0
+- ✓ EXT-03: Outcomes grouped by type with confidence indicators — v1.0
+- ✓ EXT-04: Low-confidence items visually flagged — v1.0
+- ✓ EXT-05: Promote action items to tasks with backlinks — v1.0
+- ✓ EXT-06: Promote requirements to records with backlinks — v1.0
+- ✓ EXT-07: Promoted items retain evidence links — v1.0
+- ✓ TASK-01: Task CRUD — v1.0
+- ✓ TASK-02: Tasks with title, status, priority, due date, assignee, tags — v1.0
+- ✓ TASK-03: Sortable/filterable task list view — v1.0
+- ✓ TASK-04: Drag-and-drop Kanban board — v1.0
+- ✓ TASK-05: Kanban drag updates task status — v1.0
+- ✓ DOC-01: PRD generation from outcomes — v1.0
+- ✓ DOC-02: Mermaid diagram generation (user flow, ERD) — v1.0
+- ✓ DOC-03: Mermaid renders without syntax errors — v1.0
 
 ### Active
 
-- [ ] Global one-tap recording with deferred project assignment
-- [ ] Recording Hub with status views (Unassigned, Assigned, Processing, Needs Review)
-- [ ] Built-in STT via Whisper with speaker diarization and confidence scoring
-- [ ] Transcript editor with synced audio playback (click utterance → seek)
-- [ ] Slides/docs upload (PPTX/PDF) with transcript-to-slide alignment
-- [ ] Outcome extraction (decisions, action items, requirements, blockers) with evidence links
-- [ ] Confidence-gated review: items below 0.80 require Admin approval
-- [ ] Promote outcomes to tasks, requirements, risk entries with backlinks
-- [ ] AI-assisted project planning: generate tasks, milestones, dependencies from outcomes
-- [ ] Task and milestone management with list and Kanban views
-- [ ] Task dependencies (blocks/blocked-by) and overdue flagging
-- [ ] Milestone roll-up progress from linked tasks
-- [ ] PRD generation from approved outcomes/requirements (template-based)
-- [ ] Mermaid diagram generation (user flow, ERD) from project data
-- [ ] QA agent: completeness/consistency scoring with 0.80 pass threshold
-- [ ] Admin/Viewer access control (Admin: full access; Viewer: read-only on assigned projects)
-- [ ] In-app notifications (task due, transcript ready, items needing review, approval completed)
+(None — define with `/gsd:new-milestone`)
 
 ### Out of Scope
 
 - Enterprise features (SSO, complex orgs) — FYP scope
 - Video conferencing / calendar scheduling — not a meeting platform
 - External cloud LLM for core inference — local-first constraint
-- Dashboards and advanced analytics — post-FYP
-- AI chat assistant interface — post-FYP, use structured workflows instead
 - Mobile app — web-first for FYP
+- Real-time collaborative editing — complexity too high for FYP
+- AI chat assistant interface — use structured workflows instead
 
 ## Context
 
-- **Existing backend:** Python backend with STT pipeline already built (repo: github.com/ZainAbbas97/allure-ai). This project builds the Next.js frontend and integrates with that backend.
-- **Team:** 2-3 members, FYP with ~2 week deadline — focus on polished core demo path over breadth.
-- **Core demo path:** Record → Transcribe → Extract Outcomes → Generate Tasks. This end-to-end flow is the priority.
-- **Local inference:** Whisper for STT (already in backend), llama.cpp for LLM on macOS M3. Quantized model (e.g., Llama 3.1 8B Q4_K_M or Mistral 7B).
-- **Storage:** SQLite for all metadata/structured data, filesystem (`~/.allure/recordings/`) for audio files.
-- **Target users for FYP demo:** Admin persona primarily, Viewer as secondary.
+- **Team:** 2-3 members, FYP project
+- **Core demo path:** Record → Transcribe → Extract Outcomes → Tasks/Documents
+- **Local inference:** Moonshine Voice for STT, llama.cpp for LLM on macOS M3
+- **Storage:** SQLite for all metadata, filesystem for audio files
 
 ## Constraints
 
-- **Timeline**: ~2 weeks to FYP submission — must prioritize core demo path ruthlessly
-- **Tech stack**: Next.js frontend + existing Python (FastAPI) backend
-- **Local-first**: All STT and LLM inference runs locally via Whisper and llama.cpp on M3 Mac
+- **Tech stack**: Next.js 15 frontend + Python FastAPI backend
+- **Local-first**: All STT and LLM inference runs locally
 - **Database**: SQLite + filesystem for audio storage
-- **Confidence threshold**: 0.80 default — below requires Admin review before authoritative
-- **Team size**: 2-3 people splitting work
+- **Confidence threshold**: 0.80 — below requires review
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Next.js frontend over macOS native | Faster to build in 2 weeks, team has web experience, existing Python backend is a natural fit | — Pending |
-| SQLite over PostgreSQL | Local-first, zero setup, sufficient for FYP scale, no extra server process | — Pending |
-| llama.cpp over Ollama | Direct Metal/GPU support on M3, Ollama wraps llama.cpp anyway, fewer layers | — Pending |
-| Core demo path focus | 2-week deadline means polished end-to-end flow beats incomplete feature breadth | — Pending |
-| Filesystem for audio | Audio blobs don't belong in DB, file paths in SQLite, simple and fast | — Pending |
+| Next.js frontend over macOS native | Faster to build, team has web experience | ✓ Good |
+| SQLite over PostgreSQL | Local-first, zero setup, sufficient for FYP scale | ✓ Good |
+| llama.cpp over Ollama | Direct Metal/GPU support on M3 | ✓ Good |
+| Core demo path focus | 2-week deadline, polished E2E flow beats incomplete breadth | ✓ Good |
+| Filesystem for audio | Audio blobs don't belong in DB, simple and fast | ✓ Good |
+| SpeechBrain over pyannote for diarization | CPU-only, no gated model tokens required | ✓ Good |
+| Moonshine Voice over Whisper | Faster on M-series, purpose-built for STT | ✓ Good |
+| Frontend SQLite for metadata | Outcomes/tasks/documents stored frontend-side for offline resilience | ✓ Good |
+| Synchronous LLM generation for documents | Avoids blocking STT worker, simpler than job queue for one-shot ops | ✓ Good |
+| Zustand for cross-component state | Evidence navigation needs tab switch + scroll coordination | ✓ Good |
 
 ---
-*Last updated: 2026-03-11 after initialization*
+*Last updated: 2026-03-16 after v1.0 milestone*
