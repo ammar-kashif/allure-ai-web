@@ -83,12 +83,6 @@ class OutcomesResponse(BaseModel):
     outcomes: list[Outcome] = []
 
 
-class PromoteRequest(BaseModel):
-    """One-click promote request (empty body)."""
-
-    pass
-
-
 class PromoteResponse(BaseModel):
     """Response for POST /recordings/{id}/outcomes/{index}/promote."""
 

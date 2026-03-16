@@ -12,12 +12,12 @@ Allure delivers a complete Record-to-Tasks pipeline in 4 phases over ~2 weeks. P
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Recording and Transcription Pipeline** - Frontend scaffolding, audio recording, backend integration, transcript display
-- [ ] **Phase 1.1: Python Backend: FastAPI + Moonshine STT** - FastAPI server, audio upload, Moonshine transcription, speaker diarization (INSERTED)
+- [x] **Phase 1: Recording and Transcription Pipeline** - Frontend scaffolding, audio recording, backend integration, transcript display (completed 2026-03-12)
+- [x] **Phase 1.1: Python Backend: FastAPI + Moonshine STT** - FastAPI server, audio upload, Moonshine transcription, speaker diarization (INSERTED) (completed 2026-03-12)
 - [x] **Phase 2: AI Extraction and Promotion** - Outcome extraction from transcripts, confidence-gated review, promotion to tasks/requirements (completed 2026-03-15)
 - [x] **Phase 2.1: UI/UX Overhaul - Modern SaaS Dashboard** - Sidebar navigation, indigo theme, typography, dashboard home, component polish (INSERTED) (completed 2026-03-13)
 - [x] **Phase 3: Task Management** - Task CRUD, list view, Kanban board (parallelizable with Phase 2) (completed 2026-03-13)
-- [ ] **Phase 4: Document Generation and Demo Polish** - PRD generation, Mermaid diagrams, demo preparation (stretch)
+- [x] **Phase 4: Document Generation and Demo Polish** - PRD generation, Mermaid diagrams, demo preparation (stretch) (completed 2026-03-15)
 
 ## Phase Details
 
@@ -37,8 +37,8 @@ Plans:
 - [x] 01-00-PLAN.md -- Wave 0: Test infrastructure, vitest config, test skeleton files
 - [x] 01-01-PLAN.md -- Project scaffolding, audio recording pipeline with crash recovery, global FAB
 - [x] 01-02-PLAN.md -- SQLite database, API routes, TanStack Query hooks
-- [ ] 01-03-PLAN.md -- Recording Hub UI with table, tabs, project assignment
-- [ ] 01-04-PLAN.md -- Transcript display with chat bubbles, recording detail page, end-to-end verification
+- [x] 01-03-PLAN.md -- Recording Hub UI with table, tabs, project assignment
+- [x] 01-04-PLAN.md -- Transcript display with chat bubbles, recording detail page, end-to-end verification
 
 ### Phase 1.1: Python Backend: FastAPI + Moonshine STT (INSERTED)
 
@@ -55,8 +55,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01.1-01-PLAN.md -- FastAPI server, Pydantic models, job queue, upload/status endpoints, integration tests
-- [ ] 01.1-02-PLAN.md -- Moonshine STT + pyannote diarization pipeline, transcript endpoint, end-to-end verification
+- [x] 01.1-01-PLAN.md -- FastAPI server, Pydantic models, job queue, upload/status endpoints, integration tests
+- [x] 01.1-02-PLAN.md -- Moonshine STT + pyannote diarization pipeline, transcript endpoint, end-to-end verification
 
 ### Phase 2: AI Extraction and Promotion
 **Goal**: Users can trigger AI extraction on a transcript and get structured outcomes (decisions, action items, requirements, blockers) with confidence scores and evidence links, then promote them into tasks and requirement records
@@ -70,10 +70,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- Backend extraction pipeline: LLM module, job queue chaining, outcome/promote endpoints
-- [ ] 02-02-PLAN.md -- Frontend data layer: TypeScript types, SQLite schema, proxy routes, hooks, stores
-- [ ] 02-03-PLAN.md -- Outcomes tab UI: grouped cards, confidence flagging, evidence links, promotion flow
-- [ ] 02-04-PLAN.md -- Gap closure: fix extraction test fixtures for SQLite storage API, lint cleanup
+- [x] 02-01-PLAN.md -- Backend extraction pipeline: LLM module, job queue chaining, outcome/promote endpoints
+- [x] 02-02-PLAN.md -- Frontend data layer: TypeScript types, SQLite schema, proxy routes, hooks, stores
+- [x] 02-03-PLAN.md -- Outcomes tab UI: grouped cards, confidence flagging, evidence links, promotion flow
+- [x] 02-04-PLAN.md -- Gap closure: fix extraction test fixtures for SQLite storage API, lint cleanup
 
 ### Phase 02.1: UI/UX Overhaul - Modern SaaS Dashboard (INSERTED)
 
@@ -92,7 +92,7 @@ Plans:
 Plans:
 - [x] 02.1-01-PLAN.md -- Indigo theme, Space Grotesk/Inter fonts, sidebar layout with AppSidebar
 - [x] 02.1-02-PLAN.md -- Dashboard home page with stat cards, recent activity, empty state
-- [ ] 02.1-03-PLAN.md -- Recording Hub search/filter, component polish, visual verification checkpoint
+- [x] 02.1-03-PLAN.md -- Recording Hub search/filter, component polish, visual verification checkpoint
 
 ### Phase 3: Task Management
 **Goal**: Users can manage tasks through full CRUD operations in both list and Kanban views
@@ -105,9 +105,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md -- Data layer: extended schema, CRUD DB functions, API routes, TanStack Query hooks
-- [ ] 03-02-PLAN.md -- Task list view with create dialog, detail panel, inline editing, sidebar activation
-- [ ] 03-03-PLAN.md -- Kanban board with drag-and-drop, end-to-end verification checkpoint
+- [x] 03-01-PLAN.md -- Data layer: extended schema, CRUD DB functions, API routes, TanStack Query hooks
+- [x] 03-02-PLAN.md -- Task list view with create dialog, detail panel, inline editing, sidebar activation
+- [x] 03-03-PLAN.md -- Kanban board with drag-and-drop, end-to-end verification checkpoint
 
 ### Phase 4: Document Generation and Demo Polish
 **Goal**: Users can generate PRD documents and Mermaid diagrams (user flow flowchart, ERD) from a recording's extracted outcomes, view them on dedicated pages, and see a Documents Generated stat on the dashboard
@@ -131,8 +131,8 @@ Note: Phase 3 can be worked on in parallel with Phase 2 by a different team memb
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Recording and Transcription Pipeline | 3/5 | In Progress |  |
-| 1.1. Python Backend: FastAPI + Moonshine STT | 0/2 | Not started | - |
+| 1. Recording and Transcription Pipeline | 5/5 | Complete | 2026-03-12 |
+| 1.1. Python Backend: FastAPI + Moonshine STT | 2/2 | Complete | 2026-03-12 |
 | 2. AI Extraction and Promotion | 4/4 | Complete   | 2026-03-15 |
 | 2.1. UI/UX Overhaul - Modern SaaS Dashboard | 3/3 | Complete   | 2026-03-13 |
 | 3. Task Management | 3/3 | Complete   | 2026-03-13 |

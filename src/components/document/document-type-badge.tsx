@@ -1,7 +1,6 @@
 "use client"
 
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
 
 const TYPE_CONFIG = {
   prd: { label: "PRD", className: "bg-primary/10 text-primary border-primary/20" },
@@ -12,7 +11,7 @@ const TYPE_CONFIG = {
 export function DocumentTypeBadge({ type }: { type: "prd" | "user_flow" | "erd" }) {
   const config = TYPE_CONFIG[type]
   return (
-    <Badge className={cn(config.className)}>
+    <Badge className={config.className}>
       {config.label}
     </Badge>
   )

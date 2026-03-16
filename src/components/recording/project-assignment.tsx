@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { Plus } from "lucide-react"
 
 import { useProjects, useCreateProject } from "@/hooks/use-projects"
 

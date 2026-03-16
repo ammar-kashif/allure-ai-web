@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useCallback } from "react"
+import { useEffect, useRef } from "react"
 import { UtteranceBubble } from "@/components/transcript/utterance-bubble"
 import { useEvidenceHighlight } from "@/stores/evidence-highlight"
 import type { Transcript } from "@/types/recording"

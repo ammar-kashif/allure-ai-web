@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { ExternalLink, Check, Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { usePromoteOutcome } from "@/hooks/use-outcomes"
 import { useEvidenceHighlight } from "@/stores/evidence-highlight"

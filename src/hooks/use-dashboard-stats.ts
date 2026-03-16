@@ -3,7 +3,7 @@
 import { useRecordings } from "@/hooks/use-recordings"
 import { useQueries, useQuery } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api/client"
-import type { OutcomesResponse } from "@/types/outcome"
+import type { OutcomesResponse, Task } from "@/types/outcome"
 import type { Recording } from "@/types/recording"
 import type { Document } from "@/lib/db/documents"
 
@@ -34,8 +34,14 @@ export function useDashboardStats(): DashboardStats {
           `/api/recordings/${r.id}/outcomes`
         ),
       staleTime: 30_000,
-      enabled: true,
     })),
+  })
+
+  // Fetch actual task count from database
+  const { data: tasks = [], isLoading: tasksLoading } = useQuery({
+    queryKey: ["tasks", "all"],
+    queryFn: () => apiClient.get<Task[]>("/api/tasks"),
+    staleTime: 30_000,
   })
 
   // Fetch document count
@@ -45,7 +51,7 @@ export function useDashboardStats(): DashboardStats {
     staleTime: 30_000,
   })
 
-  const outcomesLoading = outcomeQueries.some((q) => q.isLoading)
+  const outcomesLoading = outcomeQueries.some((q) => q.isLoading) || tasksLoading
 
   // Flatten all outcomes with their recording IDs
   const allOutcomes = outcomeQueries.flatMap((q, i) => {
@@ -55,7 +61,7 @@ export function useDashboardStats(): DashboardStats {
   })
 
   const outcomesExtracted = allOutcomes.length
-  const tasksCreated = allOutcomes.filter((o) => o.promoted).length
+  const tasksCreated = tasks.length
   const documentsGenerated = documents.length
 
   return {

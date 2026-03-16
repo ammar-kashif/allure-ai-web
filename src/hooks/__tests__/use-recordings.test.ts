@@ -7,7 +7,6 @@ import React from "react"
 
 import {
   useRecordings,
-  useRecording,
   useRecordingStatus,
   useUploadRecording,
 } from "../use-recordings"

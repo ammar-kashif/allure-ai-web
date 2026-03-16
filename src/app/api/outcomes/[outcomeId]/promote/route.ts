@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 import { getRecording } from "@/lib/db/recordings"
-import { updateOutcomePromotion } from "@/lib/db/outcomes"
+import { getOutcome, updateOutcomePromotion } from "@/lib/db/outcomes"
 import { createTask, createRequirementRecord } from "@/lib/db/tasks"
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000"
@@ -66,12 +66,15 @@ export async function POST(
     // Update frontend SQLite: mark outcome as promoted
     updateOutcomePromotion(outcomeId, data.id)
 
+    // Look up the outcome to get its title and detail
+    const outcome = getOutcome(outcomeId)
+
     // Create the promoted record in frontend SQLite based on type
     // Backend returns "task" for action_items and "requirement" for requirements
     const commonData = {
       id: data.id,
-      title: "",
-      detail: "",
+      title: outcome?.title ?? "",
+      detail: outcome?.detail ?? "",
       sourceOutcomeId: outcomeId,
       sourceRecordingId: recordingId,
       backlink: data.backlink,

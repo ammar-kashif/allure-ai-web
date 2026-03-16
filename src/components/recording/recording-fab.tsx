@@ -6,8 +6,7 @@ import { toast } from "sonner"
 
 import { useAudioRecorder } from "@/hooks/use-audio-recorder"
 import { useUploadRecording } from "@/hooks/use-recordings"
-import { formatDuration } from "@/lib/utils"
-import { cn } from "@/lib/utils"
+import { cn, formatDuration } from "@/lib/utils"
 
 export function RecordingFAB() {
   const { isRecording, elapsedSeconds, startRecording, stopRecording, onRecordingCompleteRef } =

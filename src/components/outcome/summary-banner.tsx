@@ -27,15 +27,15 @@ export function SummaryBanner({ outcomes }: SummaryBannerProps) {
   const total = outcomes.length
   const needsReview = outcomes.filter((o) => o.confidence < 0.8).length
 
-  const typeCounts = (
-    Object.keys(typeConfig) as OutcomeType[]
-  ).reduce(
-    (acc, type) => {
-      acc[type] = outcomes.filter((o) => o.type === type).length
-      return acc
-    },
-    {} as Record<OutcomeType, number>
-  )
+  const typeCounts: Record<OutcomeType, number> = {
+    decision: 0,
+    action_item: 0,
+    requirement: 0,
+    blocker: 0,
+  }
+  for (const o of outcomes) {
+    typeCounts[o.type]++
+  }
 
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-xl bg-primary/5 px-5 py-3.5 shadow-[var(--shadow-xs)]">

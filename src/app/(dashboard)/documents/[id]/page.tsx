@@ -8,6 +8,7 @@ import { buttonVariants } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { DocumentTypeBadge } from "@/components/document/document-type-badge"
 import { MermaidDiagram } from "@/components/document/mermaid-diagram"
+import { PrdContent } from "@/components/document/prd-content"
 import { useDocument } from "@/hooks/use-documents"
 import { cn } from "@/lib/utils"
 
@@ -17,43 +18,6 @@ function formatDate(dateStr: string): string {
     day: "numeric",
     year: "numeric",
   })
-}
-
-function PrdContent({ content }: { content: string }) {
-  const lines = content.split("\n")
-
-  return (
-    <div className="rounded-xl bg-card p-6 shadow-[var(--shadow-card)] space-y-1">
-      {lines.map((line, i) => {
-        const trimmed = line.trim()
-
-        // Markdown-style headers (## or **)
-        if (trimmed.startsWith("## ") || trimmed.startsWith("**") && trimmed.endsWith("**")) {
-          const text = trimmed.replace(/^##\s*/, "").replace(/^\*\*|\*\*$/g, "")
-          return (
-            <h3
-              key={i}
-              className="font-heading font-semibold text-lg pt-4 first:pt-0"
-            >
-              {text}
-            </h3>
-          )
-        }
-
-        // Empty lines
-        if (trimmed === "") {
-          return <div key={i} className="h-2" />
-        }
-
-        // Regular text / bullets
-        return (
-          <p key={i} className="text-base leading-relaxed text-foreground/90">
-            {line}
-          </p>
-        )
-      })}
-    </div>
-  )
 }
 
 export default function DocumentDetailPage({

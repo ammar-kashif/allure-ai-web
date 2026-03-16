@@ -1,7 +1,6 @@
 import Database from "better-sqlite3"
 import { existsSync, mkdirSync, readFileSync } from "fs"
 import { join, resolve } from "path"
-import { homedir } from "os"
 
 const DB_DIR = join(process.cwd(), "public", "recordings")
 const DB_PATH = join(DB_DIR, "allure-frontend.db")

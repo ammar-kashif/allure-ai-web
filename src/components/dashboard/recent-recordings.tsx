@@ -1,17 +1,11 @@
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { StatusBadge } from "@/components/recording/status-badge"
+import { formatDuration } from "@/lib/utils"
 import type { Recording } from "@/types/recording"
 
 interface RecentRecordingsProps {
   recordings: Recording[]
-}
-
-function formatDuration(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000)
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`
 }
 
 function formatRelativeTime(dateStr: string): string {

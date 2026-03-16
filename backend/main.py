@@ -247,8 +247,6 @@ async def promote_outcome(job_id: str, outcome_index: int):
         )
 
     # Generate promoted item
-    from uuid import uuid4
-
     promoted_id = str(uuid4())
     outcome["promoted"] = True
     outcome["promoted_id"] = promoted_id

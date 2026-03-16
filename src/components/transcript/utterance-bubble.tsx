@@ -46,23 +46,16 @@ export function UtteranceBubble({
         highlighted ? "bg-yellow-200/60" : colors.bg
       )}
     >
-      {showSpeaker && (
-        <div className="mb-1 flex items-center gap-2">
+      <div className={cn("mb-1", showSpeaker && "flex items-center gap-2")}>
+        {showSpeaker && (
           <span className={cn("text-xs font-semibold", colors.label)}>
             {utterance.speaker}
           </span>
-          <span className="text-xs text-muted-foreground">
-            {formatTime(utterance.startTime)}
-          </span>
-        </div>
-      )}
-      {!showSpeaker && (
-        <div className="mb-1">
-          <span className="text-xs text-muted-foreground">
-            {formatTime(utterance.startTime)}
-          </span>
-        </div>
-      )}
+        )}
+        <span className="text-xs text-muted-foreground">
+          {formatTime(utterance.startTime)}
+        </span>
+      </div>
       <p className="text-[0.9375rem] leading-relaxed">{utterance.text}</p>
     </div>
   )

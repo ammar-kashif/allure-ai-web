@@ -28,7 +28,7 @@ import {
   useAssignProject,
 } from "@/hooks/use-recordings"
 import { useProjects } from "@/hooks/use-projects"
-import type { Recording, RecordingStatus } from "@/types/recording"
+import type { Recording } from "@/types/recording"
 
 const TABS = [
   { value: "all", label: "All" },

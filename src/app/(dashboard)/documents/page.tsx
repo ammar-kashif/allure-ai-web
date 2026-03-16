@@ -16,7 +16,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { DocumentTypeBadge } from "@/components/document/document-type-badge"
 import { useDocuments } from "@/hooks/use-documents"
+import { useRecordings } from "@/hooks/use-recordings"
 import type { Document } from "@/lib/db/documents"
+import type { Recording } from "@/types/recording"
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("en-US", {
@@ -26,7 +28,7 @@ function formatDate(dateStr: string): string {
   })
 }
 
-function DocumentsTable({ documents }: { documents: Document[] }) {
+function DocumentsTable({ documents, recordingsMap }: { documents: Document[]; recordingsMap: Map<string, Recording> }) {
   if (documents.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 py-12 text-center">
@@ -66,7 +68,7 @@ function DocumentsTable({ documents }: { documents: Document[] }) {
               <DocumentTypeBadge type={doc.type} />
             </TableCell>
             <TableCell className="text-muted-foreground">
-              {doc.sourceRecordingId}
+              {recordingsMap.get(doc.sourceRecordingId)?.title ?? doc.sourceRecordingId}
             </TableCell>
             <TableCell className="text-muted-foreground">
               {formatDate(doc.createdAt)}
@@ -81,6 +83,12 @@ function DocumentsTable({ documents }: { documents: Document[] }) {
 export default function DocumentsPage() {
   const { data: allDocuments = [], isLoading } = useDocuments()
   const { data: prdDocuments = [] } = useDocuments("prd")
+  const { data: recordings = [] } = useRecordings()
+
+  const recordingsMap = useMemo(
+    () => new Map(recordings.map((r) => [r.id, r])),
+    [recordings]
+  )
 
   const diagramDocuments = useMemo(
     () => allDocuments.filter((d) => d.type === "user_flow" || d.type === "erd"),
@@ -138,13 +146,13 @@ export default function DocumentsPage() {
         </TabsList>
 
         <TabsContent value="all">
-          <DocumentsTable documents={allDocuments} />
+          <DocumentsTable documents={allDocuments} recordingsMap={recordingsMap} />
         </TabsContent>
         <TabsContent value="prds">
-          <DocumentsTable documents={prdDocuments} />
+          <DocumentsTable documents={prdDocuments} recordingsMap={recordingsMap} />
         </TabsContent>
         <TabsContent value="diagrams">
-          <DocumentsTable documents={diagramDocuments} />
+          <DocumentsTable documents={diagramDocuments} recordingsMap={recordingsMap} />
         </TabsContent>
       </Tabs>
     </div>

@@ -47,7 +47,7 @@ export async function POST(
     })
 
     return NextResponse.json(doc, { status: 201 })
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to connect to backend" },
       { status: 502 }

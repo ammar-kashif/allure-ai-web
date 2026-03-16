@@ -34,7 +34,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { useTasks, useUpdateTask, useDeleteTask } from "@/hooks/use-tasks"
-import type { Task, TaskStatus, TaskPriority, UpdateTaskInput } from "@/types/outcome"
+import type { TaskStatus, TaskPriority, UpdateTaskInput } from "@/types/outcome"
 
 interface TaskDetailPanelProps {
   taskId: string | null
@@ -132,7 +132,7 @@ export function TaskDetailPanel({ taskId, open, onOpenChange }: TaskDetailPanelP
 
   const handleDetailBlur = () => {
     if (detail !== (task?.detail || "")) {
-      handleUpdate({ detail: detail })
+      handleUpdate({ detail })
     }
   }
 

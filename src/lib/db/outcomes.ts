@@ -68,6 +68,14 @@ export function upsertOutcomes(recordingId: string, outcomes: Outcome[]): void {
   transaction()
 }
 
+export function getOutcome(outcomeId: string): Outcome | null {
+  const db = getDb()
+  const row = db
+    .prepare("SELECT * FROM outcomes WHERE id = ?")
+    .get(outcomeId) as OutcomeRow | undefined
+  return row ? rowToOutcome(row) : null
+}
+
 export function updateOutcomePromotion(outcomeId: string, promotedId: string): void {
   const db = getDb()
   db.prepare(
