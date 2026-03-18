@@ -355,6 +355,25 @@ def calculate_speaker_stats(
     return sorted(stats, key=lambda s: s["talk_time_pct"], reverse=True)
 
 
+def assign_default_roles(stats: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Assign default roles and empty custom labels to speaker stats.
+
+    The speaker with the highest talk_time_pct (index 0, since stats are
+    sorted descending) gets role "Presenter". All others get "Participant".
+    Each speaker also gets a custom_label field (empty string = use original label).
+
+    Args:
+        stats: Speaker stats list, expected to be sorted by talk_time_pct descending.
+
+    Returns:
+        The same list with custom_label and role fields added to each speaker dict.
+    """
+    for i, speaker in enumerate(stats):
+        speaker["custom_label"] = speaker.get("custom_label", "")
+        speaker["role"] = speaker.get("role", "Presenter" if i == 0 else "Participant")
+    return stats
+
+
 # ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
@@ -417,6 +436,9 @@ def run_transcription(job_id: str, app_state: object) -> dict[str, Any]:
 
     # Stats (before filtering so we can identify <1% speakers)
     stats = calculate_speaker_stats(merged, total_duration)
+
+    # Assign default roles (Presenter / Participant)
+    stats = assign_default_roles(stats)
 
     # Filter segments from speakers below 1% threshold
     valid_speakers = {s["label"] for s in stats}

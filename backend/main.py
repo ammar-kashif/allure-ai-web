@@ -5,6 +5,7 @@ import logging
 import os
 import subprocess
 import time
+import urllib.parse
 from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
@@ -14,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 import aiofiles
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -369,6 +370,37 @@ async def generate_diagram_endpoint(job_id: str):
         "type": diagram_type,
         "title": f"{type_label} - {job.get('original_filename', 'Recording')}",
     }
+
+
+@app.patch("/recordings/{job_id}/speakers/{speaker_label}")
+async def update_speaker(job_id: str, speaker_label: str, request: Request):
+    """Update a speaker's custom label or role."""
+    decoded_label = urllib.parse.unquote(speaker_label)
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job["status"] != "completed":
+        raise HTTPException(status_code=400, detail="Transcript not ready")
+
+    body = await request.json()
+    result = job["result"]
+    speakers = result.get("speakers", [])
+
+    matched = False
+    for speaker in speakers:
+        if speaker["label"] == decoded_label:
+            if "custom_label" in body:
+                speaker["custom_label"] = body["custom_label"]
+            if "role" in body:
+                speaker["role"] = body["role"]
+            matched = True
+            break
+
+    if not matched:
+        raise HTTPException(status_code=404, detail="Speaker not found")
+
+    update_job(job_id, result=result)
+    return {"ok": True}
 
 
 @app.delete("/recordings/{job_id}", status_code=204)
