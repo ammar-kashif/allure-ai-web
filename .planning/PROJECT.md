@@ -59,7 +59,16 @@ Recording a meeting and getting a reviewable, structured project plan out of it 
 
 ### Active
 
-(None — define with `/gsd:new-milestone`)
+#### v1.1 — Meeting Intelligence & Document Context
+- [ ] Audio playback synced with transcript (click-to-seek, active line highlight)
+- [ ] Editable speaker labels and speaker roles in transcription tab
+- [ ] Per-speaker statistics (time, words, WPM, turns, avg turn, pauses, avg pause)
+- [ ] Meeting-level statistics (duration, processing time, speaker count, attached docs)
+- [ ] Post-recording popup (name, project, doc upload) with background processing
+- [ ] Document attachments on recordings, used as context for PRD/Mermaid generation
+- [ ] AgglomerativeClustering for speaker diarization (replace current approach)
+- [ ] Smarter document generation — diagrams model the product discussed, not meeting flow
+- [ ] Improved prompts for PRD and Mermaid quality
 
 ### Out of Scope
 
@@ -100,4 +109,17 @@ Recording a meeting and getting a reviewable, structured project plan out of it 
 | Zustand for cross-component state | Evidence navigation needs tab switch + scroll coordination | ✓ Good |
 
 ---
-*Last updated: 2026-03-16 after v1.0 milestone*
+## Current Milestone: v1.1 Meeting Intelligence & Document Context
+
+**Goal:** Enrich recording detail with synced playback, speaker analytics, document attachments as generation context, and smarter product-focused diagram output.
+
+**Target features:**
+- Synced audio playback with transcript navigation
+- Speaker management (editable labels/roles) and per-speaker/meeting statistics
+- Post-recording popup with background processing and doc upload
+- Document attachments as context for PRD/Mermaid generation
+- AgglomerativeClustering for diarization accuracy
+- Product-focused diagram generation with improved prompts
+
+---
+*Last updated: 2026-03-18 after v1.1 milestone start*
