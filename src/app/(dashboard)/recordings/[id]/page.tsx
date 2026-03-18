@@ -40,6 +40,8 @@ import {
   useGenerateDiagram,
   useDocumentsByRecording,
 } from "@/hooks/use-documents"
+import { useAttachments } from "@/hooks/use-attachments"
+import { AttachedDocumentsCard } from "@/components/recording/attached-documents-card"
 import { MermaidDiagram } from "@/components/document/mermaid-diagram"
 import { PrdContent } from "@/components/document/prd-content"
 import { useProjects } from "@/hooks/use-projects"
@@ -130,6 +132,9 @@ export default function RecordingDetailPage({
   // Document generation
   const generatePrd = useGeneratePrd(id)
   const generateDiagram = useGenerateDiagram(id)
+
+  // Fetch attachments (backend documents)
+  const { data: attachments } = useAttachments(id, isReady)
 
   // Fetch documents for this recording
   const { data: recordingDocs = [] } = useDocumentsByRecording(id, isReady)
@@ -309,6 +314,7 @@ export default function RecordingDetailPage({
           duration={transcript?.duration}
           processingTime={transcript?.processingTime}
           speakerCount={transcript?.speakers?.length}
+          docCount={attachments?.length}
         />
 
         <Tabs
@@ -346,6 +352,7 @@ export default function RecordingDetailPage({
                   )}
                 </div>
               </div>
+              <AttachedDocumentsCard recordingId={id} />
             </div>
           </TabsContent>
 

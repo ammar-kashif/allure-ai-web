@@ -2,11 +2,13 @@
 
 import { useCallback, useRef, useState } from "react"
 import { Upload, X } from "lucide-react"
+import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
-const ACCEPTED_TYPES = [".pdf", ".docx", ".doc", ".txt"]
+const ACCEPTED_TYPES = [".pdf", ".docx", ".txt"]
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ACCEPT_STRING = ACCEPTED_TYPES.join(",")
 
 function formatFileSize(bytes: number): string {
@@ -26,12 +28,20 @@ export function FileDropZone({ files, onFilesChange }: FileDropZoneProps) {
 
   const handleFiles = useCallback(
     (incoming: FileList | File[]) => {
-      const newFiles = Array.from(incoming).filter((f) => {
+      const accepted: File[] = []
+      for (const f of Array.from(incoming)) {
         const ext = `.${f.name.split(".").pop()?.toLowerCase()}`
-        return ACCEPTED_TYPES.includes(ext)
-      })
-      if (newFiles.length > 0) {
-        onFilesChange([...files, ...newFiles])
+        if (!ACCEPTED_TYPES.includes(ext)) continue
+        if (f.size > MAX_FILE_SIZE) {
+          toast.error("File too large", {
+            description: `${f.name} exceeds 10MB limit`,
+          })
+          continue
+        }
+        accepted.push(f)
+      }
+      if (accepted.length > 0) {
+        onFilesChange([...files, ...accepted])
       }
     },
     [files, onFilesChange]
@@ -102,7 +112,7 @@ export function FileDropZone({ files, onFilesChange }: FileDropZoneProps) {
         <Upload className="h-5 w-5" />
         <span className="text-sm">Drop files here or click to browse</span>
         <span className="text-xs text-muted-foreground/60">
-          PDF, DOCX, DOC, TXT
+          PDF, DOCX, TXT
         </span>
       </div>
 
