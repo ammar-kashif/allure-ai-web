@@ -7,6 +7,8 @@ interface AudioPlaybackState {
   playbackRate: number
   activeUtteranceIndex: number | null
   autoScrollEnabled: boolean
+  /** Incremented on each seek() call so the audio element can detect new seeks. */
+  seekGeneration: number
 }
 
 interface AudioPlaybackActions {
@@ -30,6 +32,7 @@ const initialState: AudioPlaybackState = {
   playbackRate: 1,
   activeUtteranceIndex: null,
   autoScrollEnabled: true,
+  seekGeneration: 0,
 }
 
 export const useAudioPlayback = create<
@@ -40,7 +43,11 @@ export const useAudioPlayback = create<
   play: () => set({ isPlaying: true }),
   pause: () => set({ isPlaying: false }),
   togglePlayback: () => set((state) => ({ isPlaying: !state.isPlaying })),
-  seek: (time: number) => set({ currentTime: time }),
+  seek: (time: number) =>
+    set((state) => ({
+      currentTime: time,
+      seekGeneration: state.seekGeneration + 1,
+    })),
   setPlaybackRate: (rate: number) => set({ playbackRate: rate }),
   setCurrentTime: (time: number) => set({ currentTime: time }),
   setDuration: (duration: number) => set({ duration }),

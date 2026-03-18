@@ -29,6 +29,36 @@ logger = logging.getLogger(__name__)
 UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 
 
+def _migrate_speaker_stats():
+    """Recompute speaker stats for old jobs missing extended fields (talk_time, wpm, etc.)."""
+    from transcription import calculate_speaker_stats
+
+    migrated = 0
+    for job in list_jobs():
+        if job["status"] != "completed" or not job.get("result"):
+            continue
+        result = job["result"]
+        speakers = result.get("speakers", [])
+        if not speakers or "talk_time" in speakers[0]:
+            continue  # Already has extended stats
+
+        segments = result.get("segments", [])
+        duration = result.get("duration", 0)
+        if not segments:
+            continue
+
+        new_stats = calculate_speaker_stats(segments, duration)
+        result["speakers"] = new_stats
+        # Also add processing_time if missing
+        if "processing_time" not in result:
+            result["processing_time"] = 0
+        update_job(job["id"], result=result)
+        migrated += 1
+
+    if migrated:
+        logger.info("Migrated speaker stats for %d old job(s)", migrated)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifecycle: load ML models at startup, cleanup on shutdown."""
@@ -84,6 +114,9 @@ async def lifespan(app: FastAPI):
         verbose=False,
     )
     logger.info("Phi-4-mini LLM loaded in %.1fs", time.perf_counter() - t2)
+
+    # Migrate old job results: recompute speaker stats for records missing extended fields
+    _migrate_speaker_stats()
 
     # Start background worker
     worker_task = asyncio.create_task(process_worker(app.state))

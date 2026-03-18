@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { Pause, Play } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -38,13 +39,14 @@ interface AudioPlayerBarProps {
 
 export function AudioPlayerBar({ recordingId, utterances }: AudioPlayerBarProps) {
   const audioRef = useRef<HTMLAudioElement>(null)
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
 
   const isPlaying = useAudioPlayback((s) => s.isPlaying)
   const currentTime = useAudioPlayback((s) => s.currentTime)
   const duration = useAudioPlayback((s) => s.duration)
   const playbackRate = useAudioPlayback((s) => s.playbackRate)
+  const seekGeneration = useAudioPlayback((s) => s.seekGeneration)
 
-  const play = useAudioPlayback((s) => s.play)
   const pause = useAudioPlayback((s) => s.pause)
   const togglePlayback = useAudioPlayback((s) => s.togglePlayback)
   const seek = useAudioPlayback((s) => s.seek)
@@ -54,6 +56,11 @@ export function AudioPlayerBar({ recordingId, utterances }: AudioPlayerBarProps)
   const setActiveUtterance = useAudioPlayback((s) => s.setActiveUtterance)
   const reset = useAudioPlayback((s) => s.reset)
 
+  // Resolve portal target on mount
+  useEffect(() => {
+    setPortalTarget(document.getElementById("player-portal"))
+  }, [])
+
   const audioSrc = `/api/recordings/${recordingId}/audio`
 
   // Sync isPlaying state to audio element
@@ -62,13 +69,23 @@ export function AudioPlayerBar({ recordingId, utterances }: AudioPlayerBarProps)
     if (!audio) return
     if (isPlaying) {
       audio.play().catch(() => {
-        // Browser may block autoplay; revert state
         pause()
       })
     } else {
       audio.pause()
     }
   }, [isPlaying, pause])
+
+  // Sync seek intent to audio element
+  const lastSyncedGeneration = useRef(0)
+  useEffect(() => {
+    if (seekGeneration === lastSyncedGeneration.current) return
+    lastSyncedGeneration.current = seekGeneration
+    const audio = audioRef.current
+    if (audio) {
+      audio.currentTime = currentTime
+    }
+  }, [seekGeneration, currentTime])
 
   // Sync playbackRate to audio element
   useEffect(() => {
@@ -77,7 +94,6 @@ export function AudioPlayerBar({ recordingId, utterances }: AudioPlayerBarProps)
     audio.playbackRate = playbackRate
   }, [playbackRate])
 
-  // Handle audio element events
   const handleLoadedMetadata = useCallback(() => {
     const audio = audioRef.current
     if (audio) setDuration(audio.duration)
@@ -99,14 +115,9 @@ export function AudioPlayerBar({ recordingId, utterances }: AudioPlayerBarProps)
     seek(0)
   }, [pause, seek])
 
-  // Handle seek from slider
-  const handleSeek = useCallback(
+  const handleSliderSeek = useCallback(
     (value: number | readonly number[]) => {
       const time = Array.isArray(value) ? value[0] : value
-      const audio = audioRef.current
-      if (audio) {
-        audio.currentTime = time
-      }
       seek(time)
     },
     [seek]
@@ -119,10 +130,9 @@ export function AudioPlayerBar({ recordingId, utterances }: AudioPlayerBarProps)
     }
   }, [reset])
 
-  return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-card shadow-[var(--shadow-card)]">
+  const bar = (
+    <div className="border-t bg-card shadow-[var(--shadow-card)]">
       <div className="mx-auto flex max-w-5xl items-center gap-3 px-6 py-3">
-        {/* Play / Pause */}
         <Button
           variant="ghost"
           size="icon"
@@ -137,32 +147,27 @@ export function AudioPlayerBar({ recordingId, utterances }: AudioPlayerBarProps)
           )}
         </Button>
 
-        {/* Current time */}
         <span className="w-11 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
           {formatTime(currentTime)}
         </span>
 
-        {/* Seek slider */}
         <Slider
           className="flex-1"
           value={[currentTime]}
           min={0}
           max={duration || 1}
           step={0.1}
-          onValueChange={handleSeek}
+          onValueChange={handleSliderSeek}
           aria-label="Seek"
         />
 
-        {/* Duration */}
         <span className="w-11 shrink-0 text-xs tabular-nums text-muted-foreground">
           {formatTime(duration)}
         </span>
 
-        {/* Speed selector */}
         <SpeedSelector value={playbackRate} onChange={setPlaybackRate} />
       </div>
 
-      {/* Hidden audio element */}
       <audio
         ref={audioRef}
         src={audioSrc}
@@ -173,4 +178,11 @@ export function AudioPlayerBar({ recordingId, utterances }: AudioPlayerBarProps)
       />
     </div>
   )
+
+  // Portal into #player-portal (inside SidebarInset, after <main>)
+  if (portalTarget) {
+    return createPortal(bar, portalTarget)
+  }
+
+  return null
 }

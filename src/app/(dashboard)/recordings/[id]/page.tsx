@@ -175,7 +175,7 @@ export default function RecordingDetailPage({
   }
 
   return (
-    <div className={cn("space-y-8", isReady && "pb-20")}>
+    <div className="space-y-8">
       <BackButton />
 
       {/* Header */}

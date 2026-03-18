@@ -114,6 +114,19 @@ export function deleteRecording(id: string): void {
   db.prepare("DELETE FROM recordings WHERE id = ?").run(id)
 }
 
+export function getCachedTranscript(id: string): string | null {
+  const db = getDb()
+  const row = db
+    .prepare("SELECT transcript_data FROM recordings WHERE id = ?")
+    .get(id) as { transcript_data: string | null } | undefined
+  return row?.transcript_data ?? null
+}
+
+export function cacheTranscript(id: string, data: string): void {
+  const db = getDb()
+  db.prepare("UPDATE recordings SET transcript_data = ? WHERE id = ?").run(data, id)
+}
+
 export function getRecordingCounts(): Record<RecordingStatus | "all", number> {
   const db = getDb()
   const rows = db
