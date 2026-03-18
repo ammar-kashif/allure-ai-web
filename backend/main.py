@@ -16,6 +16,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 import aiofiles
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from audio_utils import convert_to_wav, validate_audio_format
 from job_queue import job_queue, process_worker
@@ -181,6 +182,22 @@ async def get_recording_transcript(job_id: str):
     if job["status"] != "completed":
         raise HTTPException(status_code=400, detail="Transcript not ready")
     return job["result"]
+
+
+@app.get("/recordings/{job_id}/audio")
+async def get_recording_audio(job_id: str):
+    """Return the WAV audio file for a completed recording."""
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    wav_path = job["file_path"]
+    if not os.path.exists(wav_path):
+        raise HTTPException(status_code=404, detail="Audio file not found")
+    return FileResponse(
+        wav_path,
+        media_type="audio/wav",
+        headers={"Accept-Ranges": "bytes"},
+    )
 
 
 @app.get(

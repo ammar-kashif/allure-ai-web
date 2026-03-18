@@ -40,6 +40,20 @@ export async function GET(
     const transcript = {
       id: data.id || recording.backendId,
       recordingId: id,
+      duration: data.duration,
+      processingTime: data.processing_time,
+      speakers: (data.speakers || []).map((s: Record<string, unknown>) => ({
+        label: s.label,
+        talkTimePct: s.talk_time_pct,
+        utteranceCount: s.utterance_count,
+        talkTime: s.talk_time,
+        wordCount: s.word_count,
+        wpm: s.wpm,
+        turns: s.turns,
+        avgTurnDuration: s.avg_turn_duration,
+        pauses: s.pauses,
+        avgPauseDuration: s.avg_pause_duration,
+      })),
       utterances: (data.segments || []).map(
         (seg: { start: number; end: number; text: string; speaker: string }, i: number) => ({
           id: `${id}-utt-${i}`,
