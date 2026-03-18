@@ -3,10 +3,11 @@ import { speakerColors, getSpeakerIndex } from "./utterance-bubble"
 
 interface SpeakerBadgeProps {
   speaker: string
+  displayName?: string
   className?: string
 }
 
-export function SpeakerBadge({ speaker, className }: SpeakerBadgeProps) {
+export function SpeakerBadge({ speaker, displayName, className }: SpeakerBadgeProps) {
   const colorIndex = getSpeakerIndex(speaker)
   const colors = speakerColors[colorIndex]
   return (
@@ -17,7 +18,7 @@ export function SpeakerBadge({ speaker, className }: SpeakerBadgeProps) {
         className
       )}
     >
-      {speaker}
+      {displayName || speaker}
     </span>
   )
 }

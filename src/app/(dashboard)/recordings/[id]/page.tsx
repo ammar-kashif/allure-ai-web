@@ -356,7 +356,7 @@ export default function RecordingDetailPage({
               ) : transcript ? (
                 <>
                   {transcript.speakers && transcript.speakers.length > 0 && (
-                    <SpeakerStatsPanel speakers={transcript.speakers} />
+                    <SpeakerStatsPanel speakers={transcript.speakers} recordingId={id} />
                   )}
                   <TranscriptView transcript={transcript} />
                 </>

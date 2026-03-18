@@ -9,15 +9,18 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { SpeakerBadge } from "./speaker-badge"
+import { InlineEdit } from "./inline-edit"
 import { formatDuration } from "@/lib/utils"
 import { cn } from "@/lib/utils"
+import { useUpdateSpeaker } from "@/hooks/use-recordings"
 import type { SpeakerStat } from "@/types/recording"
 
 interface SpeakerStatsPanelProps {
   speakers: SpeakerStat[]
+  recordingId: string
 }
 
-export function SpeakerStatsPanel({ speakers }: SpeakerStatsPanelProps) {
+export function SpeakerStatsPanel({ speakers, recordingId }: SpeakerStatsPanelProps) {
   const [open, setOpen] = useState(true)
 
   return (
@@ -38,7 +41,7 @@ export function SpeakerStatsPanel({ speakers }: SpeakerStatsPanelProps) {
         <CollapsibleContent>
           <div className="space-y-3 px-5 pb-5">
             {speakers.map((speaker) => (
-              <SpeakerRow key={speaker.label} stat={speaker} />
+              <SpeakerRow key={speaker.label} stat={speaker} recordingId={recordingId} />
             ))}
           </div>
         </CollapsibleContent>
@@ -47,12 +50,41 @@ export function SpeakerStatsPanel({ speakers }: SpeakerStatsPanelProps) {
   )
 }
 
-function SpeakerRow({ stat }: { stat: SpeakerStat }) {
+function SpeakerRow({ stat, recordingId }: { stat: SpeakerStat; recordingId: string }) {
+  const updateSpeaker = useUpdateSpeaker()
+
   return (
     <div className="rounded-lg border p-3">
       <div className="mb-2 flex items-center gap-3">
-        <SpeakerBadge speaker={stat.label} />
-        <span className="text-sm font-medium text-muted-foreground">
+        <SpeakerBadge speaker={stat.label} displayName={stat.customLabel || stat.label} />
+        <div className="flex flex-col gap-0.5">
+          <InlineEdit
+            value={stat.customLabel || stat.label}
+            onSave={(newValue) =>
+              updateSpeaker.mutate({
+                recordingId,
+                speakerLabel: stat.label,
+                customLabel: newValue,
+              })
+            }
+            className="text-sm font-medium"
+            inputClassName="text-sm font-medium"
+          />
+          <InlineEdit
+            value={stat.role || "Participant"}
+            onSave={(newValue) =>
+              updateSpeaker.mutate({
+                recordingId,
+                speakerLabel: stat.label,
+                role: newValue,
+              })
+            }
+            className="text-xs text-muted-foreground"
+            inputClassName="text-xs"
+            placeholder="Role"
+          />
+        </div>
+        <span className="ml-auto text-sm font-medium text-muted-foreground">
           {stat.talkTimePct.toFixed(0)}% talk time
         </span>
       </div>
