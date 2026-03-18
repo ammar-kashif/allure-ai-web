@@ -7,6 +7,23 @@ import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { SpeedSelector } from "./speed-selector"
 import { useAudioPlayback } from "@/stores/audio-playback"
+import type { Utterance } from "@/types/recording"
+
+function findActiveUtterance(
+  utterances: Utterance[],
+  currentTime: number
+): number | null {
+  let low = 0
+  let high = utterances.length - 1
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2)
+    const u = utterances[mid]
+    if (currentTime >= u.startTime && currentTime < u.endTime) return mid
+    if (currentTime < u.startTime) high = mid - 1
+    else low = mid + 1
+  }
+  return null
+}
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60)
@@ -16,9 +33,10 @@ function formatTime(seconds: number): string {
 
 interface AudioPlayerBarProps {
   recordingId: string
+  utterances?: Utterance[]
 }
 
-export function AudioPlayerBar({ recordingId }: AudioPlayerBarProps) {
+export function AudioPlayerBar({ recordingId, utterances }: AudioPlayerBarProps) {
   const audioRef = useRef<HTMLAudioElement>(null)
 
   const isPlaying = useAudioPlayback((s) => s.isPlaying)
@@ -33,6 +51,7 @@ export function AudioPlayerBar({ recordingId }: AudioPlayerBarProps) {
   const setPlaybackRate = useAudioPlayback((s) => s.setPlaybackRate)
   const setCurrentTime = useAudioPlayback((s) => s.setCurrentTime)
   const setDuration = useAudioPlayback((s) => s.setDuration)
+  const setActiveUtterance = useAudioPlayback((s) => s.setActiveUtterance)
   const reset = useAudioPlayback((s) => s.reset)
 
   const audioSrc = `/api/recordings/${recordingId}/audio`
@@ -66,8 +85,14 @@ export function AudioPlayerBar({ recordingId }: AudioPlayerBarProps) {
 
   const handleTimeUpdate = useCallback(() => {
     const audio = audioRef.current
-    if (audio) setCurrentTime(audio.currentTime)
-  }, [setCurrentTime])
+    if (audio) {
+      setCurrentTime(audio.currentTime)
+      if (utterances) {
+        const idx = findActiveUtterance(utterances, audio.currentTime)
+        setActiveUtterance(idx)
+      }
+    }
+  }, [setCurrentTime, utterances, setActiveUtterance])
 
   const handleEnded = useCallback(() => {
     pause()

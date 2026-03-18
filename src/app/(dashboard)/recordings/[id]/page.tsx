@@ -393,7 +393,7 @@ export default function RecordingDetailPage({
           )}
         </Tabs>
 
-        <AudioPlayerBar recordingId={id} />
+        <AudioPlayerBar recordingId={id} utterances={transcript?.utterances} />
         </>
       )}
     </div>

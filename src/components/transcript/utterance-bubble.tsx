@@ -29,12 +29,16 @@ interface UtteranceBubbleProps {
   utterance: Utterance
   showSpeaker?: boolean
   highlighted?: boolean
+  isPlaybackActive?: boolean
+  onSeek?: (startTime: number) => void
 }
 
 export function UtteranceBubble({
   utterance,
   showSpeaker = true,
   highlighted = false,
+  isPlaybackActive = false,
+  onSeek,
 }: UtteranceBubbleProps) {
   const colorIndex = getSpeakerIndex(utterance.speaker)
   const colors = speakerColors[colorIndex]
@@ -43,8 +47,14 @@ export function UtteranceBubble({
     <div
       className={cn(
         "max-w-[85%] rounded-xl px-4 py-3 transition-[background-color] duration-1000 ease-[var(--ease-out)]",
-        highlighted ? "bg-yellow-200/60" : colors.bg
+        highlighted
+          ? "bg-yellow-200/60"
+          : isPlaybackActive
+            ? "bg-indigo-100/60"
+            : colors.bg,
+        onSeek && "cursor-pointer"
       )}
+      onClick={onSeek ? () => onSeek(utterance.startTime) : undefined}
     >
       <div className={cn("mb-1", showSpeaker && "flex items-center gap-2")}>
         {showSpeaker && (
