@@ -72,7 +72,11 @@ Plans:
   2. Uploaded document text is automatically extracted and stored without user intervention
   3. Attached documents are listed on the recording detail page with filename and type
   4. The meeting statistics card shows the count of attached documents
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — Backend: text extraction module, attachments storage CRUD, FastAPI endpoints, n_ctx bump
+- [ ] 07-02-PLAN.md — Frontend: API routes, hooks, AttachedDocumentsCard, MeetingStatCards update, page wiring
 
 ### Phase 8: Context-Aware Generation
 **Goal**: PRD and Mermaid generation uses attached document text as context and produces product-focused diagrams that model the system discussed, not the meeting flow
@@ -99,5 +103,5 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 4. Document Generation and Demo Polish | v1.0 | 3/3 | Complete | 2026-03-15 |
 | 5. Diarization & Audio Playback | 3/4 | In Progress|  | - |
 | 6. Speaker Management & Recording UX | 3/3 | Complete   | 2026-03-18 | - |
-| 7. Document Attachments | v1.1 | 0/? | Not started | - |
+| 7. Document Attachments | v1.1 | 0/2 | Not started | - |
 | 8. Context-Aware Generation | v1.1 | 0/? | Not started | - |
