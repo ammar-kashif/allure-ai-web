@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Meeting Intelligence & Document Context
-status: completed
-stopped_at: Phase 7 context gathered
-last_updated: "2026-03-18T20:09:56.211Z"
-last_activity: 2026-03-18 — Completed 06-02 speaker inline editing & propagation (retroactive)
+status: in-progress
+stopped_at: Completed 07-01-PLAN.md
+last_updated: "2026-03-18T20:48:10Z"
+last_activity: 2026-03-19 — Completed 07-01 backend document attachments
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
-  percent: 100
+  total_plans: 9
+  completed_plans: 8
+  percent: 89
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Recording a meeting and getting a reviewable, structured project plan with evidence links and confidence gating in under 5 minutes.
-**Current focus:** Phase 6 — Speaker Management & Recording UX
+**Current focus:** Phase 7 — Document Attachments
 
 ## Current Position
 
-Phase: 6 of 8 (Speaker Management & Recording UX) — second of 4 v1.1 phases
-Plan: 3 of 3 (Post-Recording Dialog) — complete
-Status: Phase 6 complete (all 3 plans including retroactive 06-02)
-Last activity: 2026-03-18 — Completed 06-02 speaker inline editing & propagation (retroactive)
+Phase: 7 of 8 (Document Attachments) — third of 4 v1.1 phases
+Plan: 1 of 2 (Backend Attachments) — complete
+Status: Plan 07-01 complete, proceeding to 07-02
+Last activity: 2026-03-19 — Completed 07-01 backend document attachments
 
-Progress: [██████████] 100%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Progress: [██████████] 100%
 | Phase 06 P01 | 3min | 2 tasks | 8 files |
 | Phase 06 P02 | 3min | 2 tasks | 5 files |
 | Phase 06 P03 | 4min | 2 tasks | 5 files |
+| Phase 07 P01 | 4min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,9 @@ Recent decisions affecting current work:
 - [06-03]: disablePointerDismissal + escape prevention for non-dismissible post-recording dialog
 - [06-03]: Document uploads saved to disk (public/recordings/{id}/docs/) -- Phase 7 adds DB layer
 - [06-03]: Zustand partialize excludes ephemeral dialog state from persistence
+- [07-01]: Programmatic PDF/DOCX fixture generation in tmp_path, no static binary fixtures
+- [07-01]: n_ctx bumped from 4096 to 8192 for Phase 8 document context injection
+- [07-01]: Attachment files stored under UPLOADS_DIR/{job_id}/ per recording
 
 ### Pending Todos
 
@@ -84,10 +88,10 @@ None yet.
 
 - Phase 5: AgglomerativeClustering distance_threshold=0.7 needs empirical tuning on 3-5 recordings
 - Phase 5: Safari WebM seek compatibility — serve WAV as default-safe format, test on Safari
-- Phase 8: n_ctx must be increased to 8192 before document context injection (do in Phase 7)
+- ~~Phase 8: n_ctx must be increased to 8192 before document context injection (do in Phase 7)~~ RESOLVED in 07-01
 
 ## Session Continuity
 
-Last session: 2026-03-18T20:09:56.195Z
-Stopped at: Phase 7 context gathered
-Resume file: .planning/phases/07-document-attachments/07-CONTEXT.md
+Last session: 2026-03-18T20:48:10Z
+Stopped at: Completed 07-01-PLAN.md
+Resume file: .planning/phases/07-document-attachments/07-02-PLAN.md

@@ -35,8 +35,8 @@ Requirements for Meeting Intelligence & Document Context milestone. Each maps to
 
 ### Document Attachments
 
-- [ ] **DOC-01**: User can upload documents (PDF, DOCX) to a recording
-- [ ] **DOC-02**: Attached document text is extracted and stored for generation context
+- [x] **DOC-01**: User can upload documents (PDF, DOCX) to a recording
+- [x] **DOC-02**: Attached document text is extracted and stored for generation context
 - [ ] **DOC-03**: Attached documents are listed on the recording detail page
 
 ### Diarization Quality
@@ -97,8 +97,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RUX-01 | Phase 6 | Complete |
 | RUX-02 | Phase 6 | Complete |
 | RUX-03 | Phase 6 | Complete |
-| DOC-01 | Phase 7 | Pending |
-| DOC-02 | Phase 7 | Pending |
+| DOC-01 | Phase 7 | Complete |
+| DOC-02 | Phase 7 | Complete |
 | DOC-03 | Phase 7 | Pending |
 | DIAR-01 | Phase 5 | Complete |
 | DIAR-02 | Phase 5 | Complete |
