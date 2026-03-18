@@ -1,254 +1,237 @@
 # Technology Stack
 
-**Project:** Allure AI -- AI-Powered Project Manager with Meeting Transcription
-**Researched:** 2026-03-11
-**Overall Confidence:** MEDIUM (versions unverified against live registries -- WebSearch/Bash/WebFetch unavailable during research. Ecosystem choices are HIGH confidence from training data through early 2025; exact latest patch versions may differ.)
+**Project:** Allure AI v1.1 -- Meeting Intelligence & Document Context
+**Researched:** 2026-03-18
+**Scope:** NEW additions/changes only. Existing stack (Next.js 15, FastAPI, SQLite, TanStack Query, shadcn/ui, Zustand, Moonshine Voice, SpeechBrain, scikit-learn, llama-cpp-python, Mermaid) is validated and unchanged.
 
-## Recommended Stack
+## New Dependencies for v1.1
 
-### Core Framework
-
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| Next.js | ^15.1 | Full-stack React framework | App Router is stable and mature; Server Components reduce client JS bundle; API routes can proxy to FastAPI backend; file-based routing speeds up development in a 2-week sprint | MEDIUM |
-| React | ^19.0 | UI library | Ships with Next.js 15; use() hook and Server Components are production-ready; largest ecosystem for component libraries | MEDIUM |
-| TypeScript | ^5.7 | Type safety | Non-negotiable for any serious project; catches integration bugs between frontend and backend API contracts early | MEDIUM |
-
-### UI & Styling
+### Backend (Python)
 
 | Technology | Version | Purpose | Why | Confidence |
 |------------|---------|---------|-----|------------|
-| Tailwind CSS | ^4.0 | Utility-first CSS | v4 ships with Next.js 15 out of the box; fastest way to build custom UI in a sprint; no context-switching to CSS files | MEDIUM |
-| shadcn/ui | latest (CLI) | Component library | Not an npm package -- copy-paste components built on Radix UI primitives. Full control, no version lock-in, accessible by default. Has Dialog, Sheet, Table, Tabs, Command, Toast -- covers 90% of Allure's UI needs | HIGH |
-| Radix UI | (via shadcn) | Accessible primitives | Headless, composable, WAI-ARIA compliant. shadcn wraps these so you rarely import Radix directly | HIGH |
-| Lucide React | ^0.460 | Icons | Default icon set for shadcn/ui; tree-shakeable; consistent style | MEDIUM |
-| class-variance-authority | ^0.7 | Variant styling | Used by shadcn for component variants (size, color, state). Already included when you init shadcn | HIGH |
-| tailwind-merge | ^2.6 | Class merging | Prevents Tailwind class conflicts when composing component props. Part of shadcn's cn() utility | HIGH |
-| clsx | ^2.1 | Conditional classes | Lightweight conditional class builder, paired with tailwind-merge in cn() | HIGH |
+| PyMuPDF | >=1.27 | PDF text extraction | Fastest Python PDF extractor (3-5x faster than pypdf/pdfplumber). No mandatory external C dependencies beyond what ships with the wheel. Handles complex layouts, preserves reading order. Current version 1.27.2 (Feb 2026). | HIGH |
+| python-docx | >=1.1 | Word document (.docx) text extraction | Standard library for .docx parsing. Lightweight, deterministic paragraph/table extraction. Current version 1.2.0 (Jun 2025). Python >=3.9. | HIGH |
 
-### State Management & Data Fetching
+### Frontend (Node)
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| TanStack Query (React Query) | ^5.62 | Server state / API calls | Handles caching, refetching, optimistic updates, loading/error states. Perfect for fetching transcripts, tasks, outcomes from FastAPI. Eliminates manual useEffect + useState fetch patterns | HIGH |
-| Zustand | ^5.0 | Client state | Lightweight (1KB), no boilerplate, works with React 19. Use for UI state only: sidebar open/closed, current recording state, audio playback position. Do NOT put server data here -- that's TanStack Query's job | HIGH |
+**No new npm packages needed for v1.1.**
 
-### Kanban / Drag-and-Drop
+Audio playback uses native browser APIs. Speaker statistics rendering uses existing shadcn/ui. Document upload uses standard file inputs. All new UI is built with the existing component library.
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| @dnd-kit/core | ^6.3 | Drag-and-drop engine | Purpose-built for React; supports keyboard/screen-reader DnD; modular (only import what you need). Best DnD library for React as of 2025 | HIGH |
-| @dnd-kit/sortable | ^10.0 | Sortable lists | Extension for dnd-kit; handles Kanban column reordering and card sorting | HIGH |
-| @dnd-kit/utilities | ^3.2 | DnD helpers | CSS transform utilities for smooth drag animations | HIGH |
+## Feature-by-Feature Stack Decisions
 
-### Audio Playback & Recording
+### 1. Audio Playback Synced with Transcript
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| wavesurfer.js | ^7.8 | Audio waveform + playback | Visual waveform display synced with transcript; supports click-to-seek which maps directly to Allure's "click utterance, seek audio" requirement; Web Audio API under the hood | HIGH |
-| MediaRecorder API | (browser native) | Audio recording | Built into all modern browsers; no library needed. Record to WebM/Opus, then send chunks to backend for Whisper processing | HIGH |
+**Approach:** Native HTML5 `<audio>` element + React refs + Zustand playback store.
 
-### Forms & Validation
+**Why no library:**
+The browser `<audio>` element provides everything needed: `currentTime` (read/write for seeking), `play()`/`pause()`, `timeupdate` event (~4Hz for highlight tracking), `duration`, `seeking`/`seeked` events. The transcript segments already have `start`/`end` timestamps from the backend. This is a straightforward mapping -- no waveform visualization or advanced audio processing is needed.
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| Zod | ^3.24 | Schema validation | Single schema validates both client forms and API response shapes. TypeScript-first, composable, great error messages | HIGH |
-| React Hook Form | ^7.54 | Form management | Minimal re-renders, integrates with Zod via @hookform/resolvers. Use for task creation, outcome editing, PRD templates | HIGH |
-| @hookform/resolvers | ^3.9 | RHF + Zod bridge | Connects Zod schemas to React Hook Form validation | HIGH |
+**Implementation pattern:**
+- `useRef<HTMLAudioElement>` holds the player instance.
+- `timeupdate` listener compares `currentTime` against segment boundaries to determine active line.
+- Click handler on transcript segments: `audioRef.current.currentTime = segment.start`.
+- Zustand slice stores `{ isPlaying, currentTime, activeSegmentIndex }` so components outside the player (mini-bar, transcript panel) can react.
+- Audio source: new `GET /recordings/{job_id}/audio` endpoint serving the file via FastAPI's `FileResponse` (supports Range requests for browser seeking).
 
-### Markdown & Document Generation
+**What NOT to add:**
+| Library | Why Not |
+|---------|---------|
+| wavesurfer.js | 200KB+ for waveform visualization we do not need. Allure's UX is transcript-centric, not waveform-centric. If waveform is desired later, it can be added independently. |
+| howler.js | Web Audio API wrapper for games/spatial audio. Adds complexity for no benefit over `<audio>`. |
+| transcript-tracer-js | Designed for WebVTT-based sync. Our data is already JSON segments with timestamps -- converting to VTT adds an unnecessary serialization step. |
+| react-player | Wrapper for video/audio embeds (YouTube, etc). We serve our own files; native `<audio>` is simpler. |
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| react-markdown | ^9.0 | Markdown rendering | Render PRDs, meeting notes, outcome summaries. Supports remark/rehype plugins | HIGH |
-| mermaid | ^11.4 | Diagram rendering | Render ERDs and user flow diagrams generated by LLM. Client-side SVG rendering, no server needed | MEDIUM |
+### 2. Speaker Statistics Computation
 
-### Data Tables & Lists
+**Approach:** Expand existing `calculate_speaker_stats()` in `transcription.py`. No new libraries.
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| @tanstack/react-table | ^8.20 | Headless table | Task lists, transcript tables, outcome review tables. Headless = full styling control with Tailwind. Sorting, filtering, pagination built in | HIGH |
+The current function already computes `talk_time_pct` and `utterance_count`. v1.1 adds:
 
-### Notifications & Toasts
+| Statistic | Computation | Library Needed |
+|-----------|-------------|----------------|
+| `talk_time_seconds` | Sum of `(end - start)` per speaker | None (Python math) |
+| `word_count` | `sum(len(seg["text"].split()) for seg in speaker_segments)` | None |
+| `wpm` | `word_count / (talk_time_seconds / 60)` | None |
+| `avg_turn_seconds` | `talk_time_seconds / utterance_count` | None |
+| `pause_count` | Count gaps > 2s between consecutive same-speaker segments | None |
+| `avg_pause_seconds` | Mean of those gaps | None |
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| Sonner | ^1.7 | Toast notifications | Best toast library for React as of 2025. Beautiful defaults, stacking, promise toasts for async operations. shadcn has a Sonner wrapper component | HIGH |
+All derived from existing segment data (`start`, `end`, `text`, `speaker`). Pure Python arithmetic.
 
-### URL State & Routing Helpers
+**Meeting-level statistics** (duration, processing time, speaker count, attached doc count) are similarly trivial aggregations from existing data.
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| nuqs | ^2.2 | URL search params state | Type-safe URL state management for Next.js App Router. Use for filter/sort state in task lists and Kanban views so URLs are shareable | MEDIUM |
+### 3. Document Upload & Text Extraction
 
-### Date/Time
+**Approach:** PyMuPDF for PDF, python-docx for DOCX, built-in `open()` for TXT/MD.
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| date-fns | ^4.1 | Date formatting | Tree-shakeable, immutable, no Moment.js bloat. Format due dates, recording timestamps, transcript timecodes | HIGH |
+**Supported formats:** `.pdf`, `.docx`, `.txt`, `.md`
 
-### HTTP Client
+| Format | Library | Extraction Pattern |
+|--------|---------|-------------------|
+| PDF | PyMuPDF | `fitz.open(path)` then `page.get_text()` per page |
+| DOCX | python-docx | `Document(path)` then iterate `doc.paragraphs` |
+| TXT | built-in | `open(path).read()` |
+| MD | built-in | `open(path).read()` (treat as plain text for LLM context) |
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| Native fetch | (built-in) | API calls | Next.js extends fetch with caching/revalidation semantics. Do NOT add axios -- fetch is sufficient and integrates with Next.js caching layer. TanStack Query wraps fetch calls | HIGH |
+**Backend integration:**
+1. New endpoint: `POST /recordings/{job_id}/documents` -- accepts multipart file upload.
+2. New endpoint: `GET /recordings/{job_id}/documents` -- list attached documents.
+3. New SQLite table:
+   ```sql
+   CREATE TABLE documents (
+       id TEXT PRIMARY KEY,
+       job_id TEXT NOT NULL REFERENCES jobs(id),
+       filename TEXT NOT NULL,
+       content_text TEXT NOT NULL,
+       created_at TEXT NOT NULL DEFAULT (datetime('now'))
+   );
+   ```
+4. Document text is injected into PRD/diagram prompts as additional context (see section 5).
 
-### Development & Quality
+**What NOT to add:**
+| Library | Why Not |
+|---------|---------|
+| unstructured | Massive dependency tree (pulls in ML models, detectron2, etc). Overkill for extracting text from standard digital documents. |
+| langchain document loaders | Unnecessary abstraction layer. Direct `fitz.open()` / `Document()` calls are 5 lines of code. |
+| pdfplumber | Slower than PyMuPDF. Better at table extraction, but we need prose text, not structured tables. |
+| pypdf | Lighter than PyMuPDF but 3-5x slower and worse at complex layouts. |
+| pytesseract / OCR | Scanned documents are out of scope for FYP. Meeting-adjacent docs (specs, PRDs, design docs) are digital-native. |
+| mammoth | Converts DOCX to HTML. We need plain text for LLM context, not HTML. |
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| ESLint | ^9.15 | Linting | Flat config format in v9. Next.js ships eslint-config-next. Add @typescript-eslint for TS rules | MEDIUM |
-| Prettier | ^3.4 | Formatting | End formatting debates. Use prettier-plugin-tailwindcss to auto-sort Tailwind classes | MEDIUM |
-| prettier-plugin-tailwindcss | ^0.6 | Tailwind class sorting | Automatic consistent class ordering | MEDIUM |
+### 4. AgglomerativeClustering for Diarization
 
-### Backend (Existing -- Reference Only)
+**Approach:** Replace `MeanShift()` with `AgglomerativeClustering()` in `FastDiarizer.diarize()`. Zero new dependencies -- scikit-learn >=1.5 is already installed.
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| Python | 3.11+ | Backend runtime | Already chosen in existing repo | HIGH |
-| FastAPI | ^0.115 | API framework | Already in existing backend; async, fast, auto-generates OpenAPI spec which we can use to type the frontend | HIGH |
-| Whisper | (via faster-whisper) | STT | Already built in backend pipeline | HIGH |
-| llama.cpp | (Python bindings) | LLM inference | Local inference on M3 Metal; already chosen | HIGH |
-| SQLite | 3.x | Database | Already chosen; accessed via backend only -- frontend never touches DB directly | HIGH |
+**Why switch from MeanShift:**
+- MeanShift uses kernel density estimation, which struggles with high-dimensional speaker embeddings (ECAPA-TDNN produces 192-dim vectors). Bandwidth estimation becomes unreliable.
+- AgglomerativeClustering with cosine distance + average linkage is the standard approach in speaker diarization literature. SpeechBrain's own diarization examples use it.
+- `distance_threshold` parameter auto-determines speaker count (like MeanShift) but with more stable, reproducible boundaries.
 
-## API Contract Strategy
+**Implementation:**
+```python
+from sklearn.cluster import AgglomerativeClustering
 
-The frontend communicates with FastAPI exclusively via REST. Key pattern:
-
-1. **Generate TypeScript types from FastAPI's OpenAPI spec.** Use `openapi-typescript` (^7.4) to auto-generate types from `http://localhost:8000/openapi.json`. This eliminates manual type duplication.
-2. **TanStack Query wraps all API calls.** Custom hooks like `useTranscripts()`, `useTasks()`, `useOutcomes()` encapsulate fetch + caching + error handling.
-3. **Zod validates API responses** at runtime as a safety net beyond TypeScript compile-time checks.
-
-```bash
-# Generate types from running FastAPI server
-npx openapi-typescript http://localhost:8000/openapi.json -o src/lib/api/schema.d.ts
+# In FastDiarizer.diarize(), replace:
+#   clustering = MeanShift()
+#   labels = clustering.fit_predict(embedding_matrix)
+# With:
+clustering = AgglomerativeClustering(
+    n_clusters=None,
+    distance_threshold=1.0,   # tune empirically on test recordings
+    metric="cosine",
+    linkage="average",
+)
+labels = clustering.fit_predict(embedding_matrix)
 ```
+
+**Key tuning parameter:** `distance_threshold`
+- Controls when clusters stop merging. Lower = more speakers detected, higher = fewer.
+- Start at 1.0 for cosine distance. Test with 2-speaker and 3-speaker recordings to calibrate.
+- Can be exposed as an optional API parameter later if needed.
+
+**What stays the same:**
+- SpeechBrain ECAPA-TDNN for embedding extraction (works well, already loaded).
+- Fixed-window approach for segment extraction (simple, effective for meeting audio).
+- Median filter smoothing post-clustering (still valuable).
+- Label remapping, boundary snapping, segment merging (all downstream of clustering).
+
+### 5. Product-Focused Diagram Generation (Prompt Engineering)
+
+**Approach:** Rewrite prompts in `document_generation.py`. No new libraries.
+
+**Current problem:** Prompts say "generate from meeting outcomes" which biases the LLM toward modeling the meeting process itself ("Record -> Transcribe -> Review") instead of the product discussed in the meeting.
+
+**Changes needed:**
+1. **Rewrite system prompts** to explicitly instruct: "Model the PRODUCT or SYSTEM discussed in this meeting, NOT the meeting process."
+2. **Add negative examples:** "Do NOT include nodes like 'Meeting', 'Recording', 'Transcription', 'Review Outcomes'."
+3. **Inject document context** from attached documents:
+   ```python
+   doc_context = ""
+   if attached_documents:
+       doc_context = "\n\n## Reference Documents\n"
+       for doc in attached_documents:
+           # Truncate to ~2000 chars per doc to stay within 4096 context window
+           doc_context += f"\n### {doc['filename']}\n{doc['content_text'][:2000]}\n"
+   ```
+4. **Product context extraction:** Optionally add a pre-step that asks the LLM "What product/system is being discussed?" and feeds that answer into the diagram prompt.
+
+**Context window constraint:** Phi-4-mini runs with `n_ctx=4096`. With outcomes (~500-1000 tokens), system prompt (~300 tokens), and generation headroom (~2000 tokens), there is roughly ~800-1200 tokens available for document context. Truncation to ~2000 chars per document (approximately 500 tokens) is necessary. If multiple documents are attached, limit to the 2 most relevant or let the user select which to include.
+
+### 6. Audio Serving Endpoint
+
+**Approach:** `FastAPI FileResponse` for static file serving. Already part of FastAPI, no new dependency.
+
+**Implementation:**
+```python
+from fastapi.responses import FileResponse
+
+@app.get("/recordings/{job_id}/audio")
+async def get_recording_audio(job_id: str):
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return FileResponse(
+        job["file_path"],
+        media_type="audio/wav",
+        filename=job.get("original_filename", f"{job_id}.wav"),
+    )
+```
+
+`FileResponse` handles `Content-Range` headers needed for browser audio seeking (scrubbing without downloading the entire file).
 
 ## Alternatives Considered
 
 | Category | Recommended | Alternative | Why Not |
 |----------|-------------|-------------|---------|
-| Framework | Next.js 15 | Vite + React | Need SSR for SEO? No. But Next.js gives file routing, API routes for proxying, and the team specified it. Vite would work but adds routing/layout boilerplate |
-| State (server) | TanStack Query | SWR | TanStack Query has better devtools, mutation support, query invalidation, and optimistic updates. SWR is simpler but Allure needs the advanced features |
-| State (client) | Zustand | Redux Toolkit | Redux is overkill. Allure's client state is small (UI toggles, playback state). Zustand is 1KB, zero boilerplate |
-| State (client) | Zustand | Jotai | Jotai's atomic model is great for complex derived state. Allure's client state doesn't need that -- Zustand's single-store model is simpler |
-| Components | shadcn/ui | Chakra UI | Chakra ships runtime CSS-in-JS (performance cost) and is an opaque dependency. shadcn gives you the source code -- you own it, modify it, no version upgrade surprises |
-| Components | shadcn/ui | Material UI (MUI) | MUI is heavy (~100KB+), has its own design system that fights customization, and uses Emotion CSS-in-JS. Wrong fit for Tailwind-first projects |
-| DnD | dnd-kit | react-beautiful-dnd | react-beautiful-dnd is deprecated/unmaintained by Atlassian. dnd-kit is the successor the community adopted |
-| DnD | dnd-kit | @hello-pangea/dnd | Fork of react-beautiful-dnd. Maintained but dnd-kit has better architecture (hooks-based, modular, accessible) |
-| Audio | wavesurfer.js | Howler.js | Howler is audio-only (no waveform visualization). Allure needs visual waveforms synced with transcript |
-| Tables | TanStack Table | AG Grid | AG Grid is enterprise-grade overkill. TanStack Table is headless (Tailwind-friendly) and free |
-| HTTP | Native fetch | Axios | Axios adds 13KB for features Next.js fetch already has. Interceptors? Use TanStack Query's global error handler instead |
-| Forms | React Hook Form | Formik | Formik causes unnecessary re-renders and is less actively maintained. RHF is the standard choice in 2025 |
-| Dates | date-fns | dayjs | Both work. date-fns is tree-shakeable by default and has a larger function library. Marginal difference |
-| Markdown | react-markdown | MDX | MDX is for authoring content with components. Allure renders LLM-generated markdown -- react-markdown is the right tool |
-| Toasts | Sonner | react-hot-toast | Sonner has better defaults, stacking behavior, and promise toast support. Both are tiny |
-
-## What NOT to Use
-
-| Technology | Why Not |
-|------------|---------|
-| **Axios** | Unnecessary with native fetch + TanStack Query. Adds bundle size for no benefit in Next.js |
-| **Redux / Redux Toolkit** | Massive boilerplate for what Allure needs. The "server state" (tasks, transcripts) belongs in TanStack Query, not Redux |
-| **CSS Modules** | Slower to write than Tailwind utilities. Allure has 2 weeks -- Tailwind is faster |
-| **Styled Components / Emotion** | Runtime CSS-in-JS has performance cost and doesn't work with React Server Components |
-| **Moment.js** | Massive, mutable, deprecated. Use date-fns |
-| **Next-Auth / Auth.js** | Allure is local-first with simple Admin/Viewer roles. A full auth library is overkill. Use a lightweight session approach or simple token-based auth from FastAPI |
-| **Prisma / Drizzle** | Database is SQLite accessed by the Python backend. Frontend should never touch the DB. All data flows through FastAPI REST endpoints |
-| **tRPC** | Designed for TypeScript backends. Allure's backend is Python/FastAPI. Use OpenAPI types instead |
-| **Socket.io** | Allure doesn't need real-time collaboration. Polling via TanStack Query (refetchInterval) handles transcript status updates. SSE from FastAPI is sufficient for long-running tasks if needed |
-| **Electron / Tauri** | Allure is web-first per project constraints. Desktop wrapper is out of scope for FYP |
-| **Storybook** | 2-week sprint. No time for component documentation. Build the product |
+| Audio playback | Native `<audio>` | wavesurfer.js | 200KB+ for waveform we don't need; transcript-centric UX |
+| Audio playback | Native `<audio>` | howler.js | Games/spatial audio wrapper; `<audio>` is simpler |
+| PDF extraction | PyMuPDF (>=1.27) | pypdf | 3-5x slower, worse complex layout handling |
+| PDF extraction | PyMuPDF (>=1.27) | pdfplumber | Slower; optimized for tables, we need prose |
+| PDF extraction | PyMuPDF (>=1.27) | unstructured | Massive dependency tree with ML models |
+| DOCX extraction | python-docx (>=1.1) | mammoth | Converts to HTML; we need plain text |
+| Clustering | AgglomerativeClustering | Keep MeanShift | Unreliable bandwidth on 192-dim embeddings |
+| Clustering | AgglomerativeClustering | SpectralClustering | Requires precomputed affinity matrix; lacks distance_threshold |
+| Clustering | AgglomerativeClustering | HDBSCAN | Density-based like MeanShift; same weakness on high-dim; extra dependency |
+| Diagram quality | Prompt engineering | Fine-tuned model | Out of scope for FYP |
 
 ## Installation
 
 ```bash
-# Initialize Next.js project
-npx create-next-app@latest allure-frontend --typescript --tailwind --eslint --app --src-dir --import-alias "@/*"
-
-# Initialize shadcn/ui
-npx shadcn@latest init
-
-# Add shadcn components (add as needed)
-npx shadcn@latest add button card dialog dropdown-menu input label select separator sheet sidebar table tabs textarea toast badge command popover scroll-area
-
-# Core dependencies
-npm install @tanstack/react-query @tanstack/react-table zustand zod react-hook-form @hookform/resolvers
-
-# DnD for Kanban
-npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
-
-# Audio
-npm install wavesurfer.js
-
-# Markdown & diagrams
-npm install react-markdown mermaid
-
-# Utilities
-npm install date-fns nuqs sonner lucide-react
-
-# Dev dependencies
-npm install -D openapi-typescript prettier prettier-plugin-tailwindcss @types/node
+# Backend -- new dependencies only (run in backend/ directory)
+pip install "pymupdf>=1.27" "python-docx>=1.1"
 ```
 
-## Project Structure (Recommended)
-
+Add to `backend/requirements.txt`:
 ```
-src/
-  app/                          # Next.js App Router
-    (dashboard)/                # Route group for main app layout
-      layout.tsx                # Sidebar + header layout
-      page.tsx                  # Dashboard home
-      recordings/
-        page.tsx                # Recording Hub
-        [id]/page.tsx           # Single recording view
-      projects/
-        page.tsx                # Project list
-        [id]/
-          page.tsx              # Project overview
-          tasks/page.tsx        # Task list + Kanban
-          outcomes/page.tsx     # Outcome review
-          prd/page.tsx          # PRD viewer
-      transcripts/
-        [id]/page.tsx           # Transcript editor + audio sync
-    api/                        # Next.js API routes (proxy to FastAPI)
-      [...proxy]/route.ts       # Catch-all proxy to FastAPI
-  components/
-    ui/                         # shadcn components (auto-generated)
-    recording/                  # Recording-specific components
-    transcript/                 # Transcript editor components
-    kanban/                     # Kanban board components
-    outcomes/                   # Outcome review components
-  hooks/                        # Custom React hooks
-    use-recordings.ts           # TanStack Query hooks for recordings
-    use-tasks.ts                # TanStack Query hooks for tasks
-    use-audio-recorder.ts       # MediaRecorder wrapper
-  lib/
-    api/
-      client.ts                 # Fetch wrapper with base URL
-      schema.d.ts               # Auto-generated from OpenAPI
-    utils.ts                    # cn() and helpers
-  stores/
-    ui-store.ts                 # Zustand: sidebar, modals, playback
+pymupdf>=1.27
+python-docx>=1.1
 ```
 
-## Key Architecture Decisions for the Stack
+**Frontend:** No new npm packages. Zero changes to `package.json`.
 
-1. **No ORM on the frontend.** All data flows through FastAPI REST. The frontend is a pure API consumer.
-2. **Server Components for data-heavy pages.** Transcript lists, task tables, project overviews fetch data on the server. Interactive parts (Kanban, audio player, recording) are Client Components.
-3. **API proxy through Next.js API routes.** Frontend calls `/api/recordings` which proxies to `http://localhost:8000/recordings`. This avoids CORS issues and gives a single origin.
-4. **OpenAPI-generated types.** Run `openapi-typescript` against FastAPI's auto-generated spec. Single source of truth for API contracts.
-5. **Zustand for UI state only.** Recording in-progress, playback position, sidebar state. Never for server data.
-6. **TanStack Query for all server data.** Tasks, recordings, transcripts, outcomes, projects. Caching, refetching, optimistic updates all handled.
+## Summary
+
+| Feature | Change Type | New Dependencies | Effort |
+|---------|-------------|-----------------|--------|
+| Audio playback sync | Frontend (React + HTML5 `<audio>`) + backend endpoint | None | Medium |
+| Speaker statistics | Backend computation expansion | None | Low |
+| Document upload/parsing | Backend endpoints + text extraction | `pymupdf`, `python-docx` | Medium |
+| AgglomerativeClustering | Backend swap (MeanShift -> AgglomerativeClustering) | None (already in scikit-learn) | Low |
+| Product-focused diagrams | Prompt rewriting in `document_generation.py` | None | Medium (iterative) |
+| Audio serving | Backend endpoint (FileResponse) | None (already in FastAPI) | Low |
+
+**Total new dependencies: 2** Python packages (`pymupdf`, `python-docx`). Everything else leverages what is already installed.
 
 ## Sources
 
-- Next.js documentation (nextjs.org/docs) -- App Router, Server Components, fetch caching
-- shadcn/ui documentation (ui.shadcn.com) -- Component installation, theming
-- TanStack Query documentation (tanstack.com/query) -- v5 API, query invalidation patterns
-- dnd-kit documentation (dndkit.com) -- Sortable preset for Kanban
-- wavesurfer.js documentation (wavesurfer.js.org) -- v7 Web Audio API integration
-- Zustand GitHub (github.com/pmndrs/zustand) -- v5 with React 19 support
-- openapi-typescript GitHub (github.com/openapi-ts/openapi-typescript) -- Type generation from OpenAPI
-
-**Note:** All version numbers are based on training data through early 2025. Exact latest patch versions should be verified via `npm view [package] version` before installation. The ecosystem choices and rationale are HIGH confidence regardless of minor version differences.
+- [PyMuPDF PyPI -- v1.27.2](https://pypi.org/project/PyMuPDF/) -- latest version, installation
+- [python-docx PyPI -- v1.2.0](https://pypi.org/project/python-docx/) -- latest version, Python support
+- [scikit-learn AgglomerativeClustering docs](https://scikit-learn.org/stable/modules/generated/sklearn.cluster.AgglomerativeClustering.html) -- distance_threshold API, cosine metric
+- [SpeechBrain diarization processing](https://speechbrain.readthedocs.io/en/v1.0.2/API/speechbrain.processing.diarization.html) -- embedding-based diarization patterns
+- [Simple Speaker Diarization with SpeechBrain](https://huggingface.co/blog/norwooodsystems/simple-speaker-diarization-speechbrain) -- AgglomerativeClustering with speaker embeddings
+- [Metaview: Syncing a Transcript with Audio in React](https://www.metaview.ai/resources/blog/syncing-a-transcript-with-audio-in-react) -- React transcript sync patterns
+- [2025 Python PDF Extractor Comparison](https://dev.to/onlyoneaman/i-tested-7-python-pdf-extractors-so-you-dont-have-to-2025-edition-akm) -- PyMuPDF performance benchmarks
+- [2026 Python PDF Library Evaluation](https://unstract.com/blog/evaluating-python-pdf-to-text-libraries/) -- current landscape
+- [Codepunker: Sync Audio with Text](https://www.codepunker.com/blog/sync-audio-with-text-using-javascript) -- HTML5 audio timeupdate patterns

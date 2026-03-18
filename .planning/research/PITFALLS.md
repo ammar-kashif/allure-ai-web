@@ -1,268 +1,295 @@
 # Domain Pitfalls
 
-**Domain:** AI-powered meeting transcription and project plan extraction (local-first)
-**Researched:** 2026-03-11
-**Confidence:** MEDIUM (based on training data, web search unavailable for verification)
+**Domain:** v1.1 features -- audio playback sync, speaker analytics, document attachments, AgglomerativeClustering, product-focused diagram generation -- added to existing meeting transcription app
+**Researched:** 2026-03-18
+**Scope:** Pitfalls specific to ADDING these features to the existing v1.0 codebase
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, demo failures, or blown deadlines.
+Mistakes that cause rewrites or major issues.
 
-### Pitfall 1: Browser Audio Recording Silently Fails or Produces Unusable Audio
+### Pitfall 1: Audio Playback Timing Drift from `timeupdate` Event Granularity
 
-**What goes wrong:** The MediaRecorder API has inconsistent codec support across browsers. Chrome supports `audio/webm;codecs=opus`, Safari prefers `audio/mp4;codecs=aac`. Recording starts, appears to work, but the resulting file is either empty, corrupted, or in a format Whisper cannot ingest. Additionally, `getUserMedia` permission prompts can confuse users, and if the tab loses focus or the device sleeps, recording can silently stop or produce gaps.
+**What goes wrong:** The HTML5 `timeupdate` event fires at only 3-5 Hz (roughly every 200-300ms), not per-frame. When using `timeupdate` alone to highlight the active transcript line, users experience a noticeable lag where the highlight jumps to the next line well after the audio has moved past a segment boundary. On longer recordings (10+ minutes), accumulated rounding from the browser's `currentTime` double-precision float can cause the highlight to be off by an entire utterance.
 
-**Why it happens:** Developers test recording in one browser, assume it works everywhere. MediaRecorder's `ondataavailable` event fires with Blob chunks, but the final concatenated file may lack proper headers if `stop()` is not called cleanly. Whisper expects specific audio formats (16kHz mono WAV ideally), and WebM/Opus output needs transcoding.
+**Why it happens:** Developers assume `timeupdate` is high-frequency and precise. It is neither -- frequency depends on system load and browser implementation (MDN documents 4-66 Hz range). Additionally, the existing transcript segments have `startTime`/`endTime` in seconds from Moonshine Voice, but browser `currentTime` precision varies by browser (Firefox had a documented low-precision bug at `bugzilla.mozilla.org/587465`).
 
-**Consequences:** Demo day: press record, get silence or a file Whisper rejects. Hours wasted debugging codec issues under deadline pressure.
+**Consequences:** Transcript highlight feels laggy and disconnected from audio. Click-to-seek puts playhead at wrong position. Users lose trust in the sync feature, which is the centerpiece of v1.1.
 
 **Prevention:**
-- Hardcode to Chrome/Chromium for the FYP demo. Do not attempt cross-browser audio recording support in 2 weeks.
-- Use `audio/webm;codecs=opus` as the MIME type, check `MediaRecorder.isTypeSupported()` at init and show a clear error if unsupported.
-- Transcode to WAV (16kHz mono) server-side using ffmpeg before feeding to Whisper. The Python backend should handle this, not the frontend.
-- Implement a "test recording" flow early: record 5 seconds, upload, transcribe, verify the full pipeline works end-to-end before building any UI polish.
-- Save raw blobs to disk immediately via chunked upload, do not accumulate in browser memory.
+- Use `requestAnimationFrame` polling loop when audio is playing, NOT `timeupdate` events. Throttle the rAF callback to ~10Hz (check every 100ms) to balance responsiveness with CPU usage. Fall back to `timeupdate` only when tab is backgrounded (rAF pauses in background tabs).
+- Round `currentTime` comparisons with a tolerance window (e.g., 150ms) rather than exact equality.
+- Use binary search on sorted segments array for O(log n) active-segment lookup instead of linear scan.
+- Store segment boundaries as a pre-sorted array once on transcript load, not recomputed per frame.
 
-**Detection:** Test the full record-to-transcript pipeline on day 1. If you cannot get a clean transcript from a browser recording within the first 2 days, this is a blocker.
+**Detection:** Test with a 30+ minute recording. If highlight ever lags more than ~200ms behind audible speech changes, the sync mechanism is too slow.
 
-**Phase:** Must be resolved in Phase 1 (core recording pipeline). This is the foundation everything else depends on.
+**Phase:** Must be addressed in the audio playback phase. This is architectural -- retrofitting from `timeupdate` to rAF later requires rewriting the entire sync loop.
+
+**Confidence:** HIGH -- well-documented browser behavior, MDN sources confirm.
 
 ---
 
-### Pitfall 2: Whisper + Diarization Pipeline Takes Too Long for Demo Flow
+### Pitfall 2: AgglomerativeClustering `distance_threshold` vs `n_clusters` Mutual Exclusion and Cosine Distance Range Confusion
 
-**What goes wrong:** Whisper transcription on local hardware (even M3) takes significant time relative to audio length. A 30-minute meeting recording can take 5-15 minutes to transcribe with `whisper-large-v3`, and adding speaker diarization (e.g., pyannote.audio) adds another processing step. The "record and get a project plan in under 5 minutes" promise breaks for any non-trivial recording.
+**What goes wrong:** The current system uses MeanShift in `transcription.py` (auto-determines speaker count). Switching to AgglomerativeClustering requires choosing between `n_clusters` (must know speaker count upfront) or `distance_threshold` (auto-determine count from embedding similarity). Teams often set `distance_threshold` without understanding the cosine distance range, leading to either all speakers merged into one cluster or every window becoming its own speaker.
 
-**Why it happens:** Teams test with 30-second clips during development. Everything feels fast. Then at demo time, a 10-minute recording takes 8 minutes to process and the audience loses patience.
+**Why it happens:** sklearn's AgglomerativeClustering has a non-obvious constraint: `n_clusters` and `distance_threshold` are mutually exclusive -- setting both raises an error. When using `metric="cosine"`, distances range from 0 (identical) to 2 (opposite), NOT -1 to 1 as some developers assume. A threshold of 0.5 with cosine may merge too aggressively, while 1.5 may barely cluster at all. There is an open sklearn issue (#27434) documenting confusion around cosine `distance_threshold` behavior. Furthermore, `linkage="ward"` only accepts euclidean -- using it with cosine raises an error.
 
-**Consequences:** Demo feels broken. The core value prop ("meeting to plan in 5 minutes") is undermined. Worse, if the backend processes synchronously, the UI appears frozen.
+**Consequences:** Diarization produces wrong speaker count -- either one mega-speaker or dozens of micro-speakers. Since diarization feeds into speaker stats, transcript display, and extraction evidence refs, a bad clustering result cascades through the entire pipeline. Existing tests against MeanShift baselines will not catch this.
 
 **Prevention:**
-- Use `whisper-base` or `whisper-small` for the FYP demo, not `whisper-large`. Accuracy difference is noticeable but speed difference is dramatic (10x+ faster). For a demo, speed matters more than perfect accuracy.
-- Pre-record a demo meeting (2-3 minutes max) and pre-process it. Have the transcript ready as a fallback. Never rely on live processing for the primary demo path.
-- Make transcription asynchronous with clear progress indication in the UI (status: "Processing", "Transcribing", "Extracting outcomes").
-- Test with realistic-length recordings (5-10 minutes) early, not just 15-second clips.
-- If diarization is slow, make it optional or fake it for demo (label all speakers as "Speaker 1" and show the diarization UI as a manual correction feature).
+- Use `distance_threshold` mode (not `n_clusters`) since meeting participant count is unknown.
+- Start with `distance_threshold=0.7` for cosine metric on ECAPA-TDNN embeddings -- this is a well-tested starting point for speaker verification tasks.
+- Use `linkage="average"` with cosine (NOT `linkage="ward"` which only accepts euclidean).
+- Validate by comparing AgglomerativeClustering output against current MeanShift output on 5+ test recordings before swapping. Keep MeanShift as a fallback.
+- Add a sanity check: if clustering produces more than 10 speakers or fewer than 2 on multi-speaker audio, log a warning and fall back to MeanShift.
 
-**Detection:** By day 3, you should have benchmarked: "A 5-minute recording takes X minutes to transcribe on our M3." If X > 3, switch to a smaller Whisper model or pre-process demo recordings.
+**Detection:** Run both MeanShift and AgglomerativeClustering on the same test recordings. If speaker counts diverge by more than 1, investigate threshold tuning.
 
-**Phase:** Phase 1 (backend pipeline validation). Must benchmark before building the UI around it.
+**Phase:** Diarization upgrade phase. Must have test recordings with known speaker counts to validate.
+
+**Confidence:** HIGH -- sklearn docs and GitHub issue #27434 confirm the mutual exclusion constraint and cosine range behavior.
 
 ---
 
-### Pitfall 3: Local LLM Output is Unreliable for Structured Extraction
+### Pitfall 3: Document Context Injection Blows Past LLM Context Window
 
-**What goes wrong:** A quantized 7-8B parameter model (Llama 3.1 8B Q4_K_M, Mistral 7B) asked to extract structured JSON (decisions, action items, requirements, blockers) from transcript text produces: malformed JSON, hallucinated items not in the transcript, missed items that are clearly stated, inconsistent schema across runs, and confidence scores that are meaningless (always 0.85 or always random).
+**What goes wrong:** When document attachments (PDFs, DOCX) are parsed and injected as additional context for PRD/Mermaid generation, the combined prompt (system prompt + outcomes + document text) exceeds the 4096-token `n_ctx` configured for Phi-4-mini in `main.py` line 80. The LLM either truncates silently (producing incomplete output), throws an error, or hangs.
 
-**Why it happens:** Small quantized models are significantly less reliable at instruction-following and structured output than GPT-4 or Claude. Developers prototype with a cloud API, get great results, then switch to local inference and are shocked at the quality drop. The model "sort of" follows the schema but breaks in subtle ways: missing closing braces, invented fields, action items that paraphrase rather than extract.
+**Why it happens:** The current `n_ctx=4096` is already tight for extraction (transcript text + system prompt + JSON schema). Adding document text (a typical PRD or requirements doc is 2000-5000 tokens) will routinely overflow. Critically, `n_ctx` in llama.cpp is the TOTAL window including both input and output -- it is not separate input/output budgets. With `max_tokens=4096` for generation and `n_ctx=4096`, there is effectively zero room for input if max output is ever reached.
 
-**Consequences:** The entire value chain after transcription depends on reliable extraction. If extraction is garbage, the confidence-gated review screen is useless, task generation is wrong, and the product is a toy.
+**Consequences:** Generation silently produces truncated or garbage output. Users upload a 10-page requirements doc, get back a PRD that references only the first page. Or the backend crashes with an opaque llama.cpp error.
 
 **Prevention:**
-- Use llama.cpp's grammar-constrained generation (GBNF grammars) to force valid JSON output. This eliminates malformed JSON entirely. Define the exact schema as a grammar.
-- Keep prompts simple and few-shot. Include 2-3 examples of transcript-to-extraction in the prompt. Small models respond much better to examples than to complex instructions.
-- Process transcripts in chunks (per-speaker-turn or per-5-minute-window), not as one giant prompt. Small context windows and attention degradation make whole-transcript processing unreliable.
-- Make confidence scores rule-based rather than LLM-generated. The LLM extracts items; your code scores them based on heuristics (keyword matches, speaker agreement, repetition). LLM-generated confidence scores from small models are essentially random numbers.
-- Have a hardcoded fallback demo transcript with pre-extracted outcomes. If live extraction fails at demo time, seamlessly show the pre-processed version.
+- Increase `n_ctx` to at least 8192 (Phi-4-mini supports up to 16384). Measure inference latency impact on M3 before committing to higher values.
+- Implement a token budget system: reserve 1500 tokens for system prompt, 1500 for outcomes, cap document context at `n_ctx - 3000 - max_tokens`.
+- Summarize long documents before injection -- extract headings, bullet points, and first sentences of paragraphs rather than injecting full text.
+- Add a token counting step (use llama.cpp's tokenizer via `llama_cpp.Llama.tokenize()` or a fast approximation like `len(text) // 4`) before building the prompt. If over budget, truncate document context and return a warning to the user.
 
-**Detection:** By day 4-5, run 10 different transcript excerpts through your extraction pipeline. If more than 30% produce broken JSON or obviously wrong items (even with GBNF), the prompt needs rework or the model needs swapping.
+**Detection:** Test with a 5+ page PDF attached. If generated PRD does not reference content from the last page, context truncation is happening silently.
 
-**Phase:** Phase 1-2. Validate extraction quality immediately after STT pipeline is confirmed working.
+**Phase:** Document attachment phase. Must be addressed before document context injection is implemented, as it determines the entire prompt architecture.
+
+**Confidence:** HIGH -- confirmed by reading `main.py` line 80 (`n_ctx=4096`) and `document_generation.py` which already uses the full window for outcomes alone.
 
 ---
 
-### Pitfall 4: Scope Creep Kills the Demo Path
+### Pitfall 4: Mermaid Diagrams Model the Meeting Flow, Not the Product
 
-**What goes wrong:** With 16+ active requirements listed, the team spreads effort across features instead of nailing the core demo path: Record -> Transcribe -> Extract Outcomes -> Generate Tasks. Features like Kanban views, PRD generation, Mermaid diagrams, QA agent, and notification systems consume time that should go toward making the core path bulletproof.
+**What goes wrong:** Current prompts in `document_generation.py` ask the LLM to generate diagrams "from meeting outcomes." The LLM produces diagrams showing the meeting discussion flow (e.g., "Team discusses feature A -> Team argues about B -> Decision made on C") rather than the actual product being discussed (e.g., "User logs in -> Selects project -> Uploads recording -> Views transcript"). This is the explicit v1.1 goal: "diagrams model the product discussed, not meeting flow."
 
-**Why it happens:** FYP evaluation rewards breadth (or appears to). Team members want to work on "their" feature. It feels productive to build a Kanban board while waiting for the STT pipeline to be debugged. But a polished Kanban view with a broken recording pipeline is a failed demo.
+**Why it happens:** The existing prompts (lines 7-65 of `document_generation.py`) provide outcomes as input and ask for diagrams. Outcomes are meeting artifacts (decisions, action items, requirements, blockers) -- they describe what was SAID, not what the product DOES. Without explicit instruction to synthesize a product model from the discussion, the LLM defaults to summarizing the input structure.
 
-**Consequences:** Demo day: 8 half-built features, none working end-to-end. The evaluator asks "show me the main flow" and it crashes.
+**Consequences:** Generated diagrams are useless for product documentation. A user flow diagram should show the product's user journey, but instead shows "Speaker 1 proposed X -> Speaker 2 agreed -> Action item assigned." This defeats the entire purpose of the diagram generation feature.
 
 **Prevention:**
-- Define the demo script on day 1. Write the exact steps the evaluator will see. Everything not in that script is secondary.
-- Week 1: core pipeline only (record, transcribe, extract, display). No UI polish, no secondary features.
-- Week 2: polish the demo path, then and only then add secondary features if time permits.
-- Track features as "demo path" vs "nice to have" and enforce the distinction in daily standups.
-- PRD generation, Mermaid diagrams, QA agent, and notification system are all post-core-path features. Do not start them until the demo path works flawlessly.
+- Restructure prompts to have two phases: (1) "From these meeting outcomes and attached documents, identify the product/system being discussed and its core user journeys/entities" (2) "Generate a Mermaid diagram for that product."
+- Add explicit negative instructions: "Do NOT diagram the meeting discussion itself. Do NOT include speaker names, meeting actions, or discussion steps. Diagram the product or system the participants are designing/discussing."
+- Include document context (attached docs) as PRIMARY product context, with outcomes as supplementary. Attached documents like PRDs or specs describe the product directly; outcomes describe discussion about it.
+- Add few-shot examples in the prompt showing the transformation from meeting-about-product to product-diagram.
+- Consider a two-pass approach: first LLM call extracts product entities/flows into a structured intermediate, second generates Mermaid from that intermediate.
 
-**Detection:** If by day 5 you cannot demo the full Record -> Transcript -> Outcomes -> Tasks flow (even with ugly UI), you are behind. Drop all secondary features immediately.
+**Detection:** Generate diagrams from 3 different recordings. If any diagram node contains words like "discussed," "proposed," "agreed," "Speaker," or "meeting," the prompt is still modeling the meeting, not the product.
 
-**Phase:** All phases. This is a process discipline, not a technical fix.
+**Phase:** Diagram generation improvement phase. This is a prompt engineering problem -- can be iterated without code changes, but must be validated before shipping.
+
+**Confidence:** HIGH -- confirmed by reading existing prompts in `document_generation.py`.
 
 ---
-
-### Pitfall 5: Frontend-Backend Integration Assumptions
-
-**What goes wrong:** The frontend team builds against assumed API contracts. The Python backend (FastAPI) already exists with its own data models, endpoint patterns, and processing assumptions. When integration happens (often late), there are mismatches: different field names, different status enums, missing endpoints, unexpected async behavior, CORS issues, file upload format disagreements.
-
-**Why it happens:** In a 2-week timeline, teams defer integration to "later" and build in parallel with mocked data. The mocks do not match reality. The existing backend was built without the frontend's needs in mind.
-
-**Consequences:** Days 10-14 become an integration nightmare. Features that worked with mocked data break with real API responses. Time runs out before fixes are complete.
-
-**Prevention:**
-- Day 1: read the existing backend code. Document every endpoint, request/response shape, and status code. Do not assume -- read the actual FastAPI route definitions.
-- Build a thin integration test on day 1-2: frontend calls real backend endpoint, gets real response, displays it. Even if ugly, this proves the integration path works.
-- Use TypeScript types generated from or matching the actual backend response shapes. Do not invent frontend types and hope they match.
-- If the backend needs new endpoints (e.g., for outcome extraction, task creation), define and build them in week 1, not week 2.
-- CORS, authentication, and file upload (multipart/form-data for audio) are the three integration pain points. Solve all three on day 1-2 with minimal test cases.
-
-**Detection:** If by day 3 the frontend has not successfully called at least one real backend endpoint and displayed the response, integration risk is high.
-
-**Phase:** Phase 1. Integration before features.
 
 ## Moderate Pitfalls
 
-### Pitfall 6: Audio File Size and Upload Handling
+### Pitfall 5: PDF/DOCX Parsing Fails Silently on Scanned or Complex Documents
 
-**What goes wrong:** A 30-minute meeting recording at reasonable quality (128kbps Opus) is ~28MB. Uploading this via a standard multipart form submission can timeout, fail silently, or consume excessive browser memory if the entire file is held in a Blob. The backend may reject large files if not configured for it (FastAPI/Starlette default upload limits).
+**What goes wrong:** Users upload scanned PDFs (image-only, no text layer), password-protected files, or DOCX with embedded charts/tables. The parser returns empty string or garbled text. The system proceeds with empty document context, producing the same output as if no document was attached -- but the user thinks their document was used.
+
+**Why it happens:** PDF structure varies wildly. Multi-column layouts, nested tables, and scanned images all cause extraction tools to return partial or empty results. Standard Python PDF libraries (pypdf, pdfminer) handle text-layer PDFs well but fail silently on image-only PDFs. DOCX embedded objects (charts, SmartArt) are ignored by python-docx.
 
 **Prevention:**
-- Set explicit file size limits in both frontend (pre-upload check) and backend (FastAPI `UploadFile` with configured max size).
-- For the FYP, cap demo recordings at 5-10 minutes. This is a reasonable constraint that avoids file size issues entirely.
-- Use chunked upload if recordings might exceed 50MB, but for FYP scope, a simple single POST with increased timeout is sufficient.
-- Store files to `~/.allure/recordings/` on the backend immediately, return a file ID, process asynchronously.
+- After parsing, check if extracted text length is below a minimum threshold (e.g., 50 characters for a multi-page doc). If so, return a clear error to the user: "Could not extract text from this document."
+- Use `pypdf` for PDF text extraction (lightweight, pure Python, well-maintained). Do NOT add OCR (pytesseract/Tesseract) -- it adds massive dependency complexity for an FYP.
+- For DOCX, use `python-docx` which handles paragraphs and tables well but will miss embedded images/charts. Document this limitation.
+- Run document parsing in a thread with a 30-second timeout. Malformed PDFs can cause parsing libraries to hang indefinitely.
+- Validate file type by magic bytes (first few bytes of file), not just extension. A `.pdf` extension on a non-PDF file should be rejected.
+- Accept only PDF, DOCX, and TXT. Reject other formats with clear messaging.
 
-**Detection:** Test with a 10-minute recording upload. If it fails or takes >10 seconds, investigate.
+**Detection:** Upload a scanned PDF (screenshot saved as PDF). If the system accepts it silently and produces output identical to no-document-attached, the validation is missing.
 
-**Phase:** Phase 1 (recording pipeline).
+**Phase:** Document upload phase. Must implement validation before wiring parsing output into generation prompts.
+
+**Confidence:** HIGH -- well-documented PDF parsing challenges, confirmed by multiple sources.
 
 ---
 
-### Pitfall 7: SQLite Concurrency Under Async FastAPI
+### Pitfall 6: Speaker Statistics Computed from Merged Segments Give Wrong Turns and WPM
 
-**What goes wrong:** SQLite has a single-writer lock. FastAPI with async handlers can issue concurrent writes (e.g., updating transcript status while inserting extracted outcomes). This causes `database is locked` errors that appear intermittently and are hard to reproduce.
+**What goes wrong:** The v1.1 spec requires per-speaker statistics: time, words, WPM, turns, avg turn duration, pauses, avg pause duration. The current `calculate_speaker_stats` in `transcription.py` only computes `talk_time_pct` and `utterance_count` from already-merged segments. Computing turns from merged segments gives wrong results because `merge_consecutive_segments` combines consecutive same-speaker segments into one, losing individual turn boundaries.
+
+**Why it happens:** The merge step (`merge_consecutive_segments`, line 257) is designed to reduce visual clutter in the transcript display. But it destroys information needed for turn-level statistics. After merging, a speaker who had 5 quick turns appears to have 1 long turn if all 5 were consecutive.
+
+**Consequences:** Speaker analytics show inflated turn durations and deflated turn counts. WPM calculated from merged segments is correct (total words / total time), but turn-level metrics are wrong. Dashboard stats mislead users about meeting dynamics.
 
 **Prevention:**
-- Use WAL (Write-Ahead Logging) mode: `PRAGMA journal_mode=WAL;` -- this allows concurrent reads with a single writer and dramatically reduces lock contention.
-- Serialize all write operations through a single async queue or use a connection pool size of 1 for writes.
-- For FYP scale (single user, one recording at a time), this is unlikely to be a showstopper, but WAL mode should be enabled from day 1 as a safety net.
+- Compute turn-level statistics BEFORE the merge step in the pipeline. Specifically, calculate turns, avg turn duration, and pauses from the pre-merge aligned segments.
+- Compute word count per segment from text (split by whitespace) before merging, then aggregate per speaker.
+- Store both pre-merge stats and the merged segments in the transcript result. The `run_transcription` pipeline should return stats computed at the right pipeline stage.
+- Pause detection: a pause is silence between consecutive segments from the same speaker. Calculate from gaps between consecutive same-speaker segments in the pre-merge data.
 
-**Detection:** If you see intermittent `OperationalError: database is locked` in backend logs during testing, this is the cause.
+**Detection:** Record a meeting where one speaker has many short interjections. If their turn count shows 1-2 turns instead of many, stats are computed post-merge.
 
-**Phase:** Phase 1 (backend setup). One-line fix, but must be done early.
+**Phase:** Speaker statistics phase. Requires modifying the transcription pipeline -- must be coordinated with the AgglomerativeClustering change to avoid double-refactoring.
+
+**Confidence:** HIGH -- confirmed by reading `transcription.py` lines 257-314 where merge happens before stats return.
 
 ---
 
-### Pitfall 8: Transcript-to-Outcome Mapping Loses Context
+### Pitfall 7: Click-to-Seek Fails on WebM Audio Files in Safari
 
-**What goes wrong:** The LLM extracts "Create login page" as an action item, but the evidence link points to a vague region of the transcript. When the user clicks the evidence link to verify, they see a 30-second window of conversation that does not clearly support the extracted item. The confidence-gating feature becomes useless if evidence links are imprecise.
+**What goes wrong:** The app records audio as WebM (via MediaRecorder API, the default on Chrome). Safari has historically poor support for seeking within WebM containers. When a user clicks a transcript line to seek, Safari either ignores the seek, jumps to 0, or throws a `NotSupportedError`. Even on Chrome, WebM files recorded by MediaRecorder may lack proper Cues (seek index) for random access.
+
+**Why it happens:** The recording pipeline saves as WebM. The backend converts to WAV for processing (`convert_to_wav` in `audio_utils.py`), but the original WebM is what would be played back in the browser. WebM seeking requires the file to have proper Cues metadata which MediaRecorder does not always write correctly for audio-only streams.
 
 **Prevention:**
-- Extract outcomes at the utterance level, not the document level. Feed individual speaker turns or small groups of turns to the LLM, and tag each extraction with the exact utterance IDs it came from.
-- Store transcript as an array of timestamped utterances, not a single text blob. Each outcome links to specific utterance indices.
-- For the FYP demo, even approximate evidence linking (within 60 seconds of the relevant discussion) is acceptable. Do not over-engineer precise linking.
+- Serve the converted WAV file for playback, not the original WebM. WAV has perfect seek support across all browsers. The WAV already exists on the backend (created by `convert_to_wav`).
+- Add a backend endpoint to serve the WAV file: `GET /recordings/{job_id}/audio` that returns the WAV with proper `Content-Type: audio/wav` and `Accept-Ranges: bytes` headers.
+- If WAV file size is a concern (16kHz mono WAV is ~1.9MB/min, so a 30-min recording is ~57MB), transcode to MP3 or AAC for playback via ffmpeg.
+- Test playback and seeking explicitly on Safari, Firefox, and Chrome before shipping.
 
-**Detection:** After extraction, manually check 5 outcomes: does clicking the evidence link show relevant context? If 3+ are wrong, the chunking strategy needs adjustment.
+**Detection:** Open a recording detail page in Safari, click a transcript utterance at the 5-minute mark. If the audio does not seek to that point, WebM seeking is broken.
 
-**Phase:** Phase 2 (outcome extraction and review).
+**Phase:** Audio playback phase. Must decide the playback format before building the sync UI.
+
+**Confidence:** MEDIUM -- based on known WebM/Safari compatibility issues; specific behavior may have improved in recent Safari versions. Needs testing.
 
 ---
 
-### Pitfall 9: Overengineering the Review/Approval UI
+### Pitfall 8: Dual-Database Architecture Creates Document Attachment Inconsistency
 
-**What goes wrong:** The confidence-gated review screen becomes a complex approval workflow with inline editing, bulk actions, confidence threshold adjustment, evidence preview, and side-by-side comparison. This consumes a week of frontend time for a feature that, in the demo, will be used once on 5-10 items.
+**What goes wrong:** The app has two separate SQLite databases: frontend (`allure-frontend.db` via better-sqlite3 in `src/lib/db/index.ts`) for recordings/tasks/documents, and backend (`allure.db` via Python sqlite3 in `backend/storage.py`) for jobs/transcripts/outcomes. Document attachments need to be associated with recordings (frontend DB) but their parsed text needs to be available to the backend for generation. This split causes inconsistency and forces awkward data passing.
+
+**Why it happens:** The v1.0 architecture intentionally split storage for offline resilience. But document attachments span both worlds: the file metadata and recording association lives in the frontend, while the parsed text content is consumed by the backend's generation endpoints.
 
 **Prevention:**
-- The review screen is a simple list: item text, confidence badge, evidence link, approve/reject buttons. That is it.
-- No inline editing in v1. If an item is wrong, reject it. The demo does not need edit-and-resubmit flows.
-- Bulk approve (select all above 0.80) is the only "power feature" worth building.
-- Spend at most 1 day on this screen.
+- Store document attachment files on the filesystem (in the same `uploads/` directory as audio files), referenced by job_id.
+- When calling generation endpoints, send the parsed document text as part of the request body. Do NOT try to make the backend read from the frontend DB.
+- The frontend handles: file upload UI, storing file metadata, calling a backend endpoint to upload the document.
+- The backend handles: receiving the document file, parsing text, storing parsed text alongside the job record, using it during generation.
+- Add a `document_context` column to the backend `jobs` table, or a new `job_documents` table.
 
-**Detection:** If the review screen spec has more than 5 interactive elements per item, it is overscoped.
+**Detection:** Upload a document, then generate a PRD. If the backend cannot access the document content, the architecture boundary was not planned for.
 
-**Phase:** Phase 2 (review UI). Timebox strictly.
+**Phase:** Document upload phase. Architecture decision must be made before any document code is written.
+
+**Confidence:** HIGH -- confirmed by reading both `storage.py` (backend DB) and `src/lib/db/index.ts` (frontend DB) showing completely separate databases.
 
 ---
 
-### Pitfall 10: llama.cpp Setup and Model Loading Issues on Demo Day
+### Pitfall 9: Post-Recording Popup Blocks the Processing Pipeline Start
 
-**What goes wrong:** llama.cpp works on the developer's machine but fails on the demo machine. Model file path is hardcoded. Metal/GPU acceleration is not available or not enabled. The model file (4-8GB for quantized 7B) is missing or corrupted. First inference after model load takes 30+ seconds (cold start).
+**What goes wrong:** The v1.1 spec includes a "post-recording popup (name, project, doc upload) with background processing." If the popup must be completed before audio is uploaded to the backend, there is a delay between recording end and processing start. Users who dismiss the popup or navigate away lose their recording or delay processing indefinitely.
+
+**Why it happens:** The current flow in `use-audio-recorder.ts` and the recordings API is: record -> stop -> upload to backend -> processing starts. Adding a popup between stop and upload creates a window where audio sits in the browser with no backend job.
 
 **Prevention:**
-- Make model path configurable via environment variable, not hardcoded.
-- Pre-warm the model on demo machine startup: send a dummy inference request at application start so the model is loaded into memory before the demo begins.
-- Test on the exact demo machine at least 1 day before the demo. Do not assume "it works on my machine" transfers.
-- Keep a copy of the model file on a USB drive as backup.
-- If llama.cpp setup proves fragile, fall back to Ollama (which wraps llama.cpp but handles model management). The project noted llama.cpp over Ollama, but a working Ollama demo beats a broken llama.cpp demo.
+- Upload audio to backend IMMEDIATELY when recording stops, before showing the popup. Get the `job_id` back. Processing starts in the background.
+- The popup then updates metadata (name, project assignment, document attachments) on the already-created job via PATCH requests.
+- This means the backend needs a metadata update endpoint (currently missing -- there is no PATCH on `/recordings/{job_id}`). Add `PATCH /recordings/{job_id}` for name/project updates.
+- Document attachments can be uploaded asynchronously while STT is running. They are only needed at generation time, not transcription time.
 
-**Detection:** Set up a fresh machine test on day 10-11. If it takes more than 30 minutes to get inference working, switch to Ollama.
+**Detection:** Record audio, then intentionally close the popup without completing it. If the recording is lost or processing never starts, the upload is gated on popup completion.
 
-**Phase:** Phase 1 (infrastructure). Validate on day 1.
+**Phase:** Post-recording popup phase. This is a UX flow decision with backend API implications.
+
+**Confidence:** HIGH -- confirmed by reading the current upload flow in `main.py` and the absence of a PATCH endpoint.
+
+---
 
 ## Minor Pitfalls
 
-### Pitfall 11: Audio Playback Sync with Transcript
+### Pitfall 10: Editable Speaker Labels Not Persisted Backend-Side
 
-**What goes wrong:** Click-to-seek (click utterance, audio jumps to that timestamp) sounds simple but timestamp alignment between Whisper output and the audio player can drift, especially if the audio was transcoded or trimmed. The HTML5 `<audio>` element's `currentTime` property works in seconds with float precision, but Whisper timestamps may have slight offsets.
+**What goes wrong:** Users rename "Speaker 1" to "Alice" in the transcript tab. The rename is stored frontend-side only. When regenerating a PRD or diagram, the backend still sees "Speaker 1" in the transcript segments because it reads from its own `jobs.result` JSON blob.
 
-**Prevention:**
-- Accept +/- 1 second drift as good enough for FYP. Do not spend time on sub-second alignment.
-- Use the Whisper segment timestamps directly (they are in seconds already). Map each utterance to `segment.start`.
-- Test with a recording where you say timestamps out loud ("it is now 30 seconds") to verify alignment.
+**Prevention:** Either (a) add a speaker label mapping to the backend job record and PATCH it when the frontend updates a label, or (b) send current speaker labels as part of generation requests so the backend can substitute them into prompts.
 
-**Phase:** Phase 2 (transcript editor). Low priority relative to core pipeline.
+**Phase:** Speaker management phase.
 
----
-
-### Pitfall 12: Next.js SSR Complications for a Local-First App
-
-**What goes wrong:** Next.js defaults to server-side rendering, which adds complexity for a local-first app that primarily needs client-side interactivity (audio recording, real-time UI updates, local state). Developers fight hydration mismatches, `window is not defined` errors, and unnecessary SSR for pages that are entirely client-interactive.
-
-**Prevention:**
-- Use `'use client'` liberally. This is a client-heavy application. Almost every page component will need client-side rendering.
-- Do not use server components for recording, playback, or any interactive feature. Reserve server components for initial data fetching/layout only.
-- If SSR causes more problems than it solves, consider using Next.js purely as a SPA (all pages client-rendered). For an FYP with no SEO requirements, this is perfectly fine.
-
-**Phase:** Phase 1 (project setup). Decide the SSR strategy on day 1 and stick with it.
+**Confidence:** HIGH -- confirmed by separate DB architecture.
 
 ---
 
-### Pitfall 13: Git Workflow Overhead for a 2-Person Team
+### Pitfall 11: Mermaid Syntax Errors from Phi-4-mini Not Handled Gracefully
 
-**What goes wrong:** Setting up elaborate branching strategies, PR reviews, and CI/CD pipelines consumes time better spent coding. Alternatively, no coordination leads to merge conflicts on shared files.
+**What goes wrong:** Smaller LLMs frequently generate invalid Mermaid syntax -- unclosed brackets, special characters in labels (parentheses, colons, quotes), or incorrect relationship syntax in ERDs. The current `MermaidDiagram` component in `src/components/document/mermaid-diagram.tsx` likely renders nothing or shows a cryptic error.
 
 **Prevention:**
-- Simple rule: each person owns specific files/features. Communicate before touching someone else's code.
-- Use a single `main` branch with direct pushes, or at most feature branches with fast-forward merges. No PRs for a 2-week FYP.
-- Commit frequently (every working feature, every hour of progress). This is your undo mechanism.
+- Strip common LLM artifacts before rendering: markdown code fences (` ```mermaid ... ``` `), explanation text before/after the code, stray quotes.
+- Implement a validation-and-retry loop on the backend: render attempt with mermaid CLI or regex validation, if invalid, send code + error back to LLM asking for a fix. Limit to 2 retries.
+- Add a raw-code fallback view in the UI so users can see and manually fix the Mermaid source.
+- In the prompt, add explicit rules about characters that break Mermaid: no parentheses in node labels, no colons except in relationship syntax.
 
-**Phase:** Day 1 decision. Not worth revisiting.
+**Phase:** Diagram generation phase.
+
+**Confidence:** MEDIUM -- common LLM behavior; Phi-4-mini's specific Mermaid generation quality needs testing.
+
+---
+
+### Pitfall 12: requestAnimationFrame Sync Loop Drains Battery on Long Recordings
+
+**What goes wrong:** Running rAF at 60fps continuously while audio plays consumes CPU unnecessarily for transcript sync (which only needs ~10Hz updates). On laptops, this noticeably impacts battery life for hour-long recordings.
+
+**Prevention:** Throttle the rAF callback to check active segment only every 100ms (10Hz) using a timestamp delta check inside the rAF loop. Cancel the rAF loop when audio is paused or the component unmounts. This gives sub-200ms sync accuracy while reducing CPU usage by ~90%.
+
+**Phase:** Audio playback phase.
+
+**Confidence:** HIGH -- standard web performance concern.
+
+---
+
+### Pitfall 13: Meeting-Level Statistics Double-Count Overlapping Diarization Windows
+
+**What goes wrong:** The current `FastDiarizer` uses overlapping windows (10s window, 2s hop). When computing meeting-level duration statistics from diarization segments, naive summation of segment durations overcounts because windows overlap. A 60-second recording with 10s/2s windows produces segments that sum to much more than 60 seconds.
+
+**Prevention:** Use the audio file's actual duration (from `librosa.get_duration`) for meeting duration, not the sum of diarization segment durations. For speaker talk time, use the MERGED segment durations (after overlap resolution), not raw window durations.
+
+**Phase:** Meeting statistics phase.
+
+**Confidence:** HIGH -- confirmed by reading `FastDiarizer.diarize()` in `transcription.py` which uses overlapping windows.
+
+---
 
 ## Phase-Specific Warnings
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |-------------|---------------|------------|
-| Recording pipeline (Phase 1) | Browser audio format incompatible with Whisper | Transcode server-side with ffmpeg, test end-to-end on day 1 |
-| Recording pipeline (Phase 1) | Audio upload fails silently for large files | Set explicit size limits, test with 10-min recording |
-| STT integration (Phase 1) | Whisper processing time too slow for demo | Benchmark on day 2, use whisper-small/base, pre-process demo recording |
-| Backend integration (Phase 1) | API contract mismatches discovered late | Read backend code on day 1, build integration test on day 2 |
-| LLM extraction (Phase 1-2) | Malformed JSON output from local model | Use GBNF grammar constraints in llama.cpp, few-shot prompts |
-| LLM extraction (Phase 1-2) | Hallucinated outcomes not in transcript | Chunk transcripts, include source utterances in prompt, manual QA |
-| Outcome review UI (Phase 2) | Overengineered approval workflow | Timebox to 1 day, simple list with approve/reject only |
-| Task generation (Phase 2) | LLM generates vague/unhelpful tasks | Provide structured outcome data as input, not raw transcript |
-| Demo preparation (Phase 3) | Live processing fails under pressure | Pre-process demo recording, have fallback data ready |
-| Demo preparation (Phase 3) | llama.cpp fails on demo machine | Test on exact demo hardware day 10-11, Ollama as fallback |
-| Feature breadth (All phases) | Scope creep beyond core demo path | Write demo script on day 1, enforce core-path-first discipline |
-
-## FYP-Specific Meta-Pitfall: The "But We Need More Features" Trap
-
-FYP evaluators care about:
-1. Does the core concept work end-to-end? (60% of impression)
-2. Is it polished where it matters? (25%)
-3. Is there breadth? (15%)
-
-Teams consistently over-index on breadth and under-index on "does it actually work." A demo where recording -> transcription -> extraction -> tasks works flawlessly with a clean UI will score higher than one with Kanban boards, PRD generation, Mermaid diagrams, and a notification system where the core recording pipeline crashes.
-
-**The priority stack for 2 weeks:**
-1. Days 1-4: Core pipeline works end-to-end (record, upload, transcribe, extract, display)
-2. Days 5-8: Polish the demo path UI, fix edge cases, build review/approve/promote-to-tasks flow
-3. Days 9-10: Secondary features (Kanban, task management views) only if core path is solid
-4. Days 11-12: Demo preparation, fallback data, practice run on demo hardware
-5. Days 13-14: Buffer for fires. There will be fires.
+| Audio playback sync | `timeupdate` too slow for responsive highlighting | Use rAF polling loop throttled to ~10Hz |
+| Audio playback sync | WebM seek broken in Safari | Serve WAV or transcoded audio for playback |
+| Audio playback sync | rAF loop drains battery | Throttle to 100ms intervals, cancel on pause |
+| Speaker statistics | Stats computed from wrong pipeline stage (post-merge) | Compute turn-level stats before merge step |
+| Speaker statistics | Overlapping diarization windows inflate duration sums | Use actual audio duration from librosa |
+| Speaker label editing | Label changes not visible to backend | PATCH labels to backend or send with generation requests |
+| Document upload | Scanned/complex PDFs return empty text silently | Validate extracted text length, reject with clear error |
+| Document context injection | Combined prompt overflows 4096 context window | Increase n_ctx to 8192+, implement token budget |
+| Document architecture | Dual-DB split complicates document flow | Frontend uploads to backend, backend owns parsed text |
+| Post-recording popup | Popup gates upload, risking data loss | Upload immediately, popup updates metadata after |
+| AgglomerativeClustering | Wrong distance_threshold with cosine metric | Start at 0.7, use average linkage, validate against MeanShift |
+| AgglomerativeClustering | n_clusters and distance_threshold mutually exclusive | Use distance_threshold mode for unknown speaker counts |
+| Diagram generation | LLM diagrams model the meeting, not the product | Two-phase prompt: extract product model, then diagram it |
+| Diagram generation | Mermaid syntax errors from LLM | Validate + retry loop, strip code fences, raw-code fallback |
 
 ## Sources
 
-- Training data knowledge of MediaRecorder API, Whisper, llama.cpp, FastAPI, SQLite, Next.js (MEDIUM confidence -- web search unavailable for verification)
-- Project context from `.planning/PROJECT.md`
-- Note: All findings are based on training data (cutoff ~May 2025). Specific version behaviors of Whisper, llama.cpp, and pyannote may have changed. Recommend verifying llama.cpp GBNF grammar support and current Whisper model speed benchmarks on your specific hardware.
+- [MDN: HTMLMediaElement timeupdate event](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/timeupdate_event)
+- [MDN: HTMLMediaElement currentTime property](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/currentTime)
+- [Firefox bug 587465: audio.currentTime has low precision](https://bugzilla.mozilla.org/show_bug.cgi?id=587465)
+- [sklearn AgglomerativeClustering documentation](https://scikit-learn.org/stable/modules/generated/sklearn.cluster.AgglomerativeClustering.html)
+- [sklearn issue #27434: distance_threshold behavior with cosine metric](https://github.com/scikit-learn/scikit-learn/issues/27434)
+- [Speaker Diarization: A Comprehensive Guide for 2025](https://www.shadecoder.com/topics/speaker-diarization-a-comprehensive-guide-for-2025)
+- [Simple Speaker Diarization with SpeechBrain X-Vectors](https://huggingface.co/blog/norwooodsystems/simple-speaker-diarization-speechbrain)
+- [Challenges Parsing PDFs with Python](https://www.theseattledataguy.com/challenges-you-will-face-when-parsing-pdfs-with-python-how-to-parse-pdfs-with-python/)
+- [Best Python PDF to Text Parser Libraries: A 2026 Evaluation](https://unstract.com/blog/evaluating-python-pdf-to-text-libraries/)
+- [GenAIScript: Mermaids Unbroken -- fixing LLM Mermaid syntax](https://microsoft.github.io/genaiscript/blog/mermaids/)
+- [AI Mermaid Diagram Generator That Fixes Its Own Mistakes](https://djajafer.medium.com/i-built-an-ai-mermaid-diagram-generator-that-fixes-its-own-mistakes-26552047c37a)
+- [Speaker Diarization textbook -- Aalto University](https://speechprocessingbook.aalto.fi/Recognition/Speaker_Diarization.html)
+- Codebase analysis: `backend/main.py`, `backend/transcription.py`, `backend/document_generation.py`, `backend/extraction.py`, `backend/storage.py`, `src/lib/db/index.ts`, `src/lib/db/recordings.ts`

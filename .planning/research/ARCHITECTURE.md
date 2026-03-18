@@ -1,382 +1,474 @@
 # Architecture Patterns
 
-**Domain:** AI-powered meeting-to-project-plan system
-**Researched:** 2026-03-11
+**Domain:** Meeting intelligence features (playback sync, speaker stats, document attachments, clustering, product-focused generation)
+**Researched:** 2026-03-18
+**Scope:** v1.1 milestone -- new features integrating with existing v1.0 architecture
 
-## Recommended Architecture
-
-### High-Level Overview
-
-```
-+-----------------------------------------------------------+
-|                    Next.js Frontend                        |
-|  [Recording UI] [Transcript Editor] [Review] [Tasks/PM]   |
-+----------------------------+------------------------------+
-                             | REST / SSE
-                             v
-+-----------------------------------------------------------+
-|                  Python FastAPI Backend                     |
-|  [Recording Mgmt] [STT Pipeline] [LLM Pipeline] [CRUD]   |
-+----------------------------+------------------------------+
-          |              |              |
-          v              v              v
-     [SQLite DB]   [Filesystem]   [llama.cpp]
-     (metadata,    (~/.allure/     (local LLM
-      tasks,        recordings/)    inference)
-      outcomes)
-```
-
-The system follows a **pipeline architecture** where data flows through distinct stages: Capture, Transcribe, Extract, Review, Promote. Each stage has a clear input/output contract, and the frontend orchestrates user interaction at each gate.
-
-### Component Boundaries
-
-| Component | Responsibility | Communicates With | Boundary Type |
-|-----------|---------------|-------------------|---------------|
-| **Recording Capture (Frontend)** | Browser MediaRecorder API, audio capture, upload | Backend Recording API | HTTP multipart upload |
-| **Recording Hub (Frontend)** | Status tracking, assignment, list/filter recordings | Backend Recording API | REST GET/PATCH |
-| **STT Pipeline (Backend)** | Whisper transcription + speaker diarization | Filesystem (audio in), SQLite (transcript out) | Internal, async job |
-| **Transcript Editor (Frontend)** | Display/edit transcript, synced audio playback | Backend Transcript API | REST GET/PUT |
-| **LLM Extraction Pipeline (Backend)** | Extract decisions, action items, requirements, blockers from transcript | llama.cpp (inference), SQLite (outcomes out) | Internal, async job |
-| **Outcome Review (Frontend)** | Confidence-gated review UI, approve/reject/edit outcomes | Backend Outcomes API | REST GET/PATCH |
-| **Task/PM Module (Frontend)** | Task CRUD, Kanban, milestones, dependencies | Backend Tasks API | REST full CRUD |
-| **Document Generation (Backend)** | PRD generation, Mermaid diagrams from project data | llama.cpp (generation), SQLite (project data in) | Internal, triggered by frontend |
-| **Notification System (Frontend)** | In-app notifications for status changes | Backend via SSE or polling | SSE preferred |
-
-### Critical Boundary: Frontend vs Backend Responsibility
-
-The frontend is a **thin orchestration layer**. All AI inference, file processing, and business logic lives in the backend. The frontend handles:
-- User interaction and state management
-- Audio capture via browser APIs
-- Display and editing of backend-produced data
-- Status polling / real-time updates for async operations
-
-The backend owns:
-- All Whisper/LLM inference
-- File storage management
-- Data persistence and validation
-- Confidence scoring and threshold logic
-
-## Data Flow
-
-### Primary Pipeline: Recording to Tasks
+## Current Architecture Snapshot
 
 ```
-1. CAPTURE
-   User clicks Record -> Browser MediaRecorder captures audio
-   -> Upload to POST /api/recordings (multipart/form-data)
-   -> Backend saves to ~/.allure/recordings/{id}.webm
-   -> SQLite: recording row (status: "unassigned" or "uploaded")
-
-2. ASSIGN (optional, can be deferred)
-   User assigns recording to a project
-   -> PATCH /api/recordings/{id} { project_id }
-   -> SQLite: update recording.project_id
-
-3. TRANSCRIBE (async)
-   User triggers transcription (or auto-triggered on upload)
-   -> POST /api/recordings/{id}/transcribe
-   -> Backend queues STT job:
-      a. Load audio from filesystem
-      b. Whisper inference -> raw transcript
-      c. Speaker diarization -> labeled utterances
-      d. Confidence scores per segment
-   -> SQLite: transcript rows linked to recording
-   -> Recording status: "processing" -> "transcribed"
-   -> Frontend polls GET /api/recordings/{id}/status
-     OR receives SSE event
-
-4. REVIEW TRANSCRIPT
-   User views/edits transcript in synced editor
-   -> GET /api/recordings/{id}/transcript
-   -> PUT /api/transcripts/{id}/utterances/{utterance_id}
-   -> Audio playback synced via timestamp offsets
-
-5. EXTRACT (async)
-   User triggers outcome extraction
-   -> POST /api/recordings/{id}/extract
-   -> Backend queues LLM job:
-      a. Build prompt from transcript + context
-      b. llama.cpp inference -> structured JSON
-      c. Parse: decisions, action_items, requirements, blockers
-      d. Assign confidence scores to each outcome
-      e. Link outcomes to source utterances (evidence)
-   -> SQLite: outcome rows with confidence, evidence_links
-   -> Recording status: "extracted" / "needs_review"
-
-6. REVIEW OUTCOMES
-   Frontend displays outcomes grouped by type
-   -> GET /api/recordings/{id}/outcomes
-   -> Items >= 0.80 confidence: auto-approved (or shown as approved)
-   -> Items < 0.80: require Admin review
-   -> PATCH /api/outcomes/{id} { status: "approved" | "rejected", edits }
-
-7. PROMOTE
-   Approved outcomes become tasks/milestones/requirements
-   -> POST /api/outcomes/{id}/promote
-   -> Backend creates task/milestone/requirement rows in SQLite
-   -> Backlinks maintained: task.source_outcome_id -> outcome.id
-   -> Outcome status: "promoted"
-
-8. PLAN (optional)
-   AI generates milestone structure from promoted outcomes
-   -> POST /api/projects/{id}/generate-plan
-   -> LLM builds task dependencies, milestones, timeline
-   -> User reviews and approves generated plan
+Browser (Recording FAB)
+  |
+  v  POST /api/recordings (FormData: webm blob)
+Next.js API Routes  <--->  Frontend SQLite (better-sqlite3)
+  |                         (recordings, outcomes, tasks, documents)
+  |  POST /recordings (proxy upload)
+  v
+FastAPI Backend  <--->  Backend SQLite (storage.py)
+  |                     (jobs: status, result JSON, outcomes JSON)
+  |-- Moonshine Voice STT
+  |-- SpeechBrain ECAPA-TDNN + MeanShift diarization
+  |-- Phi-4-mini via llama.cpp (extraction + doc generation)
+  |
+  v
+Filesystem: backend/uploads/ (WAV), public/recordings/ (WebM)
 ```
 
-### Secondary Flows
+**Key architectural facts from code reading:**
+- Audio files saved as WebM in `public/recordings/{id}.webm` -- statically servable by Next.js
+- Backend stores transcription results as JSON blob in `jobs.result` column
+- Frontend transforms backend segments into `Utterance[]` at the API route level (`/api/recordings/[id]/transcript/route.ts`)
+- Document generation happens synchronously in backend (`asyncio.to_thread`), persisted in frontend SQLite
+- Zustand manages cross-component state (recording-store, evidence-highlight)
+- TanStack Query handles all server state (recordings, transcripts, documents, outcomes)
+- Backend speaker stats already computed but limited to `label`, `talk_time_pct`, `utterance_count`
+- LLM context window set to 4096 tokens (`n_ctx=4096` in main.py)
 
-**Document Generation:**
+---
+
+## Component Map: New vs Modified
+
+### New Components (Frontend)
+
+| Component | File Path | Purpose |
+|-----------|-----------|---------|
+| AudioPlayer | `src/components/recording/audio-player.tsx` | HTML5 `<audio>` wrapper with seek controls, timeupdate relay |
+| PlaybackStore | `src/stores/playback-store.ts` | Zustand store for playback time, play/pause, seek commands |
+| SpeakerEditor | `src/components/transcript/speaker-editor.tsx` | Inline speaker label and role editing |
+| SpeakerStatsPanel | `src/components/recording/speaker-stats-panel.tsx` | Per-speaker statistics display |
+| MeetingStatsCard | `src/components/recording/meeting-stats-card.tsx` | Meeting-level statistics card |
+| PostRecordingPopup | `src/components/recording/post-recording-popup.tsx` | Dialog after stop: name, project, doc upload |
+| DocumentUpload | `src/components/recording/document-upload.tsx` | File drop zone for PDF/DOCX/TXT attachments |
+
+### Modified Components (Frontend)
+
+| Component | What Changes |
+|-----------|-------------|
+| `transcript-view.tsx` | Add click-to-seek dispatch, active utterance tracking by playback time |
+| `utterance-bubble.tsx` | Add onClick handler for seek, active/playing CSS state |
+| `recording-fab.tsx` | Open PostRecordingPopup instead of auto-saving on stop |
+| `recordings/[id]/page.tsx` | Add AudioPlayer above tabs, speaker stats in Info tab, meeting stats card |
+| `evidence-highlight.ts` | Extend `TabId` union type if new tabs needed |
+| `use-recordings.ts` | Add speaker update mutation hook, attachment hooks |
+| `use-documents.ts` | Add attachment upload mutation |
+| `recording.ts` (types) | Extend Utterance with `role`, add Attachment type |
+| `schema.sql` | Add `speaker_labels` table, `attachments` table |
+| `recordings.ts` (db) | Speaker label CRUD, attachment CRUD functions |
+
+### Modified Components (Backend)
+
+| Component | What Changes |
+|-----------|-------------|
+| `transcription.py` | Replace MeanShift with AgglomerativeClustering in FastDiarizer; enrich `calculate_speaker_stats` with words/WPM/turns/pauses |
+| `document_generation.py` | Accept document context parameter, rewrite prompts for product-focused generation |
+| `main.py` | Add document upload endpoint, pass attachment context to generation endpoints |
+| `storage.py` | Add attachment storage (column or separate tracking) |
+
+---
+
+## Component Boundaries
+
+| Component | Responsibility | Communicates With |
+|-----------|---------------|-------------------|
+| `PlaybackStore` (Zustand) | Current playback time, playing/paused state, seek requests | AudioPlayer, TranscriptView, UtteranceBubble |
+| `AudioPlayer` | HTML5 `<audio>` element wrapper, timeupdate events, seek API | PlaybackStore |
+| `TranscriptView` (modified) | Scroll-to-active utterance, click-to-seek dispatch | PlaybackStore, UtteranceBubble |
+| `UtteranceBubble` (modified) | Click handler to seek, active highlight based on currentTime | PlaybackStore |
+| `SpeakerEditor` | Inline rename of speaker labels and role assignment | Frontend API routes, TanStack Query |
+| `SpeakerStatsPanel` | Display per-speaker time/words/WPM/turns stats | Transcript data (backend already returns speaker stats) |
+| `MeetingStatsCard` | Display duration, processing time, speaker count, attachment count | Recording + transcript data |
+| `PostRecordingPopup` | Dialog with title, project picker, document upload | RecordingFAB, upload hooks |
+| `DocumentUpload` | File drop zone, validates PDF/DOCX/TXT, uploads to backend | Backend upload endpoint |
+
+---
+
+## Data Flow Changes
+
+### 1. Audio Playback Sync
+
 ```
-Project data (tasks, requirements, outcomes)
--> POST /api/projects/{id}/generate-prd
--> LLM builds PRD from template + project data
--> Returns markdown document
--> Frontend renders with live preview
+AudioPlayer --timeupdate--> PlaybackStore.currentTime (throttled to ~4Hz)
+                                |
+TranscriptView <--subscribe---- reads currentTime
+  |                             binary search: find utterance where startTime <= currentTime < endTime
+  |                             scrolls to it, applies "active" CSS class
+  |
+UtteranceBubble --onClick-----> PlaybackStore.seek(utterance.startTime)
+                                |
+AudioPlayer <--subscribe------- reads seekTo, sets audio.currentTime, nulls seekTo
 ```
 
-**Slide Alignment (if time permits):**
+**No backend changes needed.** Audio files already exist at `public/recordings/{id}.webm` -- directly accessible as static files at `/recordings/{id}.webm` from the browser.
+
+**PlaybackStore shape:**
+```typescript
+interface PlaybackState {
+  currentTime: number       // seconds, updated via timeupdate (throttled ~250ms)
+  isPlaying: boolean
+  duration: number
+  seekTo: number | null     // set by click-to-seek, consumed by AudioPlayer
+  recordingId: string | null
+}
+
+interface PlaybackActions {
+  setCurrentTime: (t: number) => void
+  setPlaying: (playing: boolean) => void
+  seek: (time: number) => void
+  clearSeek: () => void
+  setDuration: (d: number) => void
+  setRecordingId: (id: string | null) => void
+}
 ```
-Upload PPTX/PDF -> POST /api/projects/{id}/documents
--> Backend extracts text/slides
--> Align transcript segments to slide content via embedding similarity
--> GET /api/recordings/{id}/transcript?with_slides=true
+
+**Why Zustand, not React context:** AudioPlayer sits in the recording detail page while transcript utterances are deep in the component tree. Zustand avoids prop drilling and re-render cascades -- identical pattern to the existing `useEvidenceHighlight` store.
+
+**Active utterance detection:** Binary search over utterances array using `startTime/endTime` bounds. With typical meetings having 50-200 utterances, even linear scan is negligible, but binary search is cleaner.
+
+### 2. Speaker Statistics
+
+The backend already computes speaker stats in `transcription.py:calculate_speaker_stats()` (line 283-314), returning `label`, `talk_time_pct`, and `utterance_count`.
+
+**What needs extending in `calculate_speaker_stats`:**
+
+| New Field | Computation | Source |
+|-----------|-------------|--------|
+| `total_words` | `sum(len(seg.text.split()) for seg in speaker_segments)` | segment text |
+| `wpm` | `total_words / (talk_time_minutes)` | derived |
+| `turn_count` | Number of speaker-change boundaries into this speaker | segment order |
+| `avg_turn_duration` | `total_talk_time / turn_count` | derived |
+| `pause_count` | Gaps > 1s between consecutive segments of same speaker | segment times |
+| `avg_pause_duration` | `total_pause_time / pause_count` | derived |
+
+All computed from the existing `segments` list -- no new models or data sources.
+
+**No new endpoints needed.** The enriched `speakers` array travels in the existing transcript response:
 ```
+Backend transcript result -> jobs.result JSON -> GET /recordings/{backendId}/transcript
+  -> Next.js API route transforms to frontend format -> frontend renders
+```
+
+The frontend `/api/recordings/[id]/transcript/route.ts` already passes through the full `data` object. The `speakers` array is available but currently unused by the transcript view. The new `SpeakerStatsPanel` will consume it.
+
+### 3. Editable Speaker Labels
+
+```sql
+-- New table in frontend SQLite (schema.sql)
+CREATE TABLE IF NOT EXISTS speaker_labels (
+  id TEXT PRIMARY KEY,
+  recording_id TEXT NOT NULL,
+  original_label TEXT NOT NULL,    -- "Speaker 1" (from backend)
+  custom_label TEXT,               -- "Alice" (user-set)
+  role TEXT,                       -- "Product Manager" (user-set)
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (recording_id) REFERENCES recordings(id)
+);
+```
+
+**Frontend-only storage.** The backend does not need speaker names -- it operates on cluster IDs. Speaker labels are a UI concern.
+
+**New API routes:**
+- `PUT /api/recordings/{id}/speakers` -- upsert speaker label/role overrides
+- `GET /api/recordings/{id}/speakers` -- read overrides for a recording
+
+**Rendering logic:** `TranscriptView` and `UtteranceBubble` apply overrides at render time:
+```typescript
+const displayLabel = speakerOverrides[utterance.speaker]?.customLabel || utterance.speaker
+```
+
+### 4. Post-Recording Popup
+
+**Current flow:**
+```
+Stop Recording -> RecordingFAB auto-uploads -> creates DB record -> toast
+```
+
+**New flow:**
+```
+Stop Recording -> PostRecordingPopup opens (Dialog)
+  |-- Title input (pre-filled with auto-generated title)
+  |-- Project dropdown (optional)
+  |-- Document attachment drop zone (optional, multiple files)
+  |-- "Save" button
+  |
+  v
+On Save:
+  1. POST /api/recordings (existing: file + metadata + projectId)
+  2. If documents attached: POST /api/recordings/{id}/attachments (new)
+  3. Backend begins STT processing in background (existing flow)
+```
+
+**Key change in `recording-fab.tsx`:** Instead of calling `uploadRecording.mutate()` directly in the `onRecordingComplete` callback, it opens the popup dialog and passes the `AudioRecorderResult` to it. The popup handles the upload on confirm.
+
+### 5. Document Attachments
+
+**Storage approach:** Files on filesystem, metadata in SQLite (same pattern as audio).
+
+```sql
+-- Frontend SQLite
+CREATE TABLE IF NOT EXISTS attachments (
+  id TEXT PRIMARY KEY,
+  recording_id TEXT NOT NULL,
+  filename TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  size_bytes INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (recording_id) REFERENCES recordings(id)
+);
+```
+
+**File storage location:** `public/recordings/attachments/{recordingId}/{filename}`
+
+**Backend text extraction flow:**
+```
+Frontend: POST /api/recordings/{id}/attachments (multipart)
+  |
+  v
+Next.js API route: saves file locally, creates DB record, proxies to backend
+  |
+  v
+Backend: POST /recordings/{job_id}/attachments (new endpoint)
+  |-- Saves file to backend/uploads/attachments/{job_id}/
+  |-- Extracts text:
+  |     PDF -> subprocess: pdftotext (poppler-utils)
+  |     DOCX -> python-docx library
+  |     TXT -> direct read
+  |-- Stores extracted text in jobs table (new column: attachment_context TEXT)
+  |-- Returns: { id, filename, extracted_text_length }
+```
+
+**Why extract text on backend, not frontend:** Python has robust PDF/DOCX libraries (pdftotext, python-docx). Node.js PDF parsing is unreliable and bloated. The backend already manages Python dependencies.
+
+### 6. Document Context Injection into Generation
+
+**Modified generation flow:**
+
+```
+Frontend: POST /api/recordings/{id}/generate-prd
+  |
+  v
+Next.js API route: fetches recording, forwards to backend (existing pattern)
+  |
+  v
+Backend: POST /recordings/{job_id}/generate-prd
+  |-- Reads job from storage (existing)
+  |-- Reads attachment_context from job (NEW)
+  |-- Builds prompt:
+  |     System: PRD_SYSTEM_PROMPT (rewritten for product focus)
+  |     User: "Reference documents:\n{attachment_text}\n\n
+  |            Meeting outcomes:\n{formatted_outcomes}"
+  |-- Calls LLM (existing)
+```
+
+**Context window concern:** Current `n_ctx=4096` in main.py is tight. Typical breakdown:
+- System prompt: ~300 tokens
+- Outcomes (10 items): ~800 tokens
+- Available for attachments: ~900 tokens (after leaving room for output)
+- Output max: ~2000 tokens
+
+**Recommendation: increase `n_ctx` to 8192.** Phi-4-mini supports up to 16K context. M3 has sufficient memory. This gives ~4000 tokens for attachment context, enough for 2-3 pages of extracted text.
+
+If attachment text exceeds the budget, use smart truncation:
+1. Extract document headings/titles first
+2. Include first paragraph of each section
+3. Truncate remaining text at token limit
+
+### 7. AgglomerativeClustering
+
+**Current code (transcription.py line 146-147):**
+```python
+clustering = MeanShift()
+labels = clustering.fit_predict(embedding_matrix)
+```
+
+**Replacement:**
+```python
+from sklearn.cluster import AgglomerativeClustering
+
+clustering = AgglomerativeClustering(
+    n_clusters=None,
+    distance_threshold=0.7,    # cosine distance threshold -- tune on test recordings
+    metric="cosine",
+    linkage="average",
+)
+labels = clustering.fit_predict(embedding_matrix)
+```
+
+**Why AgglomerativeClustering over MeanShift:**
+- MeanShift auto-estimates bandwidth, which often over-segments (creates phantom speakers) or under-segments (merges distinct speakers)
+- AgglomerativeClustering with cosine metric + average linkage is the standard approach for speaker embeddings (used by pyannote, resemblyzer)
+- `distance_threshold` gives direct, interpretable control over speaker separation sensitivity
+- `n_clusters=None` with `distance_threshold` auto-determines speaker count (same capability as MeanShift)
+
+**Integration is surgical:** Only `FastDiarizer.diarize()` changes. Everything downstream (alignment, snapping, remapping, merging, stats) operates on the same `[{start, end, speaker}]` format and needs zero changes.
+
+**Risk: threshold tuning.** The `distance_threshold=0.7` is a starting point for ECAPA-TDNN cosine embeddings. Must validate on 3-5 test recordings with known speaker counts. This is the primary risk in this feature.
+
+### 8. Product-Focused Diagram Generation
+
+**Current problem:** Prompts instruct the LLM to "generate from meeting outcomes" which makes it diagram the meeting process itself, not the product being discussed.
+
+**Fix is prompt engineering, no architectural change:**
+
+Current prompt (document_generation.py):
+```
+"Generate a Mermaid flowchart from the meeting outcomes below"
+```
+
+New prompt direction:
+```
+"The meeting outcomes below describe a product or system being discussed.
+ Identify the product and generate a Mermaid flowchart showing:
+ - The product's main user journey (not the meeting flow)
+ - Key decision points in the product's workflow
+ - System interactions and data flow
+
+ If reference documents are provided, use them to enrich the diagram
+ with accurate entity names, relationships, and workflow steps."
+```
+
+Same change applies to ERD prompt -- diagram the data model of the product discussed, not meeting entities.
+
+---
 
 ## Patterns to Follow
 
-### Pattern 1: Async Job with Status Polling
-
-All long-running operations (STT, LLM extraction, document generation) follow the same pattern. This is the most important architectural pattern in the system.
-
-**What:** Client initiates an async job, backend processes in background, client polls or receives SSE for completion.
-
-**When:** Any operation involving Whisper or llama.cpp inference (seconds to minutes).
-
-**Implementation:**
-
+### Pattern 1: Zustand Store for Cross-Component Coordination
+**What:** Dedicated Zustand store when multiple components need shared reactive state
+**When:** Audio playback time must coordinate player, transcript view, and utterance highlight
+**Example:** `PlaybackStore` mirrors the proven `EvidenceHighlightStore` pattern already in the codebase
 ```typescript
-// Frontend: Trigger and poll pattern
-async function triggerTranscription(recordingId: string) {
-  // 1. Trigger the job
-  await fetch(`/api/recordings/${recordingId}/transcribe`, { method: 'POST' });
-
-  // 2. Poll for completion (or use SSE)
-  const poll = setInterval(async () => {
-    const res = await fetch(`/api/recordings/${recordingId}/status`);
-    const { status } = await res.json();
-    if (status === 'transcribed' || status === 'error') {
-      clearInterval(poll);
-      // Update UI
-    }
-  }, 2000); // Poll every 2 seconds
-}
+export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set) => ({
+  currentTime: 0,
+  isPlaying: false,
+  seekTo: null,
+  // actions...
+}))
 ```
 
-```python
-# Backend: Background task pattern (FastAPI)
-from fastapi import BackgroundTasks
+### Pattern 2: Frontend-Only Data Augmentation
+**What:** Store UI-only data (speaker names, roles) in frontend SQLite without backend round-trip
+**When:** Data is user-facing only and backend does not need it for processing
+**Why:** Avoids coupling backend to UI concerns. Backend remains stateless for speaker identity.
 
-@app.post("/api/recordings/{recording_id}/transcribe")
-async def transcribe(recording_id: str, background_tasks: BackgroundTasks):
-    update_status(recording_id, "processing")
-    background_tasks.add_task(run_stt_pipeline, recording_id)
-    return {"status": "processing"}
-```
-
-**Why:** Local inference on M3 Mac takes 10-60+ seconds. Synchronous requests would timeout. This pattern keeps the UI responsive.
-
-### Pattern 2: Confidence-Gated Review
-
-**What:** Every AI-produced artifact carries a confidence score. Items below threshold require human review before they become authoritative.
-
-**When:** After LLM extraction produces outcomes, after QA scoring.
-
-**Implementation:**
-
+### Pattern 3: Throttled Store Updates for Media Events
+**What:** Throttle `timeupdate` events before writing to Zustand store
+**When:** HTML5 Audio `timeupdate` fires 4-15 times/second depending on browser
+**Why:** Prevents excessive re-renders in transcript view
 ```typescript
-// Frontend: Partition outcomes by confidence
-interface Outcome {
-  id: string;
-  type: 'decision' | 'action_item' | 'requirement' | 'blocker';
-  content: string;
-  confidence: number;
-  status: 'pending' | 'approved' | 'rejected';
-  evidence_links: { utterance_id: string; text: string }[];
-}
-
-function partitionOutcomes(outcomes: Outcome[], threshold = 0.80) {
-  return {
-    approved: outcomes.filter(o => o.confidence >= threshold),
-    needsReview: outcomes.filter(o => o.confidence < threshold),
-  };
-}
+const throttledUpdate = useRef(
+  throttle((time: number) => usePlaybackStore.getState().setCurrentTime(time), 250)
+)
 ```
 
-**Why:** LLM extraction is imperfect. Confidence gating prevents hallucinated outcomes from becoming real tasks without human verification.
+### Pattern 4: Proxy Pattern for Backend Calls (Existing)
+**What:** All backend calls go through Next.js API routes, never direct from browser
+**When:** Always -- this is the established pattern throughout the codebase
+**Why:** Keeps backend URL private, allows frontend to augment/transform data (e.g., add attachment context, transform segment format to Utterance format)
 
-### Pattern 3: Evidence Backlinks
-
-**What:** Every promoted task/requirement maintains a link back to the source outcome, which links back to source transcript utterances, which link to audio timestamps.
-
-**When:** Whenever data flows from one pipeline stage to the next.
-
-**Data Model:**
-
-```
-Task -> source_outcome_id -> Outcome -> evidence_links -> Utterance -> audio_offset
-```
-
-**Why:** Auditability. Users can trace any task back to "who said this, when, in which meeting." This is a core differentiator over generic task managers.
-
-### Pattern 4: Recording State Machine
-
-**What:** Recordings follow a strict state machine that drives UI and available actions.
-
-```
-                    +-> assigned --+
-                    |              |
-unassigned ---------+              +-> processing -> transcribed -> extracted -> needs_review -> reviewed
-                    |              |
-                    +--------------+
-                                   |
-                                   +-> error (at any processing step)
-```
-
-**When:** Always. Every recording has exactly one status.
-
-**Why:** The Recording Hub UI, available actions, and notification triggers all derive from this state. A clear state machine prevents impossible states and simplifies frontend logic.
+---
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Streaming LLM Output to Frontend
+### Anti-Pattern 1: Bidirectional Audio State Sync
+**What:** Both `<audio>` element and Zustand store as "sources of truth" for playback time
+**Why bad:** Creates feedback loops (store updates audio, audio updates store, repeat)
+**Instead:** `<audio>` element is the source of truth for current time. Store is a read-cache + command channel. AudioPlayer reads `seekTo` from store, applies it to `audio.currentTime`, then nulls `seekTo`. Never write `currentTime` from store back to audio element.
 
-**What:** Streaming llama.cpp token-by-token output to the browser for extraction tasks.
+### Anti-Pattern 2: Storing Attachment Files in SQLite
+**What:** Saving PDF/DOCX binary content as BLOBs in the database
+**Why bad:** Bloats database, SQLite not optimized for large BLOBs
+**Instead:** Files on filesystem (`public/recordings/attachments/{recordingId}/`), only metadata in SQLite. Same pattern already used for audio files.
 
-**Why bad:** Extraction needs structured JSON output, not streaming text. Partial JSON is unparseable. Streaming adds complexity (WebSocket/SSE for partial results) with zero user value for extraction. The user cares about the final structured result, not watching tokens appear.
+### Anti-Pattern 3: Re-processing Backend for Speaker Renames
+**What:** Sending speaker label changes to backend, re-running diarization
+**Why bad:** Diarization is expensive (seconds), renames are cosmetic
+**Instead:** Speaker label overrides live only in frontend SQLite. TranscriptView applies overrides at render time via a lookup map.
 
-**Instead:** Use the async job pattern. Show a progress indicator. Return complete structured results.
+### Anti-Pattern 4: Extracting Document Text on Frontend
+**What:** Parsing PDFs in Node.js / Next.js API routes
+**Why bad:** Node.js PDF libraries are large, unreliable, and poorly maintained. Python has battle-tested tools (pdftotext from poppler, python-docx).
+**Instead:** Upload raw files to backend, extract text in Python, store extracted text. Backend already has the dependency ecosystem for this.
 
-**Exception:** Document generation (PRD) could benefit from streaming for perceived performance, but only implement this if time allows. For FYP, batch response is fine.
+---
 
-### Anti-Pattern 2: Frontend-Side AI Processing
+## Integration Points Summary
 
-**What:** Running Whisper.cpp or llama.cpp via WASM in the browser.
+| Feature | Frontend Changes | Backend Changes | New Endpoints | DB Schema Changes |
+|---------|-----------------|-----------------|---------------|-------------------|
+| Audio Playback Sync | AudioPlayer, PlaybackStore, TranscriptView mod, UtteranceBubble mod | None | None | None |
+| Speaker Stats Display | SpeakerStatsPanel, MeetingStatsCard | Enrich `calculate_speaker_stats()` return value | None (data in existing transcript response) | None |
+| Speaker Label Editing | SpeakerEditor, speaker_labels DB CRUD | None | `PUT/GET /api/recordings/{id}/speakers` (frontend-only routes) | `speaker_labels` table (frontend SQLite) |
+| Post-Recording Popup | PostRecordingPopup, RecordingFAB mod | None | None (reuses existing upload) | None |
+| Document Attachments | DocumentUpload, attachment hooks | Upload endpoint, text extraction | `POST/GET/DELETE /api/recordings/{id}/attachments` + backend mirror | `attachments` table (frontend + backend) |
+| Context-Aware Generation | Generate PRD/Diagram routes pass context | Accept + prepend context in prompts | Modified existing generation endpoints | `attachment_context` column (backend jobs) |
+| AgglomerativeClustering | None | Replace MeanShift in `FastDiarizer.diarize()` | None | None |
+| Product-Focused Prompts | None | Rewrite system prompts in `document_generation.py` | None | None |
 
-**Why bad:** Browser WASM inference is 5-10x slower than native Metal on M3. Memory constraints. Model loading time. The backend already has the pipeline.
+---
 
-**Instead:** All inference in the Python backend via native binaries. Frontend is a thin UI layer.
-
-### Anti-Pattern 3: Monolithic API Endpoints
-
-**What:** Single endpoint like `POST /api/recordings/{id}/process` that does transcription + extraction + promotion in one call.
-
-**Why bad:** Each stage can fail independently. Users need to review between stages. A single long-running call (potentially 5+ minutes) is fragile.
-
-**Instead:** Separate endpoints per pipeline stage. Each stage is independently triggerable and recoverable.
-
-### Anti-Pattern 4: Over-Normalizing the SQLite Schema
-
-**What:** Creating dozens of join tables for every relationship.
-
-**Why bad:** SQLite is single-writer. Complex joins on a local DB add latency for no benefit at FYP scale. The data model is modest (hundreds of recordings, not millions).
-
-**Instead:** Keep the schema pragmatic. Store evidence_links as JSON arrays in the outcomes table. Use foreign keys for real relationships (recording -> project, outcome -> recording, task -> outcome) but don't over-engineer.
-
-## Component Build Order
-
-Build order is driven by the pipeline: you cannot build downstream components without upstream ones producing data.
+## Build Order (Dependency-Driven)
 
 ```
-Phase 1: Foundation
-  [Recording Capture] + [Recording Hub] + [Backend Recording API]
-  Why first: Everything starts with a recording. No recording = nothing to process.
-  Dependency: None (browser MediaRecorder + file upload is self-contained)
+Phase 1: Foundation (independent, can parallelize)
+  |-- AgglomerativeClustering (backend-only, isolated change in FastDiarizer)
+  |-- PlaybackStore + AudioPlayer (frontend-only, zero backend deps)
+  |-- Speaker stats enrichment (backend-only, extends existing calculate_speaker_stats)
 
-Phase 2: Transcription Loop
-  [STT Pipeline Integration] + [Transcript Editor] + [Status Polling]
-  Why second: Transcription is the next pipeline stage. Connects to existing backend Whisper.
-  Dependency: Phase 1 (needs recordings to transcribe)
+Phase 2: Depends on Phase 1
+  |-- Transcript sync with playback (requires PlaybackStore)
+  |-- Speaker stats display (requires enriched stats from backend)
+  |-- Meeting stats card (requires enriched transcript data)
 
-Phase 3: AI Extraction + Review
-  [LLM Extraction Trigger] + [Outcome Review UI] + [Confidence Gating]
-  Why third: This is the core AI value. Extraction needs transcripts.
-  Dependency: Phase 2 (needs transcripts to extract from)
+Phase 3: Independent feature cluster
+  |-- Post-recording popup (modifies RecordingFAB flow)
+  |-- Speaker label editing (frontend-only CRUD, new DB table)
 
-Phase 4: Task Management + Promotion
-  [Task CRUD] + [Kanban/List Views] + [Promote Outcomes -> Tasks] + [Dependencies]
-  Why fourth: Tasks are the output of the pipeline. Promotion connects extraction to PM.
-  Dependency: Phase 3 (outcomes to promote) but Task CRUD can start in parallel
+Phase 4: Depends on Phase 3 for upload UX
+  |-- Document attachments (file upload, storage, backend text extraction)
 
-Phase 5: Document Generation + Polish
-  [PRD Generation] + [Diagram Generation] + [Notifications] + [QA Agent]
-  Why last: These are value-adds on top of the core pipeline.
-  Dependency: Phase 4 (needs project data to generate docs from)
+Phase 5: Depends on Phase 4 for context data
+  |-- Document context injection into generation prompts
+  |-- Product-focused prompt rewrite
+  |-- Increase n_ctx to 8192
 ```
 
-**Parallelization opportunity:** Task CRUD (Phase 4 frontend) can be built in parallel with Phase 2-3 since it is a standard CRUD UI. Wire up promotion later.
+**Rationale:**
+- Playback sync and clustering are highest-risk, highest-complexity -- go first to surface problems early
+- Speaker stats and meeting stats are low-risk extensions of existing data -- pair with playback
+- Post-recording popup is a UX flow change that gates document upload -- must precede attachments
+- Document attachments have the most new infrastructure (tables, endpoints, file handling, text extraction) -- need popup flow first
+- Prompt improvements are lowest risk and depend on attachment context being available -- go last, easy to iterate
 
-## API Contract Shape
-
-The backend likely already has some of these endpoints. The frontend should expect this contract shape:
-
-| Endpoint | Method | Purpose | Response |
-|----------|--------|---------|----------|
-| `/api/recordings` | GET | List recordings with filters | `Recording[]` |
-| `/api/recordings` | POST | Upload new recording | `Recording` |
-| `/api/recordings/{id}` | PATCH | Update (assign project, edit) | `Recording` |
-| `/api/recordings/{id}/transcribe` | POST | Trigger STT pipeline | `{ status: "processing" }` |
-| `/api/recordings/{id}/status` | GET | Poll processing status | `{ status, progress? }` |
-| `/api/recordings/{id}/transcript` | GET | Get transcript with utterances | `Transcript` |
-| `/api/recordings/{id}/extract` | POST | Trigger LLM extraction | `{ status: "processing" }` |
-| `/api/recordings/{id}/outcomes` | GET | Get extracted outcomes | `Outcome[]` |
-| `/api/outcomes/{id}` | PATCH | Approve/reject/edit outcome | `Outcome` |
-| `/api/outcomes/{id}/promote` | POST | Promote to task/requirement | `Task` |
-| `/api/projects/{id}/tasks` | GET/POST | Task CRUD | `Task[]` / `Task` |
-| `/api/projects/{id}/milestones` | GET/POST | Milestone CRUD | `Milestone[]` |
-| `/api/projects/{id}/generate-plan` | POST | AI plan generation | `{ status: "processing" }` |
-| `/api/projects/{id}/generate-prd` | POST | PRD generation | `{ status: "processing" }` |
-
-**Note:** Verify these against the actual existing backend API. The backend may already implement some of these differently. Adapt the frontend to match, not the other way around.
+---
 
 ## Scalability Considerations
 
-| Concern | FYP Scale (1-5 users) | If Scaling Later |
-|---------|----------------------|------------------|
-| Concurrent inference | Single queue, one job at a time | Job queue with priority (Redis + Celery) |
-| SQLite writes | Single writer is fine | Migrate to PostgreSQL |
-| Audio storage | Filesystem is fine | Object storage (S3/MinIO) |
-| Real-time updates | Polling every 2s is fine | WebSocket or SSE |
-| LLM context window | 8K context fits most meetings | Chunked extraction for long meetings |
-
-For FYP: Do not optimize for scale. Single-user, single-job-at-a-time is perfectly acceptable and dramatically simpler.
-
-## Key Data Model (SQLite)
-
-```sql
--- Core entities
-projects (id, name, created_at, updated_at)
-recordings (id, project_id, file_path, status, duration, created_at)
-transcripts (id, recording_id, created_at)
-utterances (id, transcript_id, speaker, text, start_time, end_time, confidence)
-
--- AI extraction
-outcomes (id, recording_id, type, content, confidence, status, evidence_links_json, created_at)
-
--- Project management
-tasks (id, project_id, source_outcome_id, title, description, status, priority, due_date)
-task_dependencies (task_id, depends_on_task_id)
-milestones (id, project_id, title, due_date, status)
-milestone_tasks (milestone_id, task_id)
-
--- Documents
-documents (id, project_id, type, content_md, created_at)
-```
-
-**Note:** Verify against the existing backend schema. Adapt frontend expectations to match what exists.
+| Concern | Current (FYP) | Notes |
+|---------|---------------|-------|
+| Audio file size | WebM ~128kbps, 1hr = ~56MB | Fine for local filesystem |
+| Attachment size | PDF/DOCX typically < 5MB | Cap at 10MB per file, 3 files per recording |
+| LLM context window | 4096 tokens (current) | Increase to 8192 for attachment context |
+| Playback latency | Local file served by Next.js static | Zero network latency concern |
+| Speaker stats computation | O(n) over segments | Trivial even for long meetings |
+| Clustering threshold tuning | Manual `distance_threshold` parameter | Expose as optional setting if needed |
+| Text extraction | Synchronous per-file | Fine for 1-3 small documents |
 
 ## Sources
 
-- Architecture patterns derived from domain knowledge of STT/LLM pipeline systems, FastAPI async patterns, and browser MediaRecorder API capabilities.
-- Confidence: MEDIUM -- based on established patterns for async AI pipelines and local-first architectures, but not verified against external sources due to search limitations. The patterns (async jobs, state machines, confidence gating) are well-established in production systems like Otter.ai, Fireflies.ai, and similar meeting intelligence products.
-- The existing backend repo (github.com/ZainAbbas97/allure-ai) should be consulted to verify API contracts and data models match what is already implemented.
+- All findings based on direct code reading of the Allure AI codebase (v1.0 as of commit a7c2a34)
+- AgglomerativeClustering for speaker diarization: sklearn standard, widely used with ECAPA-TDNN cosine embeddings (pyannote, resemblyzer implementations) -- HIGH confidence
+- HTML5 Audio API (timeupdate, currentTime, seek): Web standard -- HIGH confidence
+- Phi-4-mini context window: confirmed `n_ctx=4096` in main.py line 80, model supports up to 16K per Hugging Face model card -- HIGH confidence
+- Zustand store pattern: proven in existing codebase (evidence-highlight.ts, recording-store.ts) -- HIGH confidence
