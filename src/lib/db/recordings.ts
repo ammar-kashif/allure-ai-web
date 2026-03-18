@@ -127,6 +127,11 @@ export function cacheTranscript(id: string, data: string): void {
   db.prepare("UPDATE recordings SET transcript_data = ? WHERE id = ?").run(data, id)
 }
 
+export function clearCachedTranscript(id: string): void {
+  const db = getDb()
+  db.prepare("UPDATE recordings SET transcript_data = NULL WHERE id = ?").run(id)
+}
+
 export function getRecordingCounts(): Record<RecordingStatus | "all", number> {
   const db = getDb()
   const rows = db

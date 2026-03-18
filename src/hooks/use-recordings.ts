@@ -8,6 +8,8 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query"
 
+import { toast } from "sonner"
+
 import { apiClient } from "@/lib/api/client"
 import type { Recording, RecordingStatus, Transcript } from "@/types/recording"
 
@@ -154,6 +156,62 @@ export function useAssignProject(): UseMutationResult<
       queryClient.invalidateQueries({
         queryKey: ["recording", variables.recordingId],
       })
+    },
+  })
+}
+
+export function useUpdateSpeaker(): UseMutationResult<
+  { ok: boolean },
+  Error,
+  { recordingId: string; speakerLabel: string; customLabel?: string; role?: string }
+> {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ recordingId, speakerLabel, customLabel, role }) => {
+      const body: Record<string, unknown> = {}
+      if (customLabel !== undefined) body.custom_label = customLabel
+      if (role !== undefined) body.role = role
+      return apiClient.patch<{ ok: boolean }>(
+        `/api/recordings/${recordingId}/speakers/${encodeURIComponent(speakerLabel)}`,
+        body
+      )
+    },
+    onMutate: async ({ recordingId, speakerLabel, customLabel, role }) => {
+      // Cancel outgoing transcript refetches
+      await queryClient.cancelQueries({ queryKey: ["transcript", recordingId] })
+
+      // Snapshot previous value
+      const previous = queryClient.getQueryData<Transcript>(["transcript", recordingId])
+
+      // Optimistically update the cached transcript
+      if (previous?.speakers) {
+        queryClient.setQueryData<Transcript>(["transcript", recordingId], {
+          ...previous,
+          speakers: previous.speakers.map((s) =>
+            s.label === speakerLabel
+              ? {
+                  ...s,
+                  ...(customLabel !== undefined ? { customLabel } : {}),
+                  ...(role !== undefined ? { role } : {}),
+                }
+              : s
+          ),
+        })
+      }
+
+      return { previous }
+    },
+    onError: (_err, { recordingId }, context) => {
+      // Revert to snapshot on error
+      if (context?.previous) {
+        queryClient.setQueryData(["transcript", recordingId], context.previous)
+      }
+      toast.error("Failed to update speaker")
+    },
+    onSettled: (_data, _error, { recordingId }) => {
+      // Refetch transcript to sync with backend
+      queryClient.invalidateQueries({ queryKey: ["transcript", recordingId] })
     },
   })
 }

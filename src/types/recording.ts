@@ -39,6 +39,8 @@ export interface SpeakerStat {
   avgTurnDuration: number  // seconds
   pauses: number
   avgPauseDuration: number // seconds
+  customLabel?: string     // user-assigned display name (empty = use label)
+  role?: string            // e.g. "Presenter", "Participant", or custom
 }
 
 export interface Transcript {
