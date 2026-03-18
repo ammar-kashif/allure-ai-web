@@ -31,6 +31,8 @@ interface UtteranceBubbleProps {
   highlighted?: boolean
   isPlaybackActive?: boolean
   onSeek?: (startTime: number) => void
+  displayName?: string
+  role?: string
 }
 
 export function UtteranceBubble({
@@ -39,6 +41,8 @@ export function UtteranceBubble({
   highlighted = false,
   isPlaybackActive = false,
   onSeek,
+  displayName,
+  role,
 }: UtteranceBubbleProps) {
   const colorIndex = getSpeakerIndex(utterance.speaker)
   const colors = speakerColors[colorIndex]
@@ -59,8 +63,11 @@ export function UtteranceBubble({
       <div className={cn("mb-1", showSpeaker && "flex items-center gap-2")}>
         {showSpeaker && (
           <span className={cn("text-xs font-semibold", colors.label)}>
-            {utterance.speaker}
+            {displayName || utterance.speaker}
           </span>
+        )}
+        {role && (
+          <span className="text-xs text-muted-foreground">{role}</span>
         )}
         <span className="text-xs text-muted-foreground">
           {formatTime(utterance.startTime)}

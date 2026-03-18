@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { ArrowDown } from "lucide-react"
 import { UtteranceBubble } from "@/components/transcript/utterance-bubble"
 import { Button } from "@/components/ui/button"
@@ -87,6 +87,20 @@ export function TranscriptView({ transcript }: TranscriptViewProps) {
     }
   }, [highlightIndex])
 
+  // Build speaker lookup map for display names and roles
+  const speakerMap = useMemo(() => {
+    const map = new Map<string, { displayName: string; role: string }>()
+    if (transcript.speakers) {
+      for (const s of transcript.speakers) {
+        map.set(s.label, {
+          displayName: s.customLabel || s.label,
+          role: s.role || "",
+        })
+      }
+    }
+    return map
+  }, [transcript.speakers])
+
   if (!transcript.utterances || transcript.utterances.length === 0) {
     return (
       <div className="py-12 text-center text-muted-foreground">
@@ -117,6 +131,8 @@ export function TranscriptView({ transcript }: TranscriptViewProps) {
               highlighted={isHighlighted}
               isPlaybackActive={activeUtteranceIndex === index}
               onSeek={handleSeek}
+              displayName={speakerMap.get(utterance.speaker)?.displayName}
+              role={speakerMap.get(utterance.speaker)?.role}
             />
           </div>
         )
