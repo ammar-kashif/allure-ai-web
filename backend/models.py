@@ -36,6 +36,13 @@ class SpeakerStats(BaseModel):
     label: str
     talk_time_pct: float
     utterance_count: int
+    talk_time: float
+    word_count: int
+    wpm: float
+    turns: int
+    avg_turn_duration: float
+    pauses: int
+    avg_pause_duration: float
 
 
 class TranscriptResponse(BaseModel):
@@ -46,6 +53,7 @@ class TranscriptResponse(BaseModel):
     language: str
     speakers: list[SpeakerStats]
     segments: list[TranscriptSegment]
+    processing_time: float
 
 
 # --- Extraction / Outcome models ---

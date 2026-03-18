@@ -1,18 +1,19 @@
 """Moonshine Voice STT + SpeechBrain ECAPA-TDNN speaker diarization pipeline.
 
 Provides the full transcription pipeline: audio -> STT segments -> diarization
-(fixed-window embeddings + MeanShift clustering) -> speaker alignment with
+(fixed-window embeddings + AgglomerativeClustering) -> speaker alignment with
 sentence-boundary snapping -> label remapping -> segment merging -> speaker stats.
 """
 
 import logging
 import re
+import time
 from typing import Any
 
 import librosa
 import numpy as np
 import torch
-from sklearn.cluster import MeanShift
+from sklearn.cluster import AgglomerativeClustering
 from scipy.ndimage import median_filter
 
 from storage import get_job
@@ -60,13 +61,13 @@ def transcribe_audio(wav_path: str, transcriber) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# Fast CPU-only speaker diarization (SpeechBrain ECAPA-TDNN + MeanShift)
+# Fast CPU-only speaker diarization (SpeechBrain ECAPA-TDNN + AgglomerativeClustering)
 # ---------------------------------------------------------------------------
 
 
 class FastDiarizer:
     """CPU-only speaker diarization using SpeechBrain ECAPA-TDNN embeddings
-    and MeanShift clustering.
+    and AgglomerativeClustering.
 
     Designed for clean audio (podcasts, interviews, meetings). Each fixed-size
     window is assigned one dominant speaker — no overlap handling.
@@ -142,8 +143,13 @@ class FastDiarizer:
 
         embedding_matrix = np.stack(embeddings)
 
-        # MeanShift clustering (auto-determines speaker count)
-        clustering = MeanShift()
+        # AgglomerativeClustering (auto-determines speaker count via distance threshold)
+        clustering = AgglomerativeClustering(
+            n_clusters=None,
+            distance_threshold=0.7,  # Cosine distance threshold for ECAPA-TDNN embeddings; tune on real recordings
+            metric="cosine",
+            linkage="average",
+        )
         labels = clustering.fit_predict(embedding_matrix)
 
         # Smooth labels with median filter to remove single-window flickers
@@ -283,33 +289,68 @@ def merge_consecutive_segments(segments: list[dict[str, Any]]) -> list[dict[str,
 def calculate_speaker_stats(
     segments: list[dict[str, Any]], total_duration: float
 ) -> list[dict[str, Any]]:
-    """Calculate talk time percentage and utterance count per speaker.
+    """Calculate extended per-speaker statistics.
+
+    Returns per speaker: label, talk_time_pct, utterance_count, talk_time,
+    word_count, wpm, turns, avg_turn_duration, pauses, avg_pause_duration.
 
     Speakers with less than 1% talk time are filtered out.
     Results are sorted by talk_time_pct descending.
     """
     speaker_times: dict[str, float] = {}
     speaker_counts: dict[str, int] = {}
+    speaker_words: dict[str, int] = {}
+    speaker_segments: dict[str, list[dict[str, Any]]] = {}
 
     for seg in segments:
         speaker = seg["speaker"]
         duration = seg["end"] - seg["start"]
         speaker_times[speaker] = speaker_times.get(speaker, 0.0) + duration
         speaker_counts[speaker] = speaker_counts.get(speaker, 0) + 1
+        text = seg.get("text", "")
+        word_count = len(text.split()) if text.strip() else 0
+        speaker_words[speaker] = speaker_words.get(speaker, 0) + word_count
+        speaker_segments.setdefault(speaker, []).append(seg)
 
     total_talk = sum(speaker_times.values())
 
     stats = []
     for speaker, talk_time in speaker_times.items():
         pct = (talk_time / total_talk * 100) if total_talk > 0 else 0.0
-        if pct >= 1.0:
-            stats.append(
-                {
-                    "label": speaker,
-                    "talk_time_pct": round(pct, 1),
-                    "utterance_count": speaker_counts[speaker],
-                }
-            )
+        if pct < 1.0:
+            continue
+
+        turns = speaker_counts[speaker]
+        word_count = speaker_words[speaker]
+        talk_minutes = talk_time / 60.0
+        wpm = (word_count / talk_minutes) if talk_minutes > 0 else 0.0
+        avg_turn_duration = (talk_time / turns) if turns > 0 else 0.0
+
+        # Calculate pauses: gaps between consecutive same-speaker segments
+        segs_sorted = sorted(speaker_segments[speaker], key=lambda s: s["start"])
+        pause_count = 0
+        total_pause_time = 0.0
+        for i in range(1, len(segs_sorted)):
+            gap = segs_sorted[i]["start"] - segs_sorted[i - 1]["end"]
+            if gap > 0:
+                pause_count += 1
+                total_pause_time += gap
+        avg_pause_duration = (total_pause_time / pause_count) if pause_count > 0 else 0.0
+
+        stats.append(
+            {
+                "label": speaker,
+                "talk_time_pct": round(pct, 1),
+                "utterance_count": turns,
+                "talk_time": round(talk_time, 2),
+                "word_count": word_count,
+                "wpm": round(wpm, 1),
+                "turns": turns,
+                "avg_turn_duration": round(avg_turn_duration, 2),
+                "pauses": pause_count,
+                "avg_pause_duration": round(avg_pause_duration, 2),
+            }
+        )
 
     return sorted(stats, key=lambda s: s["talk_time_pct"], reverse=True)
 
@@ -326,7 +367,7 @@ def run_transcription(job_id: str, app_state: object) -> dict[str, Any]:
     1. Get job metadata from storage
     2. Determine audio duration via librosa
     3. Transcribe with Moonshine Voice
-    4. Diarize with SpeechBrain ECAPA-TDNN + MeanShift
+    4. Diarize with SpeechBrain ECAPA-TDNN + AgglomerativeClustering
     5. Align transcript segments with speaker labels
     6. Snap boundaries to sentence endings
     7. Remap labels to Speaker 1, Speaker 2, ...
@@ -341,6 +382,8 @@ def run_transcription(job_id: str, app_state: object) -> dict[str, Any]:
     Returns:
         TranscriptResponse-shaped dict.
     """
+    pipeline_start = time.perf_counter()
+
     job = get_job(job_id)
     if job is None:
         raise ValueError(f"Job {job_id} not found")
@@ -385,10 +428,13 @@ def run_transcription(job_id: str, app_state: object) -> dict[str, Any]:
         len(stats),
     )
 
+    processing_time = round(time.perf_counter() - pipeline_start, 2)
+
     return {
         "id": job_id,
         "duration": round(total_duration, 2),
         "language": "en",
         "speakers": stats,
         "segments": filtered_segments,
+        "processing_time": processing_time,
     }
