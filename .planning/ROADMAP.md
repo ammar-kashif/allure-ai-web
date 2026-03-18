@@ -38,7 +38,7 @@
   3. User can see per-speaker statistics (talk time, word count, WPM, turns, avg turn duration, pauses, avg pause duration) on the recording detail page
   4. User can see meeting-level statistics (duration, processing time, speaker count) on the recording detail page
   5. Speakers are color-coded in the transcript view and diarization uses AgglomerativeClustering with auto-detected speaker count
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 - [ ] 05-01-PLAN.md — Backend: diarization upgrade, extended stats, processing time, WAV audio endpoint
@@ -92,7 +92,7 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 2.1. UI/UX Overhaul - Modern SaaS Dashboard | v1.0 | 3/3 | Complete | 2026-03-13 |
 | 3. Task Management | v1.0 | 3/3 | Complete | 2026-03-13 |
 | 4. Document Generation and Demo Polish | v1.0 | 3/3 | Complete | 2026-03-15 |
-| 5. Diarization & Audio Playback | 2/4 | In Progress|  | - |
+| 5. Diarization & Audio Playback | 3/4 | In Progress|  | - |
 | 6. Speaker Management & Recording UX | v1.1 | 0/? | Not started | - |
 | 7. Document Attachments | v1.1 | 0/? | Not started | - |
 | 8. Context-Aware Generation | v1.1 | 0/? | Not started | - |

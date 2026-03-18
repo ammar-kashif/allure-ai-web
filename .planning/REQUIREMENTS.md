@@ -9,9 +9,9 @@ Requirements for Meeting Intelligence & Document Context milestone. Each maps to
 
 ### Audio Playback
 
-- [ ] **PLAY-01**: User can play/pause meeting audio from the recording detail page
+- [x] **PLAY-01**: User can play/pause meeting audio from the recording detail page
 - [ ] **PLAY-02**: Current utterance is highlighted during audio playback
-- [ ] **PLAY-03**: User can change playback speed (0.5x, 1x, 1.5x, 2x)
+- [x] **PLAY-03**: User can change playback speed (0.5x, 1x, 1.5x, 2x)
 
 ### Speaker Management
 
@@ -22,9 +22,9 @@ Requirements for Meeting Intelligence & Document Context milestone. Each maps to
 
 ### Meeting Statistics
 
-- [ ] **MEET-01**: User can view meeting duration on the recording detail page
+- [x] **MEET-01**: User can view meeting duration on the recording detail page
 - [x] **MEET-02**: User can view processing time on the recording detail page
-- [ ] **MEET-03**: User can view number of speakers on the recording detail page
+- [x] **MEET-03**: User can view number of speakers on the recording detail page
 - [ ] **MEET-04**: User can view number of attached documents on the recording detail page
 
 ### Recording UX
@@ -83,16 +83,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PLAY-01 | Phase 5 | Pending |
+| PLAY-01 | Phase 5 | Complete |
 | PLAY-02 | Phase 5 | Pending |
-| PLAY-03 | Phase 5 | Pending |
+| PLAY-03 | Phase 5 | Complete |
 | SPKR-01 | Phase 6 | Pending |
 | SPKR-02 | Phase 6 | Pending |
 | SPKR-03 | Phase 5 | Complete |
 | SPKR-04 | Phase 5 | Complete |
-| MEET-01 | Phase 5 | Pending |
+| MEET-01 | Phase 5 | Complete |
 | MEET-02 | Phase 5 | Complete |
-| MEET-03 | Phase 5 | Pending |
+| MEET-03 | Phase 5 | Complete |
 | MEET-04 | Phase 7 | Pending |
 | RUX-01 | Phase 6 | Pending |
 | RUX-02 | Phase 6 | Pending |
