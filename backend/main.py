@@ -22,8 +22,27 @@ from fastapi.responses import FileResponse
 from audio_utils import convert_to_wav, validate_audio_format
 from job_queue import job_queue, process_worker
 from extraction import format_backlink
-from models import OutcomesResponse, PromoteResponse, StatusResponse, UploadResponse
-from storage import create_job, delete_job, get_job, init_db, list_jobs, update_job
+from models import (
+    AttachmentResponse,
+    AttachmentTextResponse,
+    OutcomesResponse,
+    PromoteResponse,
+    StatusResponse,
+    UploadResponse,
+)
+from storage import (
+    create_attachment,
+    create_job,
+    delete_attachment,
+    delete_job,
+    get_attachment,
+    get_job,
+    init_db,
+    list_attachments,
+    list_jobs,
+    update_job,
+)
+from text_extraction import extract_text
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +128,7 @@ async def lifespan(app: FastAPI):
     n_gpu = -1 if os.environ.get("LLM_GPU", "1") != "0" else 0
     app.state.llm = Llama(
         model_path=llm_model_path,
-        n_ctx=4096,
+        n_ctx=8192,  # Bumped from 4096 for Phase 8 document context injection
         n_gpu_layers=n_gpu,
         chat_format="chatml",
         verbose=False,
@@ -424,3 +443,106 @@ async def delete_recording(job_id: str):
 
     delete_job(job_id)
     return None
+
+
+# --- Attachment endpoints ---
+
+ALLOWED_ATTACHMENT_TYPES = {"pdf", "docx", "txt"}
+MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
+@app.post(
+    "/recordings/{job_id}/attachments",
+    status_code=201,
+    response_model=AttachmentResponse,
+)
+async def upload_attachment(job_id: str, file: UploadFile = File(...)):
+    """Upload a document attachment for a recording."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No filename provided")
+
+    # Determine file type from extension
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    if ext not in ALLOWED_ATTACHMENT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: .{ext}. Accepted: pdf, docx, txt",
+        )
+
+    # Read file content and check size
+    file_bytes = await file.read()
+    if len(file_bytes) > MAX_ATTACHMENT_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size is {MAX_ATTACHMENT_SIZE // (1024 * 1024)}MB",
+        )
+
+    # Save file to UPLOADS_DIR/{job_id}/
+    attachment_dir = os.path.join(UPLOADS_DIR, job_id)
+    os.makedirs(attachment_dir, exist_ok=True)
+    saved_path = os.path.join(attachment_dir, file.filename)
+    async with aiofiles.open(saved_path, "wb") as f:
+        await f.write(file_bytes)
+
+    # Extract text
+    text, extraction_error = extract_text(saved_path, ext)
+
+    # Store in DB
+    attachment_id = str(uuid4())
+    record = create_attachment(
+        attachment_id=attachment_id,
+        recording_id=job_id,
+        filename=file.filename,
+        file_type=ext,
+        file_size=len(file_bytes),
+        extracted_text=text,
+        extraction_error=extraction_error,
+    )
+    return AttachmentResponse(**record)
+
+
+@app.get(
+    "/recordings/{job_id}/attachments",
+    response_model=list[AttachmentResponse],
+)
+async def list_recording_attachments(job_id: str):
+    """List all attachments for a recording (metadata only, no extracted text)."""
+    return list_attachments(job_id)
+
+
+@app.delete(
+    "/recordings/{job_id}/attachments/{attachment_id}",
+    status_code=204,
+)
+async def delete_recording_attachment(job_id: str, attachment_id: str):
+    """Delete an attachment record and its file."""
+    record = get_attachment(attachment_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+
+    delete_attachment(attachment_id)
+
+    # Best-effort delete file from disk
+    try:
+        file_path = os.path.join(UPLOADS_DIR, job_id, record["filename"])
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    except Exception:
+        logger.warning("Failed to delete attachment file for %s", attachment_id)
+
+    return None
+
+
+@app.get(
+    "/recordings/{job_id}/attachments/{attachment_id}/text",
+    response_model=AttachmentTextResponse,
+)
+async def get_attachment_text(job_id: str, attachment_id: str):
+    """Return the extracted text for an attachment."""
+    record = get_attachment(attachment_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    return AttachmentTextResponse(
+        id=record["id"],
+        extracted_text=record["extracted_text"],
+    )
