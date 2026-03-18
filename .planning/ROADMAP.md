@@ -56,7 +56,12 @@ Plans:
   3. After stopping a recording, a popup appears where user can name the recording and assign it to a project
   4. User can upload reference documents from the post-recording popup
   5. Transcription and diarization proceed in the background while the popup is open -- user does not wait
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Backend speaker update endpoint, role auto-assignment, frontend types, InlineEdit component, mutation hook
+- [ ] 06-02-PLAN.md — Wire speaker editing into SpeakerStatsPanel and propagate to UtteranceBubble
+- [ ] 06-03-PLAN.md — Post-recording dialog with background processing, file upload, project assignment
 
 ### Phase 7: Document Attachments
 **Goal**: Users can upload PDF/DOCX documents to recordings, with text automatically extracted and stored for downstream generation, and documents listed on the recording detail page
@@ -93,6 +98,6 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 3. Task Management | v1.0 | 3/3 | Complete | 2026-03-13 |
 | 4. Document Generation and Demo Polish | v1.0 | 3/3 | Complete | 2026-03-15 |
 | 5. Diarization & Audio Playback | 3/4 | In Progress|  | - |
-| 6. Speaker Management & Recording UX | v1.1 | 0/? | Not started | - |
+| 6. Speaker Management & Recording UX | v1.1 | 0/3 | Not started | - |
 | 7. Document Attachments | v1.1 | 0/? | Not started | - |
 | 8. Context-Aware Generation | v1.1 | 0/? | Not started | - |
