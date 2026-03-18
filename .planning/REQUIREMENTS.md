@@ -18,7 +18,7 @@ Requirements for Meeting Intelligence & Document Context milestone. Each maps to
 - [ ] **SPKR-01**: User can edit speaker labels (rename "Speaker 1" to "John")
 - [ ] **SPKR-02**: User can assign roles to speakers (e.g., "Product Manager")
 - [ ] **SPKR-03**: User can view per-speaker statistics (time, words, WPM, turns, avg turn, pauses, avg pause)
-- [ ] **SPKR-04**: Speakers are color-coded in the transcript view
+- [x] **SPKR-04**: Speakers are color-coded in the transcript view
 
 ### Meeting Statistics
 
@@ -89,7 +89,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SPKR-01 | Phase 6 | Pending |
 | SPKR-02 | Phase 6 | Pending |
 | SPKR-03 | Phase 5 | Pending |
-| SPKR-04 | Phase 5 | Pending |
+| SPKR-04 | Phase 5 | Complete |
 | MEET-01 | Phase 5 | Pending |
 | MEET-02 | Phase 5 | Pending |
 | MEET-03 | Phase 5 | Pending |
