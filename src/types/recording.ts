@@ -28,8 +28,24 @@ export interface Utterance {
   endTime: number; // seconds
 }
 
+export interface SpeakerStat {
+  label: string
+  talkTimePct: number
+  utteranceCount: number
+  talkTime: number        // seconds
+  wordCount: number
+  wpm: number
+  turns: number
+  avgTurnDuration: number  // seconds
+  pauses: number
+  avgPauseDuration: number // seconds
+}
+
 export interface Transcript {
   id: string;
   recordingId: string;
   utterances: Utterance[];
+  speakers?: SpeakerStat[]       // from backend, optional for backward compat
+  duration?: number              // total meeting duration in seconds
+  processingTime?: number        // pipeline processing time in seconds
 }
