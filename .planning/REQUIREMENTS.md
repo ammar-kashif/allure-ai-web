@@ -15,7 +15,7 @@ Requirements for Meeting Intelligence & Document Context milestone. Each maps to
 
 ### Speaker Management
 
-- [ ] **SPKR-01**: User can edit speaker labels (rename "Speaker 1" → "John")
+- [ ] **SPKR-01**: User can edit speaker labels (rename "Speaker 1" to "John")
 - [ ] **SPKR-02**: User can assign roles to speakers (e.g., "Product Manager")
 - [ ] **SPKR-03**: User can view per-speaker statistics (time, words, WPM, turns, avg turn, pauses, avg pause)
 - [ ] **SPKR-04**: Speakers are color-coded in the transcript view
@@ -60,7 +60,7 @@ Deferred to v1.2+. Tracked but not in current roadmap.
 
 ### Speaker Management
 
-- **SPKR-05**: Speaker profiles persist across recordings (same voice → same label)
+- **SPKR-05**: Speaker profiles persist across recordings (same voice = same label)
 
 ### Meeting Intelligence
 
@@ -83,34 +83,34 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PLAY-01 | — | Pending |
-| PLAY-02 | — | Pending |
-| PLAY-03 | — | Pending |
-| SPKR-01 | — | Pending |
-| SPKR-02 | — | Pending |
-| SPKR-03 | — | Pending |
-| SPKR-04 | — | Pending |
-| MEET-01 | — | Pending |
-| MEET-02 | — | Pending |
-| MEET-03 | — | Pending |
-| MEET-04 | — | Pending |
-| RUX-01 | — | Pending |
-| RUX-02 | — | Pending |
-| RUX-03 | — | Pending |
-| DOC-01 | — | Pending |
-| DOC-02 | — | Pending |
-| DOC-03 | — | Pending |
-| DIAR-01 | — | Pending |
-| DIAR-02 | — | Pending |
-| GEN-01 | — | Pending |
-| GEN-02 | — | Pending |
-| GEN-03 | — | Pending |
+| PLAY-01 | Phase 5 | Pending |
+| PLAY-02 | Phase 5 | Pending |
+| PLAY-03 | Phase 5 | Pending |
+| SPKR-01 | Phase 6 | Pending |
+| SPKR-02 | Phase 6 | Pending |
+| SPKR-03 | Phase 5 | Pending |
+| SPKR-04 | Phase 5 | Pending |
+| MEET-01 | Phase 5 | Pending |
+| MEET-02 | Phase 5 | Pending |
+| MEET-03 | Phase 5 | Pending |
+| MEET-04 | Phase 7 | Pending |
+| RUX-01 | Phase 6 | Pending |
+| RUX-02 | Phase 6 | Pending |
+| RUX-03 | Phase 6 | Pending |
+| DOC-01 | Phase 7 | Pending |
+| DOC-02 | Phase 7 | Pending |
+| DOC-03 | Phase 7 | Pending |
+| DIAR-01 | Phase 5 | Pending |
+| DIAR-02 | Phase 5 | Pending |
+| GEN-01 | Phase 8 | Pending |
+| GEN-02 | Phase 8 | Pending |
+| GEN-03 | Phase 8 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 22 total
-- Mapped to phases: 0
-- Unmapped: 22 ⚠️
+- Mapped to phases: 22
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-18 after initial definition*
+*Last updated: 2026-03-18 after roadmap creation*
