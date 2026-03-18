@@ -17,13 +17,13 @@ Requirements for Meeting Intelligence & Document Context milestone. Each maps to
 
 - [ ] **SPKR-01**: User can edit speaker labels (rename "Speaker 1" to "John")
 - [ ] **SPKR-02**: User can assign roles to speakers (e.g., "Product Manager")
-- [ ] **SPKR-03**: User can view per-speaker statistics (time, words, WPM, turns, avg turn, pauses, avg pause)
+- [x] **SPKR-03**: User can view per-speaker statistics (time, words, WPM, turns, avg turn, pauses, avg pause)
 - [x] **SPKR-04**: Speakers are color-coded in the transcript view
 
 ### Meeting Statistics
 
 - [ ] **MEET-01**: User can view meeting duration on the recording detail page
-- [ ] **MEET-02**: User can view processing time on the recording detail page
+- [x] **MEET-02**: User can view processing time on the recording detail page
 - [ ] **MEET-03**: User can view number of speakers on the recording detail page
 - [ ] **MEET-04**: User can view number of attached documents on the recording detail page
 
@@ -41,8 +41,8 @@ Requirements for Meeting Intelligence & Document Context milestone. Each maps to
 
 ### Diarization Quality
 
-- [ ] **DIAR-01**: Backend uses AgglomerativeClustering for speaker diarization
-- [ ] **DIAR-02**: Speaker count is auto-detected (no manual input required)
+- [x] **DIAR-01**: Backend uses AgglomerativeClustering for speaker diarization
+- [x] **DIAR-02**: Speaker count is auto-detected (no manual input required)
 
 ### Document Generation Quality
 
@@ -88,10 +88,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLAY-03 | Phase 5 | Pending |
 | SPKR-01 | Phase 6 | Pending |
 | SPKR-02 | Phase 6 | Pending |
-| SPKR-03 | Phase 5 | Pending |
+| SPKR-03 | Phase 5 | Complete |
 | SPKR-04 | Phase 5 | Complete |
 | MEET-01 | Phase 5 | Pending |
-| MEET-02 | Phase 5 | Pending |
+| MEET-02 | Phase 5 | Complete |
 | MEET-03 | Phase 5 | Pending |
 | MEET-04 | Phase 7 | Pending |
 | RUX-01 | Phase 6 | Pending |
@@ -100,8 +100,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DOC-01 | Phase 7 | Pending |
 | DOC-02 | Phase 7 | Pending |
 | DOC-03 | Phase 7 | Pending |
-| DIAR-01 | Phase 5 | Pending |
-| DIAR-02 | Phase 5 | Pending |
+| DIAR-01 | Phase 5 | Complete |
+| DIAR-02 | Phase 5 | Complete |
 | GEN-01 | Phase 8 | Pending |
 | GEN-02 | Phase 8 | Pending |
 | GEN-03 | Phase 8 | Pending |
