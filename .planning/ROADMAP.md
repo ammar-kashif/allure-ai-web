@@ -23,7 +23,7 @@
 
 - [ ] **Phase 5: Diarization Upgrade & Audio Playback** - AgglomerativeClustering swap, synced audio playback with transcript highlight, speaker/meeting statistics
 - [x] **Phase 6: Speaker Management & Recording UX** - Editable speaker labels/roles, post-recording popup with background processing (completed 2026-03-18)
-- [ ] **Phase 7: Document Attachments** - Upload, parse, store, and display documents attached to recordings
+- [x] **Phase 7: Document Attachments** - Upload, parse, store, and display documents attached to recordings (completed 2026-03-19)
 - [ ] **Phase 8: Context-Aware Generation** - Document context injection and product-focused diagram prompts
 
 ## Phase Details
@@ -72,11 +72,11 @@ Plans:
   2. Uploaded document text is automatically extracted and stored without user intervention
   3. Attached documents are listed on the recording detail page with filename and type
   4. The meeting statistics card shows the count of attached documents
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 07-01-PLAN.md — Backend: text extraction module, attachments storage CRUD, FastAPI endpoints, n_ctx bump
-- [ ] 07-02-PLAN.md — Frontend: API routes, hooks, AttachedDocumentsCard, MeetingStatCards update, page wiring
+- [x] 07-01-PLAN.md — Backend: text extraction module, attachments storage CRUD, FastAPI endpoints, n_ctx bump
+- [x] 07-02-PLAN.md — Frontend: API routes, hooks, AttachedDocumentsCard, MeetingStatCards update, page wiring
 
 ### Phase 8: Context-Aware Generation
 **Goal**: PRD and Mermaid generation uses attached document text as context and produces product-focused diagrams that model the system discussed, not the meeting flow
@@ -103,5 +103,5 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 4. Document Generation and Demo Polish | v1.0 | 3/3 | Complete | 2026-03-15 |
 | 5. Diarization & Audio Playback | 3/4 | In Progress|  | - |
 | 6. Speaker Management & Recording UX | 3/3 | Complete   | 2026-03-18 | - |
-| 7. Document Attachments | v1.1 | 0/2 | Not started | - |
+| 7. Document Attachments | v1.1 | 2/2 | Complete | 2026-03-19 |
 | 8. Context-Aware Generation | v1.1 | 0/? | Not started | - |

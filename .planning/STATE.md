@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Meeting Intelligence & Document Context
 status: in-progress
-stopped_at: Completed 07-01-PLAN.md
-last_updated: "2026-03-18T20:48:10Z"
-last_activity: 2026-03-19 — Completed 07-01 backend document attachments
+stopped_at: Completed 07-02-PLAN.md
+last_updated: "2026-03-18T20:54:48Z"
+last_activity: 2026-03-19 — Completed 07-02 frontend document attachments
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 9
-  completed_plans: 8
-  percent: 89
+  completed_plans: 9
+  percent: 100
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 ## Current Position
 
 Phase: 7 of 8 (Document Attachments) — third of 4 v1.1 phases
-Plan: 1 of 2 (Backend Attachments) — complete
-Status: Plan 07-01 complete, proceeding to 07-02
-Last activity: 2026-03-19 — Completed 07-01 backend document attachments
+Plan: 2 of 2 (Frontend Attachments) — complete
+Status: Phase 7 complete, proceeding to Phase 8
+Last activity: 2026-03-19 — Completed 07-02 frontend document attachments
 
-Progress: [█████████░] 89%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [█████████░] 89%
 | Phase 06 P02 | 3min | 2 tasks | 5 files |
 | Phase 06 P03 | 4min | 2 tasks | 5 files |
 | Phase 07 P01 | 4min | 2 tasks | 7 files |
+| Phase 07 P02 | 3min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,9 @@ Recent decisions affecting current work:
 - [07-01]: Programmatic PDF/DOCX fixture generation in tmp_path, no static binary fixtures
 - [07-01]: n_ctx bumped from 4096 to 8192 for Phase 8 document context injection
 - [07-01]: Attachment files stored under UPLOADS_DIR/{job_id}/ per recording
+- [07-02]: Attachment proxy routes use getRecording(id).backendId pattern consistent with other API routes
+- [07-02]: DELETE attachment best-effort fetches metadata for local file cleanup before backend delete
+- [07-02]: AttachedDocumentsCard uses controlled AlertDialog state for programmatic delete target management
 
 ### Pending Todos
 
@@ -92,6 +96,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18T20:48:10Z
-Stopped at: Completed 07-01-PLAN.md
-Resume file: .planning/phases/07-document-attachments/07-02-PLAN.md
+Last session: 2026-03-18T20:54:48Z
+Stopped at: Completed 07-02-PLAN.md
+Resume file: Phase 8 planning

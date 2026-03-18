@@ -25,7 +25,7 @@ Requirements for Meeting Intelligence & Document Context milestone. Each maps to
 - [x] **MEET-01**: User can view meeting duration on the recording detail page
 - [x] **MEET-02**: User can view processing time on the recording detail page
 - [x] **MEET-03**: User can view number of speakers on the recording detail page
-- [ ] **MEET-04**: User can view number of attached documents on the recording detail page
+- [x] **MEET-04**: User can view number of attached documents on the recording detail page
 
 ### Recording UX
 
@@ -37,7 +37,7 @@ Requirements for Meeting Intelligence & Document Context milestone. Each maps to
 
 - [x] **DOC-01**: User can upload documents (PDF, DOCX) to a recording
 - [x] **DOC-02**: Attached document text is extracted and stored for generation context
-- [ ] **DOC-03**: Attached documents are listed on the recording detail page
+- [x] **DOC-03**: Attached documents are listed on the recording detail page
 
 ### Diarization Quality
 
@@ -93,13 +93,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MEET-01 | Phase 5 | Complete |
 | MEET-02 | Phase 5 | Complete |
 | MEET-03 | Phase 5 | Complete |
-| MEET-04 | Phase 7 | Pending |
+| MEET-04 | Phase 7 | Complete |
 | RUX-01 | Phase 6 | Complete |
 | RUX-02 | Phase 6 | Complete |
 | RUX-03 | Phase 6 | Complete |
 | DOC-01 | Phase 7 | Complete |
 | DOC-02 | Phase 7 | Complete |
-| DOC-03 | Phase 7 | Pending |
+| DOC-03 | Phase 7 | Complete |
 | DIAR-01 | Phase 5 | Complete |
 | DIAR-02 | Phase 5 | Complete |
 | GEN-01 | Phase 8 | Pending |
