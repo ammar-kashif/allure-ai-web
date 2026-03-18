@@ -3,12 +3,12 @@
 import json
 import os
 import sqlite3
-from typing import Any
+from typing import Any, Optional
 
 DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 DB_PATH = os.path.join(DB_DIR, "allure.db")
 
-_conn: sqlite3.Connection | None = None
+_conn: Optional[sqlite3.Connection] = None
 
 
 def _get_conn() -> sqlite3.Connection:
@@ -18,7 +18,7 @@ def _get_conn() -> sqlite3.Connection:
     return _conn
 
 
-def init_db(db_path: str | None = None) -> None:
+def init_db(db_path: Optional[str] = None) -> None:
     """Initialize the SQLite database and create tables if needed."""
     global _conn
     path = db_path or DB_PATH
@@ -37,6 +37,20 @@ def init_db(db_path: str | None = None) -> None:
             extraction_status TEXT NOT NULL DEFAULT 'none',
             extraction_error TEXT,
             outcomes TEXT NOT NULL DEFAULT '[]'
+        )
+        """
+    )
+    _conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS attachments (
+            id TEXT PRIMARY KEY,
+            recording_id TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            file_type TEXT NOT NULL,
+            file_size INTEGER NOT NULL,
+            extracted_text TEXT NOT NULL DEFAULT '',
+            extraction_error TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
         )
         """
     )
@@ -82,7 +96,7 @@ def update_job(job_id: str, **kwargs: Any) -> dict[str, Any]:
     return get_job(job_id)  # type: ignore[return-value]
 
 
-def get_job(job_id: str) -> dict[str, Any] | None:
+def get_job(job_id: str) -> Optional[dict[str, Any]]:
     """Return job or None."""
     conn = _get_conn()
     conn.row_factory = sqlite3.Row
@@ -106,5 +120,60 @@ def delete_job(job_id: str) -> bool:
     """Delete a job. Returns True if deleted, False if not found."""
     conn = _get_conn()
     cursor = conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
+    conn.commit()
+    return cursor.rowcount > 0
+
+
+# --- Attachment CRUD ---
+
+
+def create_attachment(
+    attachment_id: str,
+    recording_id: str,
+    filename: str,
+    file_type: str,
+    file_size: int,
+    extracted_text: str,
+    extraction_error: Optional[str] = None,
+) -> dict[str, Any]:
+    """Create a new attachment record and return it as a dict."""
+    conn = _get_conn()
+    conn.execute(
+        """INSERT INTO attachments (id, recording_id, filename, file_type, file_size, extracted_text, extraction_error)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (attachment_id, recording_id, filename, file_type, file_size, extracted_text, extraction_error),
+    )
+    conn.commit()
+    return get_attachment(attachment_id)  # type: ignore[return-value]
+
+
+def list_attachments(recording_id: str) -> list[dict[str, Any]]:
+    """Return attachment metadata (without extracted_text) for a recording."""
+    conn = _get_conn()
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        """SELECT id, recording_id, filename, file_type, file_size, extraction_error, created_at
+           FROM attachments WHERE recording_id = ? ORDER BY created_at""",
+        (recording_id,),
+    ).fetchall()
+    conn.row_factory = None
+    return [dict(row) for row in rows]
+
+
+def get_attachment(attachment_id: str) -> Optional[dict[str, Any]]:
+    """Return full attachment record including extracted_text, or None."""
+    conn = _get_conn()
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("SELECT * FROM attachments WHERE id = ?", (attachment_id,)).fetchone()
+    conn.row_factory = None
+    if row is None:
+        return None
+    return dict(row)
+
+
+def delete_attachment(attachment_id: str) -> bool:
+    """Delete an attachment. Returns True if deleted, False if not found."""
+    conn = _get_conn()
+    cursor = conn.execute("DELETE FROM attachments WHERE id = ?", (attachment_id,))
     conn.commit()
     return cursor.rowcount > 0

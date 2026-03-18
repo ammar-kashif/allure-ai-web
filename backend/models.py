@@ -1,6 +1,6 @@
 """Pydantic request/response models for all endpoints."""
 
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -78,7 +78,7 @@ class Outcome(BaseModel):
     confidence: float = Field(ge=0, le=1)
     evidence_refs: list[EvidenceRef]
     promoted: bool = False
-    promoted_id: str | None = None
+    promoted_id: Optional[str] = None
 
 
 class OutcomesResponse(BaseModel):
@@ -97,3 +97,22 @@ class PromoteResponse(BaseModel):
     id: str
     type: Literal["task", "requirement"]
     backlink: str
+
+
+class AttachmentResponse(BaseModel):
+    """Metadata for an attachment (no extracted_text)."""
+
+    id: str
+    recording_id: str
+    filename: str
+    file_type: str
+    file_size: int
+    extraction_error: Optional[str] = None
+    created_at: str
+
+
+class AttachmentTextResponse(BaseModel):
+    """Extracted text content for an attachment."""
+
+    id: str
+    extracted_text: str
