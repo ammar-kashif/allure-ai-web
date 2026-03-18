@@ -23,8 +23,11 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { StatusBadge } from "@/components/recording/status-badge"
+import { MeetingStatCards } from "@/components/recording/meeting-stat-cards"
 import { TranscriptView } from "@/components/transcript/transcript-view"
+import { SpeakerStatsPanel } from "@/components/transcript/speaker-stats-panel"
 import { OutcomesTab } from "@/components/outcome/outcomes-tab"
+import { AudioPlayerBar } from "@/components/audio/audio-player-bar"
 import {
   useRecording,
   useRecordingStatus,
@@ -40,6 +43,7 @@ import {
 import { MermaidDiagram } from "@/components/document/mermaid-diagram"
 import { PrdContent } from "@/components/document/prd-content"
 import { useProjects } from "@/hooks/use-projects"
+import { useAudioPlayback } from "@/stores/audio-playback"
 import { useEvidenceHighlight } from "@/stores/evidence-highlight"
 import { formatDuration, formatTimestamp } from "@/lib/utils"
 import { cn } from "@/lib/utils"
@@ -82,6 +86,14 @@ export default function RecordingDetailPage({
       if (!isNaN(idx)) setHighlight(idx)
     }
   }, [searchParams, isReady, setHighlight])
+
+  // Clean up audio playback store on unmount
+  const resetAudio = useAudioPlayback((s) => s.reset)
+  useEffect(() => {
+    return () => {
+      resetAudio()
+    }
+  }, [resetAudio])
 
   // Rename
   const renameMutation = useRenameRecording()
@@ -163,7 +175,7 @@ export default function RecordingDetailPage({
   }
 
   return (
-    <div className="space-y-8">
+    <div className={cn("space-y-8", isReady && "pb-20")}>
       <BackButton />
 
       {/* Header */}
@@ -293,6 +305,12 @@ export default function RecordingDetailPage({
           </Button>
         </div>
 
+        <MeetingStatCards
+          duration={transcript?.duration}
+          processingTime={transcript?.processingTime}
+          speakerCount={transcript?.speakers?.length}
+        />
+
         <Tabs
           value={activeTab}
           onValueChange={(value: string) => {
@@ -332,11 +350,16 @@ export default function RecordingDetailPage({
           </TabsContent>
 
           <TabsContent value="transcript">
-            <div className="pt-4">
+            <div className="space-y-4 pt-4">
               {isTranscriptLoading ? (
                 <TranscriptSkeleton />
               ) : transcript ? (
-                <TranscriptView transcript={transcript} />
+                <>
+                  {transcript.speakers && transcript.speakers.length > 0 && (
+                    <SpeakerStatsPanel speakers={transcript.speakers} />
+                  )}
+                  <TranscriptView transcript={transcript} />
+                </>
               ) : (
                 <div className="py-12 text-center text-muted-foreground">
                   No transcript content available
@@ -369,6 +392,8 @@ export default function RecordingDetailPage({
             </TabsContent>
           )}
         </Tabs>
+
+        <AudioPlayerBar recordingId={id} />
         </>
       )}
     </div>
