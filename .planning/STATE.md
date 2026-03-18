@@ -69,6 +69,9 @@ Recent decisions affecting current work:
 - [06-01]: InlineEdit uses local useState (not Zustand) per research anti-pattern
 - [06-01]: Pencil icon always visible (not hover-to-reveal) per user preference
 - [06-01]: clearCachedTranscript sets transcript_data=NULL for proxy cache invalidation
+- [06-03]: disablePointerDismissal + escape prevention for non-dismissible post-recording dialog
+- [06-03]: Document uploads saved to disk (public/recordings/{id}/docs/) -- Phase 7 adds DB layer
+- [06-03]: Zustand partialize excludes ephemeral dialog state from persistence
 
 ### Pending Todos
 
@@ -82,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-18T19:26:35Z
-Stopped at: Completed 06-01-PLAN.md
-Resume file: .planning/phases/06-speaker-management-recording-ux/06-01-SUMMARY.md
+Last session: 2026-03-18T19:27:07Z
+Stopped at: Completed 06-03-PLAN.md
+Resume file: .planning/phases/06-speaker-management-recording-ux/06-03-SUMMARY.md

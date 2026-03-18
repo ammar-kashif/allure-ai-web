@@ -29,9 +29,9 @@ Requirements for Meeting Intelligence & Document Context milestone. Each maps to
 
 ### Recording UX
 
-- [ ] **RUX-01**: After recording completes, a popup appears with name and project fields
-- [ ] **RUX-02**: User can upload reference documents in the post-recording popup
-- [ ] **RUX-03**: Transcription and diarization proceed in the background while popup is open
+- [x] **RUX-01**: After recording completes, a popup appears with name and project fields
+- [x] **RUX-02**: User can upload reference documents in the post-recording popup
+- [x] **RUX-03**: Transcription and diarization proceed in the background while popup is open
 
 ### Document Attachments
 
@@ -94,9 +94,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MEET-02 | Phase 5 | Complete |
 | MEET-03 | Phase 5 | Complete |
 | MEET-04 | Phase 7 | Pending |
-| RUX-01 | Phase 6 | Pending |
-| RUX-02 | Phase 6 | Pending |
-| RUX-03 | Phase 6 | Pending |
+| RUX-01 | Phase 6 | Complete |
+| RUX-02 | Phase 6 | Complete |
+| RUX-03 | Phase 6 | Complete |
 | DOC-01 | Phase 7 | Pending |
 | DOC-02 | Phase 7 | Pending |
 | DOC-03 | Phase 7 | Pending |
