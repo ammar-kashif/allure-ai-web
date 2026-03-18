@@ -98,6 +98,6 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 3. Task Management | v1.0 | 3/3 | Complete | 2026-03-13 |
 | 4. Document Generation and Demo Polish | v1.0 | 3/3 | Complete | 2026-03-15 |
 | 5. Diarization & Audio Playback | 3/4 | In Progress|  | - |
-| 6. Speaker Management & Recording UX | v1.1 | 0/3 | Not started | - |
+| 6. Speaker Management & Recording UX | v1.1 | 1/3 | In Progress | - |
 | 7. Document Attachments | v1.1 | 0/? | Not started | - |
 | 8. Context-Aware Generation | v1.1 | 0/? | Not started | - |
