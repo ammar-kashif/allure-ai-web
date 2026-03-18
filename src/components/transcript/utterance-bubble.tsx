@@ -3,15 +3,15 @@
 import { cn } from "@/lib/utils"
 import type { Utterance } from "@/types/recording"
 
-const speakerColors = [
-  { bg: "bg-indigo-50", label: "text-indigo-700" },
-  { bg: "bg-teal-50", label: "text-teal-700" },
-  { bg: "bg-violet-50", label: "text-violet-700" },
-  { bg: "bg-amber-50", label: "text-amber-700" },
-  { bg: "bg-rose-50", label: "text-rose-700" },
+export const speakerColors = [
+  { bg: "bg-indigo-50", label: "text-indigo-700", badge: "bg-indigo-100 text-indigo-700" },
+  { bg: "bg-teal-50", label: "text-teal-700", badge: "bg-teal-100 text-teal-700" },
+  { bg: "bg-violet-50", label: "text-violet-700", badge: "bg-violet-100 text-violet-700" },
+  { bg: "bg-amber-50", label: "text-amber-700", badge: "bg-amber-100 text-amber-700" },
+  { bg: "bg-rose-50", label: "text-rose-700", badge: "bg-rose-100 text-rose-700" },
 ] as const
 
-function getSpeakerIndex(speaker: string): number {
+export function getSpeakerIndex(speaker: string): number {
   const match = speaker.match(/(\d+)/)
   if (match) {
     return (parseInt(match[1], 10) - 1) % speakerColors.length
