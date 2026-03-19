@@ -86,7 +86,11 @@ Plans:
   1. When documents are attached, PRD generation incorporates their content as context, producing output grounded in the attached specs
   2. Mermaid diagrams model the product/system discussed in the meeting, not the meeting discussion flow itself
   3. PRD and Mermaid output quality is noticeably improved -- fewer syntax errors, more coherent structure, product-appropriate terminology
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Prompt overhaul, context injection plumbing, storage query, tests
+- [ ] 08-02-PLAN.md — Endpoint wiring, integration tests, human verification of output quality
 
 ## Progress
 
@@ -104,4 +108,4 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 5. Diarization & Audio Playback | 3/4 | In Progress|  | - |
 | 6. Speaker Management & Recording UX | 3/3 | Complete   | 2026-03-18 | - |
 | 7. Document Attachments | v1.1 | 2/2 | Complete | 2026-03-19 |
-| 8. Context-Aware Generation | v1.1 | 0/? | Not started | - |
+| 8. Context-Aware Generation | v1.1 | 0/2 | Not started | - |
