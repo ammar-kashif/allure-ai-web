@@ -46,9 +46,9 @@ Requirements for Meeting Intelligence & Document Context milestone. Each maps to
 
 ### Document Generation Quality
 
-- [ ] **GEN-01**: Mermaid diagrams model the product discussed, not the meeting flow
-- [ ] **GEN-02**: PRD and Mermaid generation uses attached document text as context
-- [ ] **GEN-03**: Improved prompts produce higher-quality PRD and Mermaid output
+- [x] **GEN-01**: Mermaid diagrams model the product discussed, not the meeting flow
+- [x] **GEN-02**: PRD and Mermaid generation uses attached document text as context
+- [x] **GEN-03**: Improved prompts produce higher-quality PRD and Mermaid output
 
 ## Future Requirements
 
@@ -102,9 +102,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DOC-03 | Phase 7 | Complete |
 | DIAR-01 | Phase 5 | Complete |
 | DIAR-02 | Phase 5 | Complete |
-| GEN-01 | Phase 8 | Pending |
-| GEN-02 | Phase 8 | Pending |
-| GEN-03 | Phase 8 | Pending |
+| GEN-01 | Phase 8 | Complete |
+| GEN-02 | Phase 8 | Complete |
+| GEN-03 | Phase 8 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 22 total

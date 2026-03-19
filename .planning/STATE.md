@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Meeting Intelligence & Document Context
-status: completed
-stopped_at: Phase 8 context gathered
-last_updated: "2026-03-19T12:59:54.498Z"
-last_activity: 2026-03-19 — Completed 07-02 frontend document attachments
+status: in-progress
+stopped_at: Completed 08-01 prompts and context injection
+last_updated: "2026-03-19T14:26:25.740Z"
+last_activity: 2026-03-19 — Completed 08-01 prompts and context injection
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 11
+  completed_plans: 10
   percent: 100
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Recording a meeting and getting a reviewable, structured project plan with evidence links and confidence gating in under 5 minutes.
-**Current focus:** Phase 7 — Document Attachments
+**Current focus:** Phase 8 — Context-Aware Generation
 
 ## Current Position
 
-Phase: 7 of 8 (Document Attachments) — third of 4 v1.1 phases
-Plan: 2 of 2 (Frontend Attachments) — complete
-Status: Phase 7 complete, proceeding to Phase 8
-Last activity: 2026-03-19 — Completed 07-02 frontend document attachments
+Phase: 8 of 8 (Context-Aware Generation) — fourth of 4 v1.1 phases
+Plan: 1 of 2 (Prompts and Context Injection) — complete
+Status: Plan 08-01 complete, proceeding to 08-02
+Last activity: 2026-03-19 — Completed 08-01 prompts and context injection
 
-Progress: [██████████] 100%
+Progress: [██████████] 97%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [██████████] 100%
 | Phase 06 P03 | 4min | 2 tasks | 5 files |
 | Phase 07 P01 | 4min | 2 tasks | 7 files |
 | Phase 07 P02 | 3min | 2 tasks | 10 files |
+| Phase 08 P01 | 4min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,10 @@ Recent decisions affecting current work:
 - [07-02]: Attachment proxy routes use getRecording(id).backendId pattern consistent with other API routes
 - [07-02]: DELETE attachment best-effort fetches metadata for local file cleanup before backend delete
 - [07-02]: AttachedDocumentsCard uses controlled AlertDialog state for programmatic delete target management
+- [08-01]: Token budget 500+2000+4000+1500=8000 tokens, MAX_DOCUMENT_CHARS=16000
+- [08-01]: Outcomes framed as "Primary Input" before documents as supplementary reference
+- [08-01]: Empty/whitespace extracted_text filtered at storage and build_document_context layers
+- [08-01]: Anti-pattern guards in all diagram prompts: "Do NOT diagram the meeting itself"
 
 ### Pending Todos
 
@@ -96,6 +101,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T12:59:54.488Z
-Stopped at: Phase 8 context gathered
-Resume file: .planning/phases/08-context-aware-generation/08-CONTEXT.md
+Last session: 2026-03-19T14:25:31Z
+Stopped at: Completed 08-01 prompts and context injection
+Resume file: .planning/phases/08-context-aware-generation/08-01-SUMMARY.md
