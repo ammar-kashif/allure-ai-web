@@ -358,9 +358,10 @@ async def generate_prd_endpoint(job_id: str):
     if not outcomes:
         raise HTTPException(status_code=400, detail="No outcomes to generate from")
 
-    from document_generation import generate_prd
+    from document_generation import build_document_context, generate_prd
 
-    content = await asyncio.to_thread(generate_prd, job_id, app.state)
+    doc_context = build_document_context(job_id)
+    content = await asyncio.to_thread(generate_prd, job_id, app.state, doc_context)
     return {
         "content": content,
         "title": f"PRD - {job.get('original_filename', 'Recording')}",
@@ -380,9 +381,10 @@ async def generate_diagram_endpoint(job_id: str):
     if not outcomes:
         raise HTTPException(status_code=400, detail="No outcomes to generate from")
 
-    from document_generation import generate_diagram
+    from document_generation import build_document_context, generate_diagram
 
-    content, diagram_type = await asyncio.to_thread(generate_diagram, job_id, app.state)
+    doc_context = build_document_context(job_id)
+    content, diagram_type = await asyncio.to_thread(generate_diagram, job_id, app.state, doc_context)
     type_label = "User Flow" if diagram_type == "user_flow" else "ERD"
     return {
         "content": content,

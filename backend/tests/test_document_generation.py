@@ -1,4 +1,4 @@
-"""Tests for document generation: context injection, truncation, prompt content, generation functions."""
+"""Tests for document generation: context injection, truncation, prompt content, generation functions, endpoint wiring."""
 
 from unittest.mock import MagicMock, patch
 
@@ -319,4 +319,122 @@ class TestGenerateDiagram:
         if messages is None:
             messages = mock_app.llm.create_chat_completion.call_args[1]["messages"]
         user_content = messages[1]["content"]
+        assert "Reference Documents" not in user_content
+
+
+class TestEndpointWiring:
+    """Verify generation functions correctly handle document context for endpoint wiring."""
+
+    @patch("document_generation.get_job")
+    def test_generate_prd_with_doc_context_includes_in_user_message(self, mock_get_job):
+        """PRD generation includes document context in the user message when present."""
+        from document_generation import generate_prd
+
+        mock_get_job.return_value = {
+            "outcomes": [
+                {"type": "decision", "title": "Use GraphQL", "detail": "API layer", "confidence": 0.9}
+            ],
+        }
+        mock_app = MagicMock()
+        mock_app.llm.create_chat_completion.return_value = {
+            "choices": [{"message": {"content": "# PRD\nWith context"}}],
+        }
+
+        doc_ctx = "## Reference Documents\n\n### api-spec.pdf\nGraphQL schema definitions"
+        result = generate_prd("job-1", mock_app, document_context=doc_ctx)
+
+        assert result == "# PRD\nWith context"
+        messages = mock_app.llm.create_chat_completion.call_args.kwargs.get("messages")
+        if messages is None:
+            messages = mock_app.llm.create_chat_completion.call_args[1]["messages"]
+        user_content = messages[1]["content"]
+        assert "Reference Documents" in user_content
+        assert "api-spec.pdf" in user_content
+        # Outcomes appear before documents
+        assert user_content.index("Meeting Outcomes") < user_content.index("Reference Documents")
+
+    @patch("document_generation.select_diagram_type")
+    @patch("document_generation.get_job")
+    def test_generate_diagram_with_doc_context_includes_in_user_message(
+        self, mock_get_job, mock_select
+    ):
+        """Diagram generation includes document context in the user message when present."""
+        from document_generation import generate_diagram
+
+        mock_get_job.return_value = {
+            "outcomes": [
+                {"type": "requirement", "title": "Payment flow", "detail": "Stripe integration", "confidence": 0.85}
+            ],
+        }
+        mock_select.return_value = "user_flow"
+        mock_app = MagicMock()
+        mock_app.llm.create_chat_completion.return_value = {
+            "choices": [{"message": {"content": "flowchart TD\n    A[Payment] --> B[Stripe]"}}],
+        }
+
+        doc_ctx = "## Reference Documents\n\n### payments.docx\nStripe payment integration spec"
+        mermaid, dtype = generate_diagram("job-1", mock_app, document_context=doc_ctx)
+
+        assert "flowchart TD" in mermaid
+        assert dtype == "user_flow"
+        messages = mock_app.llm.create_chat_completion.call_args.kwargs.get("messages")
+        if messages is None:
+            messages = mock_app.llm.create_chat_completion.call_args[1]["messages"]
+        user_content = messages[1]["content"]
+        assert "Reference Documents" in user_content
+        assert "payments.docx" in user_content
+        # Outcomes appear before documents
+        assert user_content.index("Meeting Outcomes") < user_content.index("Reference Documents")
+
+    @patch("document_generation.get_job")
+    def test_generate_prd_backward_compat_no_docs(self, mock_get_job):
+        """PRD generation works without document context (backward compatibility)."""
+        from document_generation import generate_prd
+
+        mock_get_job.return_value = {
+            "outcomes": [
+                {"type": "task", "title": "Build API", "detail": "REST endpoints", "confidence": 0.88}
+            ],
+        }
+        mock_app = MagicMock()
+        mock_app.llm.create_chat_completion.return_value = {
+            "choices": [{"message": {"content": "# PRD\nNo docs"}}],
+        }
+
+        result = generate_prd("job-1", mock_app)
+
+        assert result == "# PRD\nNo docs"
+        messages = mock_app.llm.create_chat_completion.call_args.kwargs.get("messages")
+        if messages is None:
+            messages = mock_app.llm.create_chat_completion.call_args[1]["messages"]
+        user_content = messages[1]["content"]
+        assert "Meeting Outcomes" in user_content
+        assert "Reference Documents" not in user_content
+
+    @patch("document_generation.select_diagram_type")
+    @patch("document_generation.get_job")
+    def test_generate_diagram_backward_compat_no_docs(self, mock_get_job, mock_select):
+        """Diagram generation works without document context (backward compatibility)."""
+        from document_generation import generate_diagram
+
+        mock_get_job.return_value = {
+            "outcomes": [
+                {"type": "task", "title": "Build API", "detail": "REST endpoints", "confidence": 0.88}
+            ],
+        }
+        mock_select.return_value = "erd"
+        mock_app = MagicMock()
+        mock_app.llm.create_chat_completion.return_value = {
+            "choices": [{"message": {"content": "erDiagram\n    API ||--o{ ENDPOINT : exposes"}}],
+        }
+
+        mermaid, dtype = generate_diagram("job-1", mock_app)
+
+        assert "erDiagram" in mermaid
+        assert dtype == "erd"
+        messages = mock_app.llm.create_chat_completion.call_args.kwargs.get("messages")
+        if messages is None:
+            messages = mock_app.llm.create_chat_completion.call_args[1]["messages"]
+        user_content = messages[1]["content"]
+        assert "Meeting Outcomes" in user_content
         assert "Reference Documents" not in user_content
