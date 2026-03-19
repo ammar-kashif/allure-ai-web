@@ -2,7 +2,50 @@
 
 from typing import Any
 
-from storage import get_job
+from storage import get_attachments_with_text, get_job
+
+# Token budget allocation (in tokens, estimated at ~4 chars/token)
+TOKEN_BUDGET = {
+    "system_prompt": 500,   # ~2000 chars
+    "outcomes": 2000,       # ~8000 chars
+    "documents": 4000,      # ~16000 chars
+    "generation": 1500,     # reserved for output
+}
+MAX_DOCUMENT_CHARS = TOKEN_BUDGET["documents"] * 4  # 16000
+
+
+def build_document_context(recording_id: str, max_chars: int = MAX_DOCUMENT_CHARS) -> str:
+    """Fetch attachment texts and format as a reference documents section with truncation.
+
+    Args:
+        recording_id: The recording to fetch attachments for.
+        max_chars: Maximum total characters for all document text combined.
+
+    Returns:
+        Formatted reference documents section, or empty string if no attachments.
+    """
+    attachments = get_attachments_with_text(recording_id)
+    # Filter out empty/whitespace-only extracted_text (belt-and-suspenders with storage filter)
+    attachments = [a for a in attachments if a.get("extracted_text", "").strip()]
+    if not attachments:
+        return ""
+
+    per_doc_budget = max_chars // len(attachments)
+    sections = []
+    truncated = False
+    for att in attachments:
+        text = att["extracted_text"]
+        if len(text) > per_doc_budget:
+            text = text[:per_doc_budget] + "\n[truncated]"
+            truncated = True
+        sections.append(f"### {att['filename']}\n{text}")
+
+    header = "## Reference Documents\n"
+    if truncated:
+        header += "(Note: Some reference document content was truncated.)\n"
+    header += "\n"
+    return header + "\n\n".join(sections)
+
 
 PRD_SYSTEM_PROMPT = """You are a technical writer. Generate a Professional Requirements Document (PRD) from the meeting outcomes below.
 

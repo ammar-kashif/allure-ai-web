@@ -171,6 +171,21 @@ def get_attachment(attachment_id: str) -> Optional[dict[str, Any]]:
     return dict(row)
 
 
+def get_attachments_with_text(recording_id: str) -> list[dict[str, Any]]:
+    """Return attachments WITH extracted_text for a recording (for generation context).
+
+    Filters out attachments where extracted_text is empty or whitespace-only.
+    """
+    conn = _get_conn()
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        "SELECT id, filename, extracted_text FROM attachments WHERE recording_id = ? ORDER BY created_at",
+        (recording_id,),
+    ).fetchall()
+    conn.row_factory = None
+    return [dict(row) for row in rows if row["extracted_text"] and row["extracted_text"].strip()]
+
+
 def delete_attachment(attachment_id: str) -> bool:
     """Delete an attachment. Returns True if deleted, False if not found."""
     conn = _get_conn()
