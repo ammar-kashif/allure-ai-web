@@ -24,7 +24,7 @@
 - [ ] **Phase 5: Diarization Upgrade & Audio Playback** - AgglomerativeClustering swap, synced audio playback with transcript highlight, speaker/meeting statistics
 - [x] **Phase 6: Speaker Management & Recording UX** - Editable speaker labels/roles, post-recording popup with background processing (completed 2026-03-18)
 - [x] **Phase 7: Document Attachments** - Upload, parse, store, and display documents attached to recordings (completed 2026-03-19)
-- [ ] **Phase 8: Context-Aware Generation** - Document context injection and product-focused diagram prompts
+- [x] **Phase 8: Context-Aware Generation** - Document context injection and product-focused diagram prompts (completed 2026-03-20)
 
 ## Phase Details
 
@@ -86,11 +86,11 @@ Plans:
   1. When documents are attached, PRD generation incorporates their content as context, producing output grounded in the attached specs
   2. Mermaid diagrams model the product/system discussed in the meeting, not the meeting discussion flow itself
   3. PRD and Mermaid output quality is noticeably improved -- fewer syntax errors, more coherent structure, product-appropriate terminology
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 08-01-PLAN.md — Prompt overhaul, context injection plumbing, storage query, tests
-- [ ] 08-02-PLAN.md — Endpoint wiring, integration tests, human verification of output quality
+- [x] 08-01-PLAN.md — Prompt overhaul, context injection plumbing, storage query, tests
+- [x] 08-02-PLAN.md — Endpoint wiring, integration tests, human verification of output quality
 
 ## Progress
 
@@ -108,4 +108,4 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 5. Diarization & Audio Playback | 3/4 | In Progress|  | - |
 | 6. Speaker Management & Recording UX | 3/3 | Complete   | 2026-03-18 | - |
 | 7. Document Attachments | v1.1 | 2/2 | Complete | 2026-03-19 |
-| 8. Context-Aware Generation | v1.1 | 0/2 | Not started | - |
+| 8. Context-Aware Generation | v1.1 | 2/2 | Complete | 2026-03-20 |
