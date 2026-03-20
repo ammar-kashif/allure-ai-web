@@ -43,6 +43,8 @@ class SpeakerStats(BaseModel):
     avg_turn_duration: float
     pauses: int
     avg_pause_duration: float
+    custom_label: str = ""
+    role: str = "Participant"
 
 
 class TranscriptResponse(BaseModel):
