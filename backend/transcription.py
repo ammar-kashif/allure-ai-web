@@ -5,6 +5,7 @@ Provides the full transcription pipeline: audio -> STT segments -> diarization
 sentence-boundary snapping -> label remapping -> segment merging -> speaker stats.
 """
 
+import json
 import logging
 import re
 import time
@@ -355,22 +356,122 @@ def calculate_speaker_stats(
     return sorted(stats, key=lambda s: s["talk_time_pct"], reverse=True)
 
 
-def assign_default_roles(stats: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Assign default roles and empty custom labels to speaker stats.
+VALID_ROLES = ["Participant", "Engineer", "Project Manager", "Client", "Designer"]
 
-    The speaker with the highest talk_time_pct (index 0, since stats are
-    sorted descending) gets role "Presenter". All others get "Participant".
-    Each speaker also gets a custom_label field (empty string = use original label).
+SPEAKER_ID_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "speakers": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "label": {"type": "string"},
+                    "name": {"type": "string"},
+                    "role": {
+                        "type": "string",
+                        "enum": VALID_ROLES,
+                    },
+                },
+                "required": ["label", "name", "role"],
+            },
+        }
+    },
+    "required": ["speakers"],
+}
 
-    Args:
-        stats: Speaker stats list, expected to be sorted by talk_time_pct descending.
+SPEAKER_ID_PROMPT = """Analyze this meeting transcript and identify each speaker's real name and role.
 
-    Returns:
-        The same list with custom_label and role fields added to each speaker dict.
+Look for clues like:
+- Self-introductions ("I'm John", "This is Sarah")
+- Others addressing them ("Thanks John", "Sarah, what do you think?")
+- Sign-offs or greetings that mention names
+- Role hints from what they discuss (code/technical = Engineer, timelines/scope = Project Manager, requirements/feedback = Client, UI/UX/visuals = Designer)
+
+Speaker labels in the transcript: {speaker_labels}
+
+Rules:
+- If you can confidently identify a name, use it. Otherwise return an empty string for name.
+- Role must be one of: {roles}
+- Default to "Participant" if the role is unclear.
+- Return ALL speaker labels, even if you can't identify them.
+
+Transcript:
+{transcript}"""
+
+
+def identify_speakers_with_llm(
+    segments: list[dict[str, Any]],
+    stats: list[dict[str, Any]],
+    llm: object,
+) -> list[dict[str, Any]]:
+    """Use LLM to identify speaker names and roles from transcript content.
+
+    Falls back to default roles if LLM call fails.
     """
-    for i, speaker in enumerate(stats):
+    speaker_labels = [s["label"] for s in stats]
+
+    # Format transcript for the prompt (compact: speaker + text only)
+    lines = []
+    for seg in segments[:150]:  # Cap to avoid token limits
+        speaker = seg.get("speaker", "Unknown")
+        text = seg.get("text", "")
+        lines.append(f"{speaker}: {text}")
+    transcript_text = "\n".join(lines)
+
+    prompt = SPEAKER_ID_PROMPT.format(
+        speaker_labels=", ".join(speaker_labels),
+        roles=", ".join(VALID_ROLES),
+        transcript=transcript_text,
+    )
+
+    try:
+        response = llm.create_chat_completion(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You identify meeting participants from transcripts. Return JSON only.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            response_format={"type": "json_object", "schema": SPEAKER_ID_SCHEMA},
+            temperature=0.1,
+            max_tokens=1024,
+        )
+
+        raw = response["choices"][0]["message"]["content"]
+        parsed = json.loads(raw)
+
+        # Build lookup: label -> {name, role}
+        id_map: dict[str, dict[str, str]] = {}
+        for sp in parsed.get("speakers", []):
+            label = sp.get("label", "")
+            name = sp.get("name", "")
+            role = sp.get("role", "Participant")
+            if role not in VALID_ROLES:
+                role = "Participant"
+            id_map[label] = {"name": name, "role": role}
+
+        # Apply to stats
+        for speaker in stats:
+            label = speaker["label"]
+            info = id_map.get(label, {})
+            speaker["custom_label"] = info.get("name", "")
+            speaker["role"] = info.get("role", "Participant")
+
+        logger.info("LLM speaker identification: %s", id_map)
+        return stats
+
+    except Exception as e:
+        logger.warning("LLM speaker identification failed, using defaults: %s", e)
+        return _assign_default_roles(stats)
+
+
+def _assign_default_roles(stats: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Fallback: assign Participant role to all speakers."""
+    for speaker in stats:
         speaker["custom_label"] = speaker.get("custom_label", "")
-        speaker["role"] = speaker.get("role", "Presenter" if i == 0 else "Participant")
+        speaker["role"] = speaker.get("role", "Participant")
     return stats
 
 
@@ -437,12 +538,15 @@ def run_transcription(job_id: str, app_state: object) -> dict[str, Any]:
     # Stats (before filtering so we can identify <1% speakers)
     stats = calculate_speaker_stats(merged, total_duration)
 
-    # Assign default roles (Presenter / Participant)
-    stats = assign_default_roles(stats)
-
     # Filter segments from speakers below 1% threshold
     valid_speakers = {s["label"] for s in stats}
     filtered_segments = [s for s in merged if s["speaker"] in valid_speakers]
+
+    # Identify speaker names and roles via LLM
+    if hasattr(app_state, "llm") and app_state.llm:
+        stats = identify_speakers_with_llm(filtered_segments, stats, app_state.llm)
+    else:
+        stats = _assign_default_roles(stats)
 
     logger.info(
         "Pipeline complete: %d segments, %d speakers",
