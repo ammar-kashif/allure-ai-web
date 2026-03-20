@@ -3,7 +3,7 @@
 ## Milestones
 
 - **v1.0 MVP** — 6 phases, 20 plans (shipped 2026-03-16) | [archive](milestones/v1.0-ROADMAP.md)
-- **v1.1 Meeting Intelligence & Document Context** — Phases 5-8 (in progress)
+- **v1.1 Meeting Intelligence & Document Context** — Phases 5-9 (in progress)
 
 ## Phases
 
@@ -21,10 +21,11 @@
 
 ### v1.1 Meeting Intelligence & Document Context
 
-- [ ] **Phase 5: Diarization Upgrade & Audio Playback** - AgglomerativeClustering swap, synced audio playback with transcript highlight, speaker/meeting statistics
+- [x] **Phase 5: Diarization Upgrade & Audio Playback** - AgglomerativeClustering swap, synced audio playback with transcript highlight, speaker/meeting statistics (completed 2026-03-18)
 - [x] **Phase 6: Speaker Management & Recording UX** - Editable speaker labels/roles, post-recording popup with background processing (completed 2026-03-18)
 - [x] **Phase 7: Document Attachments** - Upload, parse, store, and display documents attached to recordings (completed 2026-03-19)
 - [x] **Phase 8: Context-Aware Generation** - Document context injection and product-focused diagram prompts (completed 2026-03-20)
+- [ ] **Phase 9: Integration Hardening & Tech Debt Cleanup** - Fix SpeakerStats model fragility, backendId race condition, and documentation gaps
 
 ## Phase Details
 
@@ -92,10 +93,26 @@ Plans:
 - [x] 08-01-PLAN.md — Prompt overhaul, context injection plumbing, storage query, tests
 - [x] 08-02-PLAN.md — Endpoint wiring, integration tests, human verification of output quality
 
+### Phase 9: Integration Hardening & Tech Debt Cleanup
+**Goal**: Harden integration points identified by milestone audit — fix SpeakerStats model fragility, resolve document forwarding race condition, and clean up documentation gaps
+**Depends on**: Phase 8
+**Requirements**: SPKR-01, SPKR-02, RUX-02, DOC-02, GEN-02
+**Gap Closure:** Closes INT-01, INT-02, FLOW-01 from v1.1 audit
+**Success Criteria** (what must be TRUE):
+  1. SpeakerStats Pydantic model includes custom_label and role fields — adding response_model validation would not drop data
+  2. Documents uploaded from the post-recording dialog are forwarded for text extraction even when backendId is not yet available
+  3. All REQUIREMENTS.md checkboxes match audit findings (PLAY-02 marked complete)
+  4. All completed phase plan checkboxes marked in ROADMAP.md
+  5. No function-level imports in document_generation.py
+**Plans:** 0/0 plans
+
+Plans:
+_(none yet — run `/gsd:plan-phase 9`)_
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 5 -> 6 -> 7 -> 8
+Phases execute in numeric order: 5 -> 6 -> 7 -> 8 -> 9
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -105,7 +122,8 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8
 | 2.1. UI/UX Overhaul - Modern SaaS Dashboard | v1.0 | 3/3 | Complete | 2026-03-13 |
 | 3. Task Management | v1.0 | 3/3 | Complete | 2026-03-13 |
 | 4. Document Generation and Demo Polish | v1.0 | 3/3 | Complete | 2026-03-15 |
-| 5. Diarization & Audio Playback | 3/4 | In Progress|  | - |
-| 6. Speaker Management & Recording UX | 3/3 | Complete   | 2026-03-18 | - |
+| 5. Diarization & Audio Playback | v1.1 | 4/4 | Complete | 2026-03-18 |
+| 6. Speaker Management & Recording UX | v1.1 | 3/3 | Complete | 2026-03-18 |
 | 7. Document Attachments | v1.1 | 2/2 | Complete | 2026-03-19 |
 | 8. Context-Aware Generation | v1.1 | 2/2 | Complete | 2026-03-20 |
+| 9. Integration Hardening & Tech Debt | v1.1 | 0/0 | Pending | - |

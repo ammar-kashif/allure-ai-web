@@ -10,7 +10,7 @@ Requirements for Meeting Intelligence & Document Context milestone. Each maps to
 ### Audio Playback
 
 - [x] **PLAY-01**: User can play/pause meeting audio from the recording detail page
-- [ ] **PLAY-02**: Current utterance is highlighted during audio playback
+- [x] **PLAY-02**: Current utterance is highlighted during audio playback
 - [x] **PLAY-03**: User can change playback speed (0.5x, 1x, 1.5x, 2x)
 
 ### Speaker Management
@@ -84,7 +84,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | PLAY-01 | Phase 5 | Complete |
-| PLAY-02 | Phase 5 | Pending |
+| PLAY-02 | Phase 5 | Complete |
 | PLAY-03 | Phase 5 | Complete |
 | SPKR-01 | Phase 6 | Complete |
 | SPKR-02 | Phase 6 | Complete |
