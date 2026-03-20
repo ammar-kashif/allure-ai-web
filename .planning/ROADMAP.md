@@ -104,10 +104,12 @@ Plans:
   3. All REQUIREMENTS.md checkboxes match audit findings (PLAY-02 marked complete)
   4. All completed phase plan checkboxes marked in ROADMAP.md
   5. No function-level imports in document_generation.py
-**Plans:** 0/0 plans
+**Plans:** 2 plans
 
 Plans:
-_(none yet — run `/gsd:plan-phase 9`)_
+- [ ] 09-01-PLAN.md — Backend: SpeakerStats model fix (custom_label + role fields), import re cleanup
+- [ ] 09-02-PLAN.md — Frontend: backendId retry logic in documents route, documentation checkbox sync
+
 
 ## Progress
 
@@ -126,4 +128,4 @@ Phases execute in numeric order: 5 -> 6 -> 7 -> 8 -> 9
 | 6. Speaker Management & Recording UX | v1.1 | 3/3 | Complete | 2026-03-18 |
 | 7. Document Attachments | v1.1 | 2/2 | Complete | 2026-03-19 |
 | 8. Context-Aware Generation | v1.1 | 2/2 | Complete | 2026-03-20 |
-| 9. Integration Hardening & Tech Debt | v1.1 | 0/0 | Pending | - |
+| 9. Integration Hardening & Tech Debt | v1.1 | 0/2 | Pending | - |
