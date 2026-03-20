@@ -1,5 +1,6 @@
 """LLM document generation: PRD prose and Mermaid diagrams from recording outcomes."""
 
+import re
 from typing import Any
 
 from storage import get_attachments_with_text, get_job
@@ -260,7 +261,6 @@ def generate_diagram(job_id: str, app_state: object, document_context: str = "")
 
     raw = response["choices"][0]["message"]["content"].strip()
     # Strip markdown fences the LLM may add despite instructions
-    import re
     raw = re.sub(r"^```\w*\n?", "", raw)
     raw = re.sub(r"\n?```\s*$", "", raw)
     raw = raw.strip()
