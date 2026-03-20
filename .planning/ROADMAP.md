@@ -42,10 +42,10 @@
 **Plans:** 3/4 plans executed
 
 Plans:
-- [ ] 05-01-PLAN.md — Backend: diarization upgrade, extended stats, processing time, WAV audio endpoint
-- [ ] 05-02-PLAN.md — Frontend contracts: types, Zustand store, speaker color utilities, SpeakerBadge
-- [ ] 05-03-PLAN.md — Audio player bar, meeting stat cards, speaker stats panel, page wiring
-- [ ] 05-04-PLAN.md — Transcript-audio sync: highlight, auto-scroll, click-to-seek, final verification
+- [x] 05-01-PLAN.md — Backend: diarization upgrade, extended stats, processing time, WAV audio endpoint
+- [x] 05-02-PLAN.md — Frontend contracts: types, Zustand store, speaker color utilities, SpeakerBadge
+- [x] 05-03-PLAN.md — Audio player bar, meeting stat cards, speaker stats panel, page wiring
+- [x] 05-04-PLAN.md — Transcript-audio sync: highlight, auto-scroll, click-to-seek, final verification
 
 ### Phase 6: Speaker Management & Recording UX
 **Goal**: Users can rename speakers, assign roles, and complete a guided post-recording flow that names the recording, assigns a project, and optionally attaches documents -- all while transcription proceeds in the background
@@ -60,9 +60,9 @@ Plans:
 **Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 06-01-PLAN.md — Backend speaker update endpoint, role auto-assignment, frontend types, InlineEdit component, mutation hook
-- [ ] 06-02-PLAN.md — Wire speaker editing into SpeakerStatsPanel and propagate to UtteranceBubble
-- [ ] 06-03-PLAN.md — Post-recording dialog with background processing, file upload, project assignment
+- [x] 06-01-PLAN.md — Backend speaker update endpoint, role auto-assignment, frontend types, InlineEdit component, mutation hook
+- [x] 06-02-PLAN.md — Wire speaker editing into SpeakerStatsPanel and propagate to UtteranceBubble
+- [x] 06-03-PLAN.md — Post-recording dialog with background processing, file upload, project assignment
 
 ### Phase 7: Document Attachments
 **Goal**: Users can upload PDF/DOCX documents to recordings, with text automatically extracted and stored for downstream generation, and documents listed on the recording detail page
