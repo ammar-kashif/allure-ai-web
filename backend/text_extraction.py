@@ -36,7 +36,10 @@ def extract_text(file_path: str, file_type: str) -> Tuple[str, Optional[str]]:
 
 def _extract_pdf(file_path: str) -> str:
     """Extract text from a PDF file using pdfplumber."""
-    import pdfplumber
+    try:
+        import pdfplumber
+    except ImportError:
+        raise ImportError("PDF extraction unavailable: install pdfplumber (pip install pdfplumber)")
 
     pages_text = []
     with pdfplumber.open(file_path) as pdf:
@@ -48,7 +51,10 @@ def _extract_pdf(file_path: str) -> str:
 
 def _extract_docx(file_path: str) -> str:
     """Extract text from a DOCX file using python-docx."""
-    from docx import Document
+    try:
+        from docx import Document
+    except ImportError:
+        raise ImportError("DOCX extraction unavailable: install python-docx (pip install python-docx)")
 
     doc = Document(file_path)
     paragraphs = [p.text for p in doc.paragraphs if p.text]

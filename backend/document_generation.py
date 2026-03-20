@@ -258,4 +258,10 @@ def generate_diagram(job_id: str, app_state: object, document_context: str = "")
         max_tokens=2048,
     )
 
-    return response["choices"][0]["message"]["content"], diagram_type
+    raw = response["choices"][0]["message"]["content"].strip()
+    # Strip markdown fences the LLM may add despite instructions
+    import re
+    raw = re.sub(r"^```\w*\n?", "", raw)
+    raw = re.sub(r"\n?```\s*$", "", raw)
+    raw = raw.strip()
+    return raw, diagram_type

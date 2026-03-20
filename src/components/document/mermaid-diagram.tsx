@@ -2,6 +2,17 @@
 
 import { useEffect, useRef, useState } from "react"
 
+function stripMermaidFences(raw: string): string {
+  let s = raw.trim()
+  if (s.startsWith("```")) {
+    // Remove opening fence (```mermaid or ```)
+    s = s.replace(/^```\w*\n?/, "")
+    // Remove closing fence
+    s = s.replace(/\n?```\s*$/, "")
+  }
+  return s.trim()
+}
+
 export function MermaidDiagram({ code }: { code: string }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
@@ -14,12 +25,14 @@ export function MermaidDiagram({ code }: { code: string }) {
         const mermaid = (await import("mermaid")).default
         mermaid.initialize({ startOnLoad: false, theme: "neutral" })
 
+        const cleaned = stripMermaidFences(code)
+
         // Validate syntax first
-        await mermaid.parse(code)
+        await mermaid.parse(cleaned)
 
         const { svg } = await mermaid.render(
           `mermaid-${crypto.randomUUID()}`,
-          code
+          cleaned
         )
 
         if (!cancelled && containerRef.current) {
