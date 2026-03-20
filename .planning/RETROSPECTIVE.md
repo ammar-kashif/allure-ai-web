@@ -46,6 +46,53 @@
 
 ---
 
+## Milestone: v1.1 — Meeting Intelligence & Document Context
+
+**Shipped:** 2026-03-20
+**Phases:** 5 | **Plans:** 13 | **Commits:** 83
+
+### What Was Built
+- AgglomerativeClustering diarization with auto speaker count, replacing MeanShift
+- Audio playback with transcript-synced highlighting, click-to-seek, auto-scroll with manual override
+- Speaker management: editable labels and roles with optimistic updates across transcript
+- Document attachments: PDF/DOCX/TXT upload, automatic text extraction, 10MB limit
+- Context-aware PRD/Mermaid generation injecting attached document text
+- Post-recording dialog with background transcription and document upload
+
+### What Worked
+- Phase 9 (integration hardening) as explicit gap-closure phase — audit findings mapped directly to plan tasks
+- Zustand store pattern (audio-playback, evidence-highlight, recording-store) scaled cleanly for cross-component coordination
+- Coarse phase granularity (4 feature phases + 1 hardening) kept milestone focused and fast
+- Research-before-plan pattern consistently surfaced design decisions early (e.g., portal vs sticky player, InlineEdit anti-patterns)
+- Imperative audio element control via useRef avoided React re-render loops with HTMLAudioElement
+
+### What Was Inefficient
+- Phase 9 plans still unchecked in ROADMAP.md at audit time — verification fixed the real work but plan checkboxes lagged
+- SUMMARY frontmatter `requirements_completed` missing for PLAY-02 in Plan 05-04 — caused false "partial" in 3-source cross-reference
+- Nyquist validation files created for all phases but none progressed past draft — overhead without value
+- No one-liner field in SUMMARY frontmatter made accomplishment extraction fail at milestone completion
+
+### Patterns Established
+- Portal-based audio player (`#player-portal` in layout.tsx) for positioning within SidebarInset
+- seekGeneration counter pattern for imperative audio seeks without effect dependency on currentTime
+- Speaker color mapping always uses original label (not displayName) to prevent color collisions on rename
+- Save-then-forward pattern for document uploads: decouple local save from async backend forwarding
+- Retry loop for race conditions (backendId resolution) over complex queue infrastructure
+
+### Key Lessons
+1. Integration hardening as an explicit phase works well — schedule it after feature phases, not as ad-hoc fixes
+2. SUMMARY frontmatter `requirements_completed` must be kept accurate during execution — it's a primary source for audit cross-reference
+3. Nyquist validation should only be enabled when the team commits to completing it — draft-only VALIDATION.md files add noise
+4. Race conditions between async operations (upload vs transcription) need explicit handling — "it usually works" is not sufficient
+5. Product-focused prompt engineering (anti-pattern guards like "Do NOT diagram the meeting") is more effective than positive-only instructions
+
+### Cost Observations
+- Model mix: Opus for planning/execution, Sonnet for exploration/verification/integration-check
+- 4 days wall clock, 83 commits
+- Notable: average plan execution ~3 minutes (faster than v1.0's ~8 minutes) — coarse granularity helped
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -53,14 +100,17 @@
 | Milestone | Commits | Phases | Key Change |
 |-----------|---------|--------|------------|
 | v1.0 | 116 | 6 | Initial GSD workflow adoption, decimal phase insertion |
+| v1.1 | 83 | 5 | Coarse granularity, explicit hardening phase, research-before-plan |
 
 ### Cumulative Quality
 
 | Milestone | Plans | Verification | Audit Score |
 |-----------|-------|-------------|-------------|
 | v1.0 | 20 | 6/6 phases verified | 31/31 requirements |
+| v1.1 | 13 | 5/5 phases verified | 22/22 requirements |
 
 ### Top Lessons (Verified Across Milestones)
 
-1. Run milestone audit before completion — catches integration gaps that per-phase verification misses
-2. Test full cross-phase flows, not just individual endpoints
+1. Run milestone audit before completion — catches integration gaps that per-phase verification misses (v1.0: 3 bugs, v1.1: 3 integration findings)
+2. Test full cross-phase flows, not just individual endpoints (v1.0: promote route, v1.1: document forwarding race)
+3. Keep SUMMARY frontmatter accurate during execution — it's a primary data source for automated audits

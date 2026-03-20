@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Allure is a local-first, AI-powered project management tool that turns meeting recordings into execution-ready project plans. Users record inside Allure, get speaker-labeled transcripts via Moonshine Voice STT, and AI extracts structured outcomes (decisions, action items, requirements, blockers) with confidence scoring and evidence links. Approved outcomes promote directly into tasks and requirement records with backlinks. Generated PRDs and Mermaid diagrams round out the documentation pipeline. Built as a Final Year Project (FYP) by a team of 2-3.
+Allure is a local-first, AI-powered project management tool that turns meeting recordings into execution-ready project plans. Users record inside Allure, get speaker-labeled transcripts via Moonshine Voice STT with enriched speaker/meeting statistics, and AI extracts structured outcomes (decisions, action items, requirements, blockers) with confidence scoring and evidence links. Approved outcomes promote directly into tasks and requirement records with backlinks. Users can attach reference documents (PDF/DOCX/TXT) that are automatically parsed and used as context for product-focused PRD and Mermaid diagram generation. Built as a Final Year Project (FYP) by a team of 2-3.
 
 ## Core Value
 
@@ -10,9 +10,9 @@ Recording a meeting and getting a reviewable, structured project plan out of it 
 
 ## Current State
 
-**Shipped:** v1.0 MVP (2026-03-16)
-**Codebase:** 10,333 LOC TypeScript + 2,278 LOC Python
-**Tech stack:** Next.js 15, FastAPI, SQLite, TanStack Query, Mermaid, shadcn/ui
+**Shipped:** v1.1 Meeting Intelligence & Document Context (2026-03-20)
+**Codebase:** ~12,600 LOC TypeScript + ~2,800 LOC Python
+**Tech stack:** Next.js 15, FastAPI, SQLite, TanStack Query, Mermaid, shadcn/ui, Zustand
 
 **What's working:**
 - Full Record → Transcribe → Extract → Tasks pipeline
@@ -20,6 +20,12 @@ Recording a meeting and getting a reviewable, structured project plan out of it 
 - Task management with CRUD, list view, drag-and-drop Kanban
 - Document generation (PRD + Mermaid user flow/ERD diagrams)
 - Confidence-gated outcome review with evidence cross-navigation
+- Audio playback synced with transcript highlighting and click-to-seek
+- Speaker management with editable labels and roles
+- Per-speaker and meeting-level statistics
+- Document attachments with automatic text extraction
+- Context-aware generation using attached documents
+- Post-recording dialog with background processing
 
 ## Requirements
 
@@ -56,19 +62,32 @@ Recording a meeting and getting a reviewable, structured project plan out of it 
 - ✓ DOC-01: PRD generation from outcomes — v1.0
 - ✓ DOC-02: Mermaid diagram generation (user flow, ERD) — v1.0
 - ✓ DOC-03: Mermaid renders without syntax errors — v1.0
+- ✓ PLAY-01: Play/pause meeting audio — v1.1
+- ✓ PLAY-02: Utterance highlighted during playback — v1.1
+- ✓ PLAY-03: Playback speed control (0.5x–2x) — v1.1
+- ✓ SPKR-01: Editable speaker labels — v1.1
+- ✓ SPKR-02: Speaker role assignment — v1.1
+- ✓ SPKR-03: Per-speaker statistics — v1.1
+- ✓ SPKR-04: Speaker color-coding in transcript — v1.1
+- ✓ MEET-01: Meeting duration display — v1.1
+- ✓ MEET-02: Processing time display — v1.1
+- ✓ MEET-03: Speaker count display — v1.1
+- ✓ MEET-04: Attached document count display — v1.1
+- ✓ RUX-01: Post-recording popup — v1.1
+- ✓ RUX-02: Document upload in post-recording popup — v1.1
+- ✓ RUX-03: Background processing while popup open — v1.1
+- ✓ DOC-01 (v1.1): Upload PDF/DOCX documents to recordings — v1.1
+- ✓ DOC-02 (v1.1): Document text extraction and storage — v1.1
+- ✓ DOC-03 (v1.1): Documents listed on recording detail page — v1.1
+- ✓ DIAR-01: AgglomerativeClustering diarization — v1.1
+- ✓ DIAR-02: Auto-detected speaker count — v1.1
+- ✓ GEN-01: Product-focused Mermaid diagrams — v1.1
+- ✓ GEN-02: Generation uses document context — v1.1
+- ✓ GEN-03: Improved prompt quality — v1.1
 
 ### Active
 
-#### v1.1 — Meeting Intelligence & Document Context
-- [ ] Audio playback synced with transcript (click-to-seek, active line highlight)
-- [ ] Editable speaker labels and speaker roles in transcription tab
-- [ ] Per-speaker statistics (time, words, WPM, turns, avg turn, pauses, avg pause)
-- [ ] Meeting-level statistics (duration, processing time, speaker count, attached docs)
-- [ ] Post-recording popup (name, project, doc upload) with background processing
-- [ ] Document attachments on recordings, used as context for PRD/Mermaid generation
-- [ ] AgglomerativeClustering for speaker diarization (replace current approach)
-- [ ] Smarter document generation — diagrams model the product discussed, not meeting flow
-- [ ] Improved prompts for PRD and Mermaid quality
+(No active requirements — planning next milestone)
 
 ### Out of Scope
 
@@ -78,6 +97,11 @@ Recording a meeting and getting a reviewable, structured project plan out of it 
 - Mobile app — web-first for FYP
 - Real-time collaborative editing — complexity too high for FYP
 - AI chat assistant interface — use structured workflows instead
+- Waveform visualization — complexity disproportionate to value
+- Real-time transcription — batch pipeline is simpler and sufficient
+- Video recording — storage/bandwidth, not core to meeting intelligence
+- RAG/vector DB for documents — direct context stuffing sufficient at FYP scale
+- Speaker voice fingerprinting — ML complexity too high for FYP timeline
 
 ## Context
 
@@ -85,6 +109,8 @@ Recording a meeting and getting a reviewable, structured project plan out of it 
 - **Core demo path:** Record → Transcribe → Extract Outcomes → Tasks/Documents
 - **Local inference:** Moonshine Voice for STT, llama.cpp for LLM on macOS M3
 - **Storage:** SQLite for all metadata, filesystem for audio files
+- **v1.0 shipped:** 2026-03-16 (6 phases, 20 plans)
+- **v1.1 shipped:** 2026-03-20 (5 phases, 13 plans)
 
 ## Constraints
 
@@ -107,19 +133,11 @@ Recording a meeting and getting a reviewable, structured project plan out of it 
 | Frontend SQLite for metadata | Outcomes/tasks/documents stored frontend-side for offline resilience | ✓ Good |
 | Synchronous LLM generation for documents | Avoids blocking STT worker, simpler than job queue for one-shot ops | ✓ Good |
 | Zustand for cross-component state | Evidence navigation needs tab switch + scroll coordination | ✓ Good |
+| AgglomerativeClustering over MeanShift | More reliable cluster count detection with distance_threshold | ✓ Good |
+| Portal-based audio player | Player bar stays in SidebarInset bounds, visible across all tabs | ✓ Good |
+| Imperative audio element control | useRef + Zustand store avoids React re-render loop with HTMLAudioElement | ✓ Good |
+| Direct context stuffing over RAG | n_ctx=8192 sufficient for FYP-scale documents, no vector DB overhead | ✓ Good |
+| Save-then-forward for document uploads | Decouples local save from backend forwarding, graceful degradation | ✓ Good |
 
 ---
-## Current Milestone: v1.1 Meeting Intelligence & Document Context
-
-**Goal:** Enrich recording detail with synced playback, speaker analytics, document attachments as generation context, and smarter product-focused diagram output.
-
-**Target features:**
-- Synced audio playback with transcript navigation
-- Speaker management (editable labels/roles) and per-speaker/meeting statistics
-- Post-recording popup with background processing and doc upload
-- Document attachments as context for PRD/Mermaid generation
-- AgglomerativeClustering for diarization accuracy
-- Product-focused diagram generation with improved prompts
-
----
-*Last updated: 2026-03-18 after v1.1 milestone start*
+*Last updated: 2026-03-20 after v1.1 milestone*
