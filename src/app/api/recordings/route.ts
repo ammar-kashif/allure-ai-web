@@ -29,12 +29,22 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // Validate file size (500MB limit)
+  const MAX_FILE_SIZE = 500 * 1024 * 1024
+  if (file.size > MAX_FILE_SIZE) {
+    return NextResponse.json(
+      { error: "File too large. Maximum size is 500MB." },
+      { status: 413 }
+    )
+  }
+
   // Save file locally
   if (!existsSync(RECORDINGS_DIR)) {
     mkdirSync(RECORDINGS_DIR, { recursive: true })
   }
 
-  const filePath = join(RECORDINGS_DIR, `${recordingId}.webm`)
+  const ext = file.name.split('.').pop() || 'webm'
+  const filePath = join(RECORDINGS_DIR, `${recordingId}.${ext}`)
   const arrayBuffer = await file.arrayBuffer()
   writeFileSync(filePath, Buffer.from(arrayBuffer))
 

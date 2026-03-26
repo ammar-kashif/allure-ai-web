@@ -47,6 +47,11 @@ async function prefetchTranscript(recordingId: string, backendId: string) {
     }
 
     cacheTranscript(recordingId, JSON.stringify(transcript))
+
+    // Sync duration from backend (fixes duration showing 0 for uploaded files)
+    if (transcript.duration && transcript.duration > 0) {
+      updateRecording(recordingId, { durationMs: Math.round(transcript.duration * 1000) })
+    }
   } catch {
     // Non-critical — transcript will be fetched on demand
   }
