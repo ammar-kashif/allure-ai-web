@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+.planning
+.claude
+backend/data
+backend/uploads
+public/recordings
+*.env
+*.env.local
