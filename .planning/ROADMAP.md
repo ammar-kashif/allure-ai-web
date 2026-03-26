@@ -4,6 +4,7 @@
 
 - **v1.0 MVP** — 6 phases, 20 plans (shipped 2026-03-16) | [archive](milestones/v1.0-ROADMAP.md)
 - **v1.1 Meeting Intelligence & Document Context** — 5 phases, 13 plans (shipped 2026-03-20) | [archive](milestones/v1.1-ROADMAP.md)
+- **v1.2 Quality of Life & Polish** — 2 phases (in progress)
 
 ## Phases
 
@@ -30,7 +31,37 @@
 
 </details>
 
+### v1.2 Quality of Life & Polish (In Progress)
+
+- [ ] **Phase 10: Video Upload Pipeline** - Accept MP4 uploads, extract audio, and produce correct duration metadata
+- [ ] **Phase 11: PRD Markdown Rendering** - Render PRD content as formatted text instead of raw markdown syntax
+
+## Phase Details
+
+### Phase 10: Video Upload Pipeline
+**Goal**: Users can upload MP4 video files and get transcripts just like audio uploads
+**Depends on**: Nothing (builds on existing recording/transcription pipeline)
+**Requirements**: VID-01, VID-02, VID-03
+**Success Criteria** (what must be TRUE):
+  1. User can select and upload an MP4 file through the same upload flow used for audio
+  2. Uploaded video has its audio extracted and transcribed without manual intervention
+  3. Recording detail page shows correct duration (actual audio length, not 0 or placeholder)
+  4. Transcript quality and processing speed for video-extracted audio matches direct audio uploads
+**Plans**: TBD
+
+### Phase 11: PRD Markdown Rendering
+**Goal**: Users see formatted, readable PRD documents instead of raw markdown syntax
+**Depends on**: Nothing (independent of Phase 10)
+**Requirements**: PRD-01
+**Success Criteria** (what must be TRUE):
+  1. PRD tab displays headings, bold, italics, and lists as properly formatted text
+  2. Raw markdown characters (#, *, -, etc.) do not appear in the rendered PRD view
+**Plans**: TBD
+
 ## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 10 → 11
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -45,3 +76,5 @@
 | 7. Document Attachments | v1.1 | 2/2 | Complete | 2026-03-19 |
 | 8. Context-Aware Generation | v1.1 | 2/2 | Complete | 2026-03-20 |
 | 9. Integration Hardening & Tech Debt | v1.1 | 2/2 | Complete | 2026-03-20 |
+| 10. Video Upload Pipeline | v1.2 | 0/? | Not started | - |
+| 11. PRD Markdown Rendering | v1.2 | 0/? | Not started | - |

@@ -37,16 +37,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| VID-01 | — | Pending |
-| VID-02 | — | Pending |
-| VID-03 | — | Pending |
-| PRD-01 | — | Pending |
+| VID-01 | Phase 10 | Pending |
+| VID-02 | Phase 10 | Pending |
+| VID-03 | Phase 10 | Pending |
+| PRD-01 | Phase 11 | Pending |
 
 **Coverage:**
 - v1.2 requirements: 4 total
-- Mapped to phases: 0
-- Unmapped: 4 ⚠️
+- Mapped to phases: 4
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-26*
-*Last updated: 2026-03-26 after initial definition*
+*Last updated: 2026-03-26 after roadmap creation*
