@@ -34,7 +34,7 @@
 ### v1.2 Quality of Life & Polish (In Progress)
 
 - [x] **Phase 10: Video Upload Pipeline** - Accept MP4 uploads, extract audio, and produce correct duration metadata (completed 2026-03-26)
-- [ ] **Phase 11: PRD Markdown Rendering** - Render PRD content as formatted text instead of raw markdown syntax
+- [x] **Phase 11: PRD Markdown Rendering** - Render PRD content as formatted text instead of raw markdown syntax (completed 2026-03-26)
 
 ## Phase Details
 
@@ -83,4 +83,4 @@ Phases execute in numeric order: 10 → 11
 | 8. Context-Aware Generation | v1.1 | 2/2 | Complete | 2026-03-20 |
 | 9. Integration Hardening & Tech Debt | v1.1 | 2/2 | Complete | 2026-03-20 |
 | 10. Video Upload Pipeline | v1.2 | 1/1 | Complete | 2026-03-26 |
-| 11. PRD Markdown Rendering | v1.2 | 0/1 | Not started | - |
+| 11. PRD Markdown Rendering | 1/1 | Complete   | 2026-03-26 | - |

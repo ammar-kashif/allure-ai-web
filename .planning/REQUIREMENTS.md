@@ -15,7 +15,7 @@ Requirements for Quality of Life & Polish milestone. Each maps to roadmap phases
 
 ### PRD Rendering
 
-- [ ] **PRD-01**: PRD tab renders markdown headings, bold, italics, and lists as formatted text (not raw `#` `*` characters)
+- [x] **PRD-01**: PRD tab renders markdown headings, bold, italics, and lists as formatted text (not raw `#` `*` characters)
 
 ## Future Requirements
 
@@ -40,7 +40,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VID-01 | Phase 10 | Complete |
 | VID-02 | Phase 10 | Complete |
 | VID-03 | Phase 10 | Complete |
-| PRD-01 | Phase 11 | Pending |
+| PRD-01 | Phase 11 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 4 total
