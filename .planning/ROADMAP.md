@@ -59,7 +59,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. PRD tab displays headings, bold, italics, and lists as properly formatted text
   2. Raw markdown characters (#, *, -, etc.) do not appear in the rendered PRD view
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 11-01-PLAN.md — Install react-markdown with GFM/sanitize plugins, configure Tailwind Typography, replace PrdContent component
 
 ## Progress
 
@@ -79,5 +82,5 @@ Phases execute in numeric order: 10 → 11
 | 7. Document Attachments | v1.1 | 2/2 | Complete | 2026-03-19 |
 | 8. Context-Aware Generation | v1.1 | 2/2 | Complete | 2026-03-20 |
 | 9. Integration Hardening & Tech Debt | v1.1 | 2/2 | Complete | 2026-03-20 |
-| 10. Video Upload Pipeline | 1/1 | Complete    | 2026-03-26 | - |
-| 11. PRD Markdown Rendering | v1.2 | 0/? | Not started | - |
+| 10. Video Upload Pipeline | v1.2 | 1/1 | Complete | 2026-03-26 |
+| 11. PRD Markdown Rendering | v1.2 | 0/1 | Not started | - |
