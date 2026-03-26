@@ -31,6 +31,8 @@ async function prefetchTranscript(recordingId: string, backendId: string) {
           avgTurnDuration: s.avg_turn_duration ?? 0,
           pauses: s.pauses ?? 0,
           avgPauseDuration: s.avg_pause_duration ?? 0,
+          customLabel: (s.custom_label as string) || "",
+          role: (s.role as string) || "",
         })
       ),
       utterances: (

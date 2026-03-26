@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   ArrowLeft,
+  Download,
   FileText,
   Loader2,
   MoreVertical,
@@ -384,7 +385,42 @@ export default function RecordingDetailPage({
           {latestPrd && (
             <TabsContent value="prd">
               <div className="pt-4">
-                <PrdContent content={latestPrd.content} />
+                <div className="mb-3 flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const el = document.getElementById("prd-content")
+                      if (!el) return
+                      const win = window.open("", "_blank")
+                      if (!win) return
+                      win.document.write(`<!DOCTYPE html>
+<html><head><title>${latestPrd.title || "PRD"}</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 40px; color: #1a1a1a; line-height: 1.6; }
+  h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+  h1 { font-size: 1.8em; } h2 { font-size: 1.4em; } h3 { font-size: 1.2em; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+  th, td { border: 1px solid #d1d5db; padding: 8px 12px; text-align: left; }
+  th { background: #f3f4f6; font-weight: 600; }
+  code { background: #f3f4f6; padding: 2px 4px; border-radius: 3px; font-size: 0.9em; }
+  pre { background: #f3f4f6; padding: 16px; border-radius: 6px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  blockquote { border-left: 3px solid #d1d5db; margin: 1em 0; padding-left: 1em; color: #4b5563; }
+  ul, ol { padding-left: 1.5em; }
+  @media print { body { padding: 0; } }
+</style></head><body>${el.innerHTML}</body></html>`)
+                      win.document.close()
+                      win.print()
+                    }}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download PDF
+                  </Button>
+                </div>
+                <div id="prd-content">
+                  <PrdContent content={latestPrd.content} />
+                </div>
               </div>
             </TabsContent>
           )}
