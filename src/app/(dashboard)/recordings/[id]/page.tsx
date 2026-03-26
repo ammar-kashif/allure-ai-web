@@ -48,8 +48,7 @@ import { PrdContent } from "@/components/document/prd-content"
 import { useProjects } from "@/hooks/use-projects"
 import { useAudioPlayback } from "@/stores/audio-playback"
 import { useEvidenceHighlight } from "@/stores/evidence-highlight"
-import { formatDuration, formatTimestamp } from "@/lib/utils"
-import { cn } from "@/lib/utils"
+import { cn, formatDuration, formatTimestamp } from "@/lib/utils"
 
 import type { TabId } from "@/stores/evidence-highlight"
 

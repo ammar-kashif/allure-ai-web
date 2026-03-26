@@ -139,13 +139,9 @@ export function PostRecordingDialog() {
   ])
 
   // Prevent closing via backdrop or escape -- only Save/Skip should close
-  const handleOpenChange = useCallback(
-    (open: boolean) => {
-      // Only allow programmatic closing (from Save/Skip handlers)
-      if (!open) return
-    },
-    []
-  )
+  const handleOpenChange = useCallback((_open: boolean) => {
+    // Intentionally no-op: only Save/Skip handlers can close this dialog
+  }, [])
 
   return (
     <Dialog

@@ -28,7 +28,6 @@ export function RecordingRow({ recording, onAssignProject }: RecordingRowProps) 
       </TableCell>
       <TableCell>
         <ProjectAssignment
-          recordingId={recording.id}
           currentProjectId={recording.projectId}
           onAssign={(projectId) => onAssignProject(recording.id, projectId)}
         />

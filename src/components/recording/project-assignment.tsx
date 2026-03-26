@@ -5,13 +5,11 @@ import { useState } from "react"
 import { useProjects, useCreateProject } from "@/hooks/use-projects"
 
 interface ProjectAssignmentProps {
-  recordingId: string
   currentProjectId: string | null
   onAssign: (projectId: string) => void
 }
 
 export function ProjectAssignment({
-  recordingId: _recordingId,
   currentProjectId,
   onAssign,
 }: ProjectAssignmentProps) {

@@ -37,3 +37,23 @@ export function formatDuration(ms: number): string {
 export function formatTimestamp(isoString: string): string {
   return format(new Date(isoString), "MMM d, yyyy")
 }
+
+/**
+ * Format a file size in bytes to a human-readable string.
+ * e.g. 1024 -> "1.0 KB", 1048576 -> "1.0 MB"
+ */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+/**
+ * Format seconds to "m:ss" timestamp string.
+ * e.g. 65 -> "1:05", 3661 -> "61:01"
+ */
+export function formatTimecode(seconds: number): string {
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return `${mins}:${String(secs).padStart(2, "0")}`
+}

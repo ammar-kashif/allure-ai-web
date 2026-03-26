@@ -10,8 +10,7 @@ import {
 } from "@/components/ui/collapsible"
 import { SpeakerBadge } from "./speaker-badge"
 import { InlineEdit } from "./inline-edit"
-import { formatDuration } from "@/lib/utils"
-import { cn } from "@/lib/utils"
+import { cn, formatDuration } from "@/lib/utils"
 import { useUpdateSpeaker } from "@/hooks/use-recordings"
 import type { SpeakerStat } from "@/types/recording"
 

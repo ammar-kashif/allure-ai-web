@@ -1,6 +1,6 @@
 "use client"
 
-import { cn } from "@/lib/utils"
+import { cn, formatTimecode } from "@/lib/utils"
 import type { Utterance } from "@/types/recording"
 
 export const speakerColors = [
@@ -17,12 +17,6 @@ export function getSpeakerIndex(speaker: string): number {
     return (parseInt(match[1], 10) - 1) % speakerColors.length
   }
   return 0
-}
-
-function formatTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${mins}:${String(secs).padStart(2, "0")}`
 }
 
 interface UtteranceBubbleProps {
@@ -47,15 +41,17 @@ export function UtteranceBubble({
   const colorIndex = getSpeakerIndex(utterance.speaker)
   const colors = speakerColors[colorIndex]
 
+  function getBgClass(): string {
+    if (highlighted) return "bg-yellow-200/60"
+    if (isPlaybackActive) return "bg-indigo-100/60"
+    return colors.bg
+  }
+
   return (
     <div
       className={cn(
         "max-w-[85%] rounded-xl px-4 py-3 transition-[background-color] duration-1000 ease-[var(--ease-out)]",
-        highlighted
-          ? "bg-yellow-200/60"
-          : isPlaybackActive
-            ? "bg-indigo-100/60"
-            : colors.bg,
+        getBgClass(),
         onSeek && "cursor-pointer"
       )}
       onClick={onSeek ? () => onSeek(utterance.startTime) : undefined}
@@ -70,7 +66,7 @@ export function UtteranceBubble({
           <span className="text-xs text-muted-foreground">{role}</span>
         )}
         <span className="text-xs text-muted-foreground">
-          {formatTime(utterance.startTime)}
+          {formatTimecode(utterance.startTime)}
         </span>
       </div>
       <p className="text-[0.9375rem] leading-relaxed">{utterance.text}</p>

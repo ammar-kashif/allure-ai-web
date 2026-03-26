@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { SpeedSelector } from "./speed-selector"
 import { useAudioPlayback } from "@/stores/audio-playback"
+import { formatTimecode } from "@/lib/utils"
 import type { Utterance } from "@/types/recording"
 
 function findActiveUtterance(
@@ -24,12 +25,6 @@ function findActiveUtterance(
     else low = mid + 1
   }
   return null
-}
-
-function formatTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${mins}:${String(secs).padStart(2, "0")}`
 }
 
 interface AudioPlayerBarProps {
@@ -148,7 +143,7 @@ export function AudioPlayerBar({ recordingId, utterances }: AudioPlayerBarProps)
         </Button>
 
         <span className="w-11 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-          {formatTime(currentTime)}
+          {formatTimecode(currentTime)}
         </span>
 
         <Slider
@@ -162,7 +157,7 @@ export function AudioPlayerBar({ recordingId, utterances }: AudioPlayerBarProps)
         />
 
         <span className="w-11 shrink-0 text-xs tabular-nums text-muted-foreground">
-          {formatTime(duration)}
+          {formatTimecode(duration)}
         </span>
 
         <SpeedSelector value={playbackRate} onChange={setPlaybackRate} />

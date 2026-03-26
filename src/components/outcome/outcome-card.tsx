@@ -7,13 +7,7 @@ import { Button } from "@/components/ui/button"
 import { usePromoteOutcome } from "@/hooks/use-outcomes"
 import { useEvidenceHighlight } from "@/stores/evidence-highlight"
 import type { Outcome, EvidenceRef } from "@/types/outcome"
-import { cn } from "@/lib/utils"
-
-function formatTimestamp(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${mins}:${String(secs).padStart(2, "0")}`
-}
+import { cn, formatTimecode } from "@/lib/utils"
 
 interface OutcomeCardProps {
   outcome: Outcome
@@ -164,7 +158,7 @@ function EvidenceLink({
     >
       <ExternalLink className="size-3" />
       <span>
-        {formatTimestamp(ref_.timestamp)} -- {ref_.speaker}
+        {formatTimecode(ref_.timestamp)} -- {ref_.speaker}
       </span>
     </button>
   )

@@ -136,21 +136,18 @@ export function useAssignProject(): UseMutationResult<
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       recordingId,
       projectId,
     }: {
       recordingId: string
       projectId: string
       file?: Blob
-    }) => {
-      // PATCH to assign project and trigger upload
-      const updated = await apiClient.patch<Recording>(
-        `/api/recordings/${recordingId}`,
-        { projectId, status: "processing" }
-      )
-      return updated
-    },
+    }) =>
+      apiClient.patch<Recording>(`/api/recordings/${recordingId}`, {
+        projectId,
+        status: "processing",
+      }),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["recordings"] })
       queryClient.invalidateQueries({

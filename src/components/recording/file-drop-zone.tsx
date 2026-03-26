@@ -4,18 +4,12 @@ import { useCallback, useRef, useState } from "react"
 import { Upload, X } from "lucide-react"
 import { toast } from "sonner"
 
-import { cn } from "@/lib/utils"
+import { cn, formatFileSize } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
 const ACCEPTED_TYPES = [".pdf", ".docx", ".txt"]
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ACCEPT_STRING = ACCEPTED_TYPES.join(",")
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
 
 interface FileDropZoneProps {
   files: File[]

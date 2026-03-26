@@ -37,7 +37,7 @@ describe("ProjectAssignment", () => {
   it("shows dropdown for unassigned recordings", async () => {
     render(
       <ProjectAssignment
-        recordingId="rec-1"
+
         currentProjectId={null}
         onAssign={vi.fn()}
       />,
@@ -51,7 +51,7 @@ describe("ProjectAssignment", () => {
   it("shows project name as static text for assigned recordings", async () => {
     render(
       <ProjectAssignment
-        recordingId="rec-1"
+
         currentProjectId="proj-1"
         onAssign={vi.fn()}
       />,
@@ -68,7 +68,7 @@ describe("ProjectAssignment", () => {
 
     render(
       <ProjectAssignment
-        recordingId="rec-1"
+
         currentProjectId={null}
         onAssign={onAssign}
       />,
@@ -86,7 +86,7 @@ describe("ProjectAssignment", () => {
   it("Create new project option appears in dropdown", async () => {
     render(
       <ProjectAssignment
-        recordingId="rec-1"
+
         currentProjectId={null}
         onAssign={vi.fn()}
       />,

@@ -258,12 +258,7 @@ export function getTaskSourceSegmentIndex(taskId: string): number | null {
     )
     .get(taskId) as { evidence_refs: string } | undefined
   if (!row) return null
-  try {
-    const refs = JSON.parse(row.evidence_refs)
-    return refs[0]?.segmentIndex ?? null
-  } catch {
-    return null
-  }
+  return parseSourceHighlightIndex(row.evidence_refs)
 }
 
 export function deleteTask(id: string): boolean {
