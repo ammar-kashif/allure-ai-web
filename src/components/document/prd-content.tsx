@@ -1,39 +1,31 @@
 "use client"
 
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+import rehypeSanitize from "rehype-sanitize"
+
 interface PrdContentProps {
   content: string
 }
 
 export function PrdContent({ content }: PrdContentProps) {
-  const lines = content.split("\n")
-
   return (
-    <div className="rounded-xl bg-card p-6 shadow-[var(--shadow-card)] space-y-1">
-      {lines.map((line, i) => {
-        const trimmed = line.trim()
-
-        if (trimmed.startsWith("## ") || (trimmed.startsWith("**") && trimmed.endsWith("**"))) {
-          const text = trimmed.replace(/^##\s*/, "").replace(/^\*\*|\*\*$/g, "")
-          return (
-            <h3
-              key={i}
-              className="font-heading font-semibold text-lg pt-4 first:pt-0"
-            >
-              {text}
-            </h3>
-          )
-        }
-
-        if (trimmed === "") {
-          return <div key={i} className="h-2" />
-        }
-
-        return (
-          <p key={i} className="text-base leading-relaxed text-foreground/90">
-            {line}
-          </p>
-        )
-      })}
+    <div className="rounded-xl bg-card p-6 shadow-[var(--shadow-card)]">
+      <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeSanitize]}
+          components={{
+            a: ({ children, href, ...props }) => (
+              <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+                {children}
+              </a>
+            ),
+          }}
+        >
+          {content}
+        </ReactMarkdown>
+      </div>
     </div>
   )
 }
