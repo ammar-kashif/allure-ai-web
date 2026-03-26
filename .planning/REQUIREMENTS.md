@@ -9,9 +9,9 @@ Requirements for Quality of Life & Polish milestone. Each maps to roadmap phases
 
 ### Video Pipeline
 
-- [ ] **VID-01**: User can upload MP4 video files and have audio automatically extracted for STT processing
-- [ ] **VID-02**: Recording duration metadata correctly reflects actual audio length (not 0)
-- [ ] **VID-03**: Extracted audio runs through existing transcription pipeline without accuracy/speed loss
+- [x] **VID-01**: User can upload MP4 video files and have audio automatically extracted for STT processing
+- [x] **VID-02**: Recording duration metadata correctly reflects actual audio length (not 0)
+- [x] **VID-03**: Extracted audio runs through existing transcription pipeline without accuracy/speed loss
 
 ### PRD Rendering
 
@@ -37,9 +37,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| VID-01 | Phase 10 | Pending |
-| VID-02 | Phase 10 | Pending |
-| VID-03 | Phase 10 | Pending |
+| VID-01 | Phase 10 | Complete |
+| VID-02 | Phase 10 | Complete |
+| VID-03 | Phase 10 | Complete |
 | PRD-01 | Phase 11 | Pending |
 
 **Coverage:**
