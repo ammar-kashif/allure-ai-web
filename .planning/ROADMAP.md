@@ -79,5 +79,5 @@ Phases execute in numeric order: 10 → 11
 | 7. Document Attachments | v1.1 | 2/2 | Complete | 2026-03-19 |
 | 8. Context-Aware Generation | v1.1 | 2/2 | Complete | 2026-03-20 |
 | 9. Integration Hardening & Tech Debt | v1.1 | 2/2 | Complete | 2026-03-20 |
-| 10. Video Upload Pipeline | 1/1 | Complete   | 2026-03-26 | - |
+| 10. Video Upload Pipeline | 1/1 | Complete    | 2026-03-26 | - |
 | 11. PRD Markdown Rendering | v1.2 | 0/? | Not started | - |
