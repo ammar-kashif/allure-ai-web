@@ -3,13 +3,41 @@
 import subprocess
 from pathlib import Path
 
-ALLOWED_EXTENSIONS = {".webm", ".mp3", ".wav", ".m4a", ".mp4"}
+ALLOWED_EXTENSIONS = {".webm", ".mp3", ".wav", ".m4a", ".mp4", ".mov"}
 
 
 def validate_audio_format(filename: str) -> bool:
     """Check file extension against allowed list."""
     ext = Path(filename).suffix.lower()
     return ext in ALLOWED_EXTENSIONS
+
+
+def detect_no_audio_track(input_path: str) -> bool:
+    """Check if a media file has no audio stream using ffprobe.
+
+    Returns True if the file has no audio track, False otherwise.
+    On ffprobe errors, returns False (let ffmpeg fail later with a descriptive message).
+    """
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "a",
+                "-show_entries",
+                "stream=codec_type",
+                "-of",
+                "csv=p=0",
+                input_path,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip() == ""
+    except Exception:
+        return False
 
 
 def convert_to_wav(input_path: str, output_path: str) -> str:

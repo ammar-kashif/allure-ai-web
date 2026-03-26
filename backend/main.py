@@ -19,7 +19,7 @@ from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from audio_utils import convert_to_wav, validate_audio_format
+from audio_utils import convert_to_wav, detect_no_audio_track, validate_audio_format
 from job_queue import job_queue, process_worker
 from extraction import format_backlink
 from models import (
@@ -181,7 +181,7 @@ async def upload_recording(file: UploadFile = File(...)):
     if not file.filename or not validate_audio_format(file.filename):
         raise HTTPException(
             status_code=400,
-            detail="Unsupported audio format. Accepted: webm, mp3, wav, m4a, mp4",
+            detail="Unsupported audio format. Accepted: webm, mp3, wav, m4a, mp4, mov",
         )
 
     job_id = str(uuid4())
@@ -189,10 +189,25 @@ async def upload_recording(file: UploadFile = File(...)):
     # Read file bytes before responding
     file_bytes = await file.read()
 
+    # Validate file size (500MB limit)
+    if len(file_bytes) > 500 * 1024 * 1024:
+        raise HTTPException(
+            status_code=413,
+            detail="File too large. Maximum size is 500MB.",
+        )
+
     # Save uploaded file
     original_path = os.path.join(UPLOADS_DIR, f"{job_id}_{file.filename}")
     async with aiofiles.open(original_path, "wb") as f:
         await f.write(file_bytes)
+
+    # Check for missing audio track (common with screen recordings / silent videos)
+    if detect_no_audio_track(original_path):
+        os.remove(original_path)
+        raise HTTPException(
+            status_code=422,
+            detail="This video has no audio — nothing to transcribe",
+        )
 
     # Convert to 16kHz mono WAV
     wav_path = os.path.join(UPLOADS_DIR, f"{job_id}.wav")
@@ -204,8 +219,12 @@ async def upload_recording(file: UploadFile = File(...)):
             os.remove(original_path)
         raise HTTPException(
             status_code=422,
-            detail="Audio conversion failed",
+            detail="File conversion failed — the file may be corrupt or use an unsupported codec",
         )
+
+    # Clean up original file after successful conversion (save disk space)
+    if original_path != wav_path and os.path.exists(original_path):
+        os.remove(original_path)
 
     # Create job and enqueue
     create_job(job_id, wav_path, file.filename)
