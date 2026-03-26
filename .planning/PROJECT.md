@@ -87,7 +87,14 @@ Recording a meeting and getting a reviewable, structured project plan out of it 
 
 ### Active
 
-(No active requirements — planning next milestone)
+#### Current Milestone: v1.2 Quality of Life & Polish
+
+**Goal:** Fix pipeline bugs and rendering issues to improve day-to-day usability.
+
+**Target features:**
+- Video upload pipeline (MP4 → audio extraction, correct duration metadata)
+- PRD markdown rendering (render formatted output instead of raw syntax)
+- (Room for additional QOL items)
 
 ### Out of Scope
 
@@ -99,7 +106,7 @@ Recording a meeting and getting a reviewable, structured project plan out of it 
 - AI chat assistant interface — use structured workflows instead
 - Waveform visualization — complexity disproportionate to value
 - Real-time transcription — batch pipeline is simpler and sufficient
-- Video recording — storage/bandwidth, not core to meeting intelligence
+- Video recording/playback — we extract audio from video uploads but don't store/play video
 - RAG/vector DB for documents — direct context stuffing sufficient at FYP scale
 - Speaker voice fingerprinting — ML complexity too high for FYP timeline
 
@@ -140,4 +147,4 @@ Recording a meeting and getting a reviewable, structured project plan out of it 
 | Save-then-forward for document uploads | Decouples local save from backend forwarding, graceful degradation | ✓ Good |
 
 ---
-*Last updated: 2026-03-20 after v1.1 milestone*
+*Last updated: 2026-03-26 after v1.2 milestone start*
