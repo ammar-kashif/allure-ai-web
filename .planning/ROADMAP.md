@@ -47,7 +47,10 @@
   2. Uploaded video has its audio extracted and transcribed without manual intervention
   3. Recording detail page shows correct duration (actual audio length, not 0 or placeholder)
   4. Transcript quality and processing speed for video-extracted audio matches direct audio uploads
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 10-01-PLAN.md — Video upload pipeline: backend format support, API file handling + duration sync, frontend upload UI
 
 ### Phase 11: PRD Markdown Rendering
 **Goal**: Users see formatted, readable PRD documents instead of raw markdown syntax
@@ -76,5 +79,5 @@ Phases execute in numeric order: 10 → 11
 | 7. Document Attachments | v1.1 | 2/2 | Complete | 2026-03-19 |
 | 8. Context-Aware Generation | v1.1 | 2/2 | Complete | 2026-03-20 |
 | 9. Integration Hardening & Tech Debt | v1.1 | 2/2 | Complete | 2026-03-20 |
-| 10. Video Upload Pipeline | v1.2 | 0/? | Not started | - |
+| 10. Video Upload Pipeline | v1.2 | 0/1 | Not started | - |
 | 11. PRD Markdown Rendering | v1.2 | 0/? | Not started | - |
