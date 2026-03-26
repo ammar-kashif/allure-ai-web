@@ -7,7 +7,8 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { useUploadRecording } from "@/hooks/use-recordings"
 
-const ACCEPTED_FORMATS = ".webm,.mp3,.wav,.m4a,.mp4"
+const ACCEPTED_FORMATS = ".webm,.mp3,.wav,.m4a,.mp4,.mov"
+const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500MB
 
 function getTitle(filename: string): string {
   const name = filename.replace(/\.[^.]+$/, "")
@@ -21,6 +22,13 @@ export function UploadButton() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error("File too large", {
+        description: "Maximum file size is 500MB. Please use a shorter recording or compress the file.",
+      })
+      return
+    }
 
     const recordingId = crypto.randomUUID()
     const title = getTitle(file.name)
@@ -65,7 +73,7 @@ export function UploadButton() {
         disabled={uploadRecording.isPending}
       >
         <Upload data-icon="inline-start" className="size-4" />
-        {uploadRecording.isPending ? "Uploading..." : "Upload Audio"}
+        {uploadRecording.isPending ? "Uploading..." : "Upload File"}
       </Button>
     </>
   )
