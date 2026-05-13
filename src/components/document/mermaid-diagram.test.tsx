@@ -51,19 +51,30 @@ describe("MermaidDiagram component", () => {
     })
   })
 
-  it("shows error fallback for invalid Mermaid syntax", async () => {
-    const code = "invalid mermaid code {"
+  it("shows friendly message when code is not a diagram", () => {
+    const code =
+      "Based on the provided input, it seems there is a misunderstanding."
+
+    render(<MermaidDiagram code={code} />)
+
+    expect(screen.getByText("Diagram unavailable")).toBeInTheDocument()
+    expect(
+      screen.getByText(/didn't contain enough structured information/)
+    ).toBeInTheDocument()
+    expect(mockParse).not.toHaveBeenCalled()
+  })
+
+  it("shows syntax error fallback for invalid Mermaid syntax", async () => {
+    const code = "flowchart TD\n  BAD SYNTAX {"
     mockParse.mockRejectedValue(new Error("Parse error: invalid syntax"))
 
     render(<MermaidDiagram code={code} />)
 
     await waitFor(() => {
       expect(
-        screen.getByText("Diagram rendering error")
+        screen.getByText("Diagram couldn't be rendered")
       ).toBeInTheDocument()
     })
-
-    expect(screen.getByText(/Parse error: invalid syntax/)).toBeInTheDocument()
   })
 
   it("displays raw code in fallback when parse fails", async () => {

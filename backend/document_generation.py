@@ -69,56 +69,36 @@ Guidelines:
 - Be specific and actionable in requirements
 - Group related requirements logically under each section"""
 
-USERFLOW_SYSTEM_PROMPT = """You are a product architect. Generate a Mermaid flowchart that models the product or system discussed in the meeting outcomes.
+DIAGRAM_SYSTEM_PROMPT = """You are an expert at interpreting meeting transcriptions and generating Mermaid diagram code.
 
-Rules for valid Mermaid syntax:
-- Start with `flowchart TD` (top-down direction)
-- Use simple alphanumeric node IDs (A, B, C or step1, step2)
-- Use square brackets for labels: A[User Submits Order]
-- Use --> for arrows with optional labels: A -->|validates| B
-- Use diamond braces for decisions: D{Payment Valid?}
-- Keep labels short (max 5 words)
-- Do NOT use special characters in labels (no parentheses, quotes, or colons)
-- Maximum 12 nodes for readability
-- Output ONLY the Mermaid code, no explanation or markdown fences
+I will provide you with a meeting transcription. Analyze the content and produce **only valid Mermaid.js code** (latest standard) — no explanations, no commentary, no markdown fences, just raw Mermaid syntax.
 
-IMPORTANT: Diagram the PRODUCT or SYSTEM discussed, NOT the meeting itself.
-Use entity names and terminology from the outcomes and reference documents.
+## Diagram Type Selection
 
-Example:
-flowchart TD
-    A[Customer Places Order] --> B[Validate Payment]
-    B --> C{Payment Valid?}
-    C -->|Yes| D[Process Order]
-    C -->|No| E[Show Error]
-    D --> F[Send Confirmation]
-    D --> G[Update Inventory]"""
+Use a combination of keyword detection and topic inference to determine the diagram type:
 
-ERD_SYSTEM_PROMPT = """You are a product architect. Generate a Mermaid Entity Relationship Diagram that models the data entities of the product or system discussed in the meeting outcomes.
+- **ERD** — if the transcription is about entities, data models, relationships, tables, databases, or structured records
+- **Flowchart** — if the transcription is about processes, workflows, decisions, steps, or system interactions
+- If signals point clearly to one type, use it regardless of how the conversation unfolded
+- If no clear signal exists, default to **flowchart**
 
-Rules for valid Mermaid syntax:
-- Start with `erDiagram`
-- Use UPPERCASE entity names with no spaces: USER, ORDER, PRODUCT
-- Relationships use: ||--o{ (one to many), ||--|| (one to one), }o--o{ (many to many)
-- Attributes use: string, int, date types
-- Keep to essential entities only (max 6)
-- Output ONLY the Mermaid code, no explanation or markdown fences
+Base the diagram on what the meeting is *about*, not the sequence of how the conversation unfolded.
 
-IMPORTANT: Diagram the PRODUCT or SYSTEM discussed, NOT the meeting itself.
-Use entity names from the outcomes and reference documents.
+## Output Rules
 
-Example:
-erDiagram
-    USER ||--o{ ORDER : places
-    ORDER ||--o{ ORDER_ITEM : contains
-    ORDER_ITEM }o--|| PRODUCT : references
-    ORDER ||--|| PAYMENT : has
-    ORDER {
-        string id
-        string status
-        int total
-        date created_at
-    }"""
+- Output Mermaid code only — nothing else
+- The code must be valid and renderable in standard Mermaid.js (latest)
+- Use clear, meaningful labels derived directly from the transcription content
+- Do not include triple backticks, language identifiers, or any surrounding text"""
+
+DIAGRAM_FIX_PROMPT = """The Mermaid diagram you generated has a syntax error.
+
+Error: {error}
+
+Your previous output:
+{code}
+
+Fix the syntax error and output ONLY the corrected Mermaid code — no explanations, no markdown fences."""
 
 
 def format_outcomes_for_generation(outcomes: list[dict[str, Any]]) -> str:
@@ -176,48 +156,55 @@ def generate_prd(job_id: str, app_state: object, document_context: str = "") -> 
     return response["choices"][0]["message"]["content"]
 
 
-DIAGRAM_TYPE_SELECTOR_PROMPT = """You are a product architect deciding what type of diagram best represents the product or system discussed in the meeting outcomes.
+MERMAID_KEYWORDS_RE = re.compile(
+    r"^(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|gitGraph|mindmap|timeline|sankey|xychart|block)",
+    re.MULTILINE,
+)
 
-Given the outcomes below, decide which diagram type would be most useful:
-- "user_flow" -- a flowchart showing product user journeys, processes, decision points, or workflows
-- "erd" -- an entity relationship diagram showing data entities, their attributes, and relationships
-
-Consider whether a product flow or architecture diagram is more appropriate for the discussed system.
-
-Choose "user_flow" if the outcomes focus on processes, steps, decisions, or user interactions.
-Choose "erd" if the outcomes focus on data models, entities, relationships, or system structure.
-
-Respond with ONLY "user_flow" or "erd", nothing else."""
+MAX_DIAGRAM_RETRIES = 2
 
 
-def select_diagram_type(outcomes: list[dict[str, Any]], app_state: object) -> str:
-    """Use LLM to auto-select the best diagram type based on outcomes content."""
-    formatted = format_outcomes_for_generation(outcomes)
+def _strip_mermaid_fences(raw: str) -> str:
+    """Remove markdown code fences the LLM may add despite instructions."""
+    raw = re.sub(r"^```\w*\n?", "", raw.strip())
+    raw = re.sub(r"\n?```\s*$", "", raw)
+    return raw.strip()
 
-    messages = [
-        {"role": "system", "content": DIAGRAM_TYPE_SELECTOR_PROMPT},
-        {
-            "role": "user",
-            "content": f"Meeting outcomes:\n\n{formatted}",
-        },
-    ]
 
-    response = app_state.llm.create_chat_completion(
-        messages=messages,
-        temperature=0.0,
-        max_tokens=20,
-    )
+def _detect_diagram_type(code: str) -> str:
+    """Detect diagram type from generated Mermaid code."""
+    if code.lstrip().startswith("erDiagram"):
+        return "erd"
+    return "user_flow"
 
-    selected = response["choices"][0]["message"]["content"].strip().lower()
-    if selected not in ("user_flow", "erd"):
-        selected = "user_flow"  # safe default
-    return selected
+
+def _validate_mermaid_syntax(code: str) -> str | None:
+    """Basic syntax validation. Returns error message or None if OK."""
+    if not MERMAID_KEYWORDS_RE.search(code):
+        return "No valid Mermaid diagram type detected in output"
+    return None
+
+
+def _format_transcription(job: dict[str, Any]) -> str:
+    """Format job transcript segments into readable transcription text."""
+    result = job.get("result")
+    if not result or not result.get("segments"):
+        return ""
+    lines = []
+    for seg in result["segments"]:
+        speaker = seg.get("speaker", "Unknown")
+        text = seg.get("text", "").strip()
+        if text:
+            lines.append(f"[{speaker}]: {text}")
+    return "\n".join(lines)
 
 
 def generate_diagram(job_id: str, app_state: object, document_context: str = "") -> tuple[str, str]:
-    """Generate a Mermaid diagram from a recording's outcomes via LLM.
+    """Generate a Mermaid diagram from a recording's transcription via LLM.
 
-    Auto-selects the best diagram type (user_flow or erd) based on content.
+    Uses the full transcription as input. The LLM auto-selects diagram type
+    (flowchart or ERD) based on content. Retries up to MAX_DIAGRAM_RETRIES
+    times if the output has syntax errors, feeding the error back to the LLM.
 
     Args:
         job_id: The recording job ID.
@@ -231,37 +218,52 @@ def generate_diagram(job_id: str, app_state: object, document_context: str = "")
     if job is None:
         raise ValueError(f"Job {job_id} not found")
 
-    outcomes = job.get("outcomes", [])
-    if not outcomes:
-        raise ValueError(f"Job {job_id} has no outcomes")
+    transcription = _format_transcription(job)
+    if not transcription:
+        # Fall back to outcomes if no transcript segments
+        outcomes = job.get("outcomes", [])
+        if not outcomes:
+            raise ValueError(f"Job {job_id} has no transcription or outcomes")
+        transcription = format_outcomes_for_generation(outcomes)
 
-    diagram_type = select_diagram_type(outcomes, app_state)
-
-    if diagram_type == "user_flow":
-        system_prompt = USERFLOW_SYSTEM_PROMPT
-    else:
-        system_prompt = ERD_SYSTEM_PROMPT
-
-    formatted = format_outcomes_for_generation(outcomes)
-
-    user_content = f"## Meeting Outcomes (Primary Input)\n\n{formatted}"
+    user_content = f'"""\n{transcription}\n"""'
     if document_context:
         user_content += f"\n\n{document_context}"
 
     messages = [
-        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": DIAGRAM_SYSTEM_PROMPT},
         {"role": "user", "content": user_content},
     ]
 
+    # Initial generation
     response = app_state.llm.create_chat_completion(
         messages=messages,
         temperature=0.2,
         max_tokens=2048,
     )
 
-    raw = response["choices"][0]["message"]["content"].strip()
-    # Strip markdown fences the LLM may add despite instructions
-    raw = re.sub(r"^```\w*\n?", "", raw)
-    raw = re.sub(r"\n?```\s*$", "", raw)
-    raw = raw.strip()
-    return raw, diagram_type
+    code = _strip_mermaid_fences(response["choices"][0]["message"]["content"])
+
+    # Retry loop: feed syntax errors back to LLM
+    for _ in range(MAX_DIAGRAM_RETRIES):
+        error = _validate_mermaid_syntax(code)
+        if error is None:
+            break
+
+        fix_messages = [
+            {"role": "system", "content": DIAGRAM_SYSTEM_PROMPT},
+            {"role": "user", "content": user_content},
+            {"role": "assistant", "content": code},
+            {"role": "user", "content": DIAGRAM_FIX_PROMPT.format(error=error, code=code)},
+        ]
+
+        response = app_state.llm.create_chat_completion(
+            messages=fix_messages,
+            temperature=0.1,
+            max_tokens=2048,
+        )
+
+        code = _strip_mermaid_fences(response["choices"][0]["message"]["content"])
+
+    diagram_type = _detect_diagram_type(code)
+    return code, diagram_type

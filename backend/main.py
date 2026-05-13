@@ -128,7 +128,7 @@ async def lifespan(app: FastAPI):
     n_gpu = -1 if os.environ.get("LLM_GPU", "1") != "0" else 0
     app.state.llm = Llama(
         model_path=llm_model_path,
-        n_ctx=8192,  # Bumped from 4096 for Phase 8 document context injection
+        n_ctx=16384,
         n_gpu_layers=n_gpu,
         chat_format="chatml",
         verbose=False,
@@ -389,16 +389,19 @@ async def generate_prd_endpoint(job_id: str):
 
 @app.post("/recordings/{job_id}/generate-diagram")
 async def generate_diagram_endpoint(job_id: str):
-    """Generate a Mermaid diagram from a recording's extracted outcomes.
+    """Generate a Mermaid diagram from a recording's transcription.
 
-    Automatically selects the best diagram type (user_flow or erd) based on content.
+    Automatically selects the best diagram type (flowchart or erd) based on content.
+    Retries with error feedback if the LLM produces invalid Mermaid syntax.
     """
     job = get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
-    outcomes = job.get("outcomes", [])
-    if not outcomes:
-        raise HTTPException(status_code=400, detail="No outcomes to generate from")
+
+    has_transcript = job.get("result") and job["result"].get("segments")
+    has_outcomes = bool(job.get("outcomes"))
+    if not has_transcript and not has_outcomes:
+        raise HTTPException(status_code=400, detail="No transcription or outcomes to generate from")
 
     from document_generation import build_document_context, generate_diagram
 

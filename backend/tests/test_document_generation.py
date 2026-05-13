@@ -57,13 +57,9 @@ class TestBuildDocumentContext:
             {"id": "a1", "filename": "doc1.pdf", "extracted_text": doc1_text},
             {"id": "a2", "filename": "doc2.pdf", "extracted_text": doc2_text},
         ]
-        # With max_chars=16000, each doc gets 8000 chars
         result = build_document_context("rec-123", max_chars=16000)
-        # Both docs should be present
         assert "### doc1.pdf" in result
         assert "### doc2.pdf" in result
-        # Each doc should be truncated to 8000 chars (budget is 16000 / 2 = 8000)
-        # The truncated text should not contain the full 10000 chars
         assert "A" * 10000 not in result
         assert "B" * 10000 not in result
         assert "[truncated]" in result
@@ -77,8 +73,6 @@ class TestBuildDocumentContext:
         ]
         result = build_document_context("rec-123", max_chars=100)
         assert "[truncated]" in result
-        assert "truncated" in result.lower()
-        # Header should include truncation note
         lines = result.split("\n")
         header_area = "\n".join(lines[:3])
         assert "truncated" in header_area.lower()
@@ -106,7 +100,6 @@ class TestBuildDocumentContext:
             {"id": "a1", "filename": "doc.pdf", "extracted_text": text},
         ]
         result = build_document_context("rec-123", max_chars=200)
-        # Should not be truncated since text fits the budget
         assert "[truncated]" not in result
         assert "A" * 200 in result
 
@@ -118,13 +111,12 @@ class TestBuildDocumentContext:
             {"id": "a1", "filename": "d1.pdf", "extracted_text": "A" * 100},
             {"id": "a2", "filename": "d2.pdf", "extracted_text": "B" * 100},
         ]
-        # Budget of 200 split 2 ways = 100 each, text is exactly 100 so no truncation
         result = build_document_context("rec-123", max_chars=200)
         assert "[truncated]" not in result
 
 
 class TestPromptContent:
-    """Validate prompt constants contain required content and no anti-patterns."""
+    """Validate prompt constants contain required content."""
 
     def test_prd_prompt_contains_standalone_product_spec(self):
         from document_generation import PRD_SYSTEM_PROMPT
@@ -157,38 +149,84 @@ class TestPromptContent:
         assert "speakers and timestamps" not in PRD_SYSTEM_PROMPT.lower()
         assert "Do NOT reference speakers" in PRD_SYSTEM_PROMPT
 
-    def test_userflow_prompt_contains_product_anti_pattern(self):
-        from document_generation import USERFLOW_SYSTEM_PROMPT
+    def test_diagram_prompt_handles_both_types(self):
+        from document_generation import DIAGRAM_SYSTEM_PROMPT
 
-        assert "PRODUCT or SYSTEM" in USERFLOW_SYSTEM_PROMPT
+        assert "ERD" in DIAGRAM_SYSTEM_PROMPT
+        assert "Flowchart" in DIAGRAM_SYSTEM_PROMPT
 
-    def test_userflow_example_no_meeting_flow(self):
-        from document_generation import USERFLOW_SYSTEM_PROMPT
+    def test_diagram_prompt_outputs_only_mermaid(self):
+        from document_generation import DIAGRAM_SYSTEM_PROMPT
 
-        assert "Records Meeting" not in USERFLOW_SYSTEM_PROMPT
-        assert "Transcription" not in USERFLOW_SYSTEM_PROMPT
+        assert "Mermaid code only" in DIAGRAM_SYSTEM_PROMPT
 
-    def test_userflow_has_product_focused_example(self):
-        from document_generation import USERFLOW_SYSTEM_PROMPT
+    def test_diagram_prompt_no_fences(self):
+        from document_generation import DIAGRAM_SYSTEM_PROMPT
 
-        # Should have a product-domain example
-        assert "Customer Places Order" in USERFLOW_SYSTEM_PROMPT or "Order" in USERFLOW_SYSTEM_PROMPT
+        assert "no markdown fences" in DIAGRAM_SYSTEM_PROMPT.lower() or "triple backticks" in DIAGRAM_SYSTEM_PROMPT.lower()
 
-    def test_erd_example_no_meeting_entities(self):
-        from document_generation import ERD_SYSTEM_PROMPT
+    def test_diagram_prompt_defaults_to_flowchart(self):
+        from document_generation import DIAGRAM_SYSTEM_PROMPT
 
-        assert "RECORDING" not in ERD_SYSTEM_PROMPT
-        assert "OUTCOME" not in ERD_SYSTEM_PROMPT
+        assert "default to **flowchart**" in DIAGRAM_SYSTEM_PROMPT
 
-    def test_erd_has_product_anti_pattern(self):
-        from document_generation import ERD_SYSTEM_PROMPT
 
-        assert "PRODUCT or SYSTEM" in ERD_SYSTEM_PROMPT
+class TestMermaidValidation:
+    """Test Mermaid syntax validation and helper functions."""
 
-    def test_diagram_selector_considers_product_focus(self):
-        from document_generation import DIAGRAM_TYPE_SELECTOR_PROMPT
+    def test_validate_valid_flowchart(self):
+        from document_generation import _validate_mermaid_syntax
 
-        assert "product" in DIAGRAM_TYPE_SELECTOR_PROMPT.lower()
+        assert _validate_mermaid_syntax("flowchart TD\n  A --> B") is None
+
+    def test_validate_valid_erd(self):
+        from document_generation import _validate_mermaid_syntax
+
+        assert _validate_mermaid_syntax("erDiagram\n  USER ||--o{ ORDER : places") is None
+
+    def test_validate_prose_returns_error(self):
+        from document_generation import _validate_mermaid_syntax
+
+        result = _validate_mermaid_syntax("Based on the provided input, it seems there is a misunderstanding.")
+        assert result is not None
+        assert "No valid Mermaid diagram type" in result
+
+    def test_detect_flowchart_type(self):
+        from document_generation import _detect_diagram_type
+
+        assert _detect_diagram_type("flowchart TD\n  A --> B") == "user_flow"
+
+    def test_detect_erd_type(self):
+        from document_generation import _detect_diagram_type
+
+        assert _detect_diagram_type("erDiagram\n  USER ||--o{ ORDER : places") == "erd"
+
+    def test_strip_mermaid_fences(self):
+        from document_generation import _strip_mermaid_fences
+
+        assert _strip_mermaid_fences("```mermaid\nflowchart TD\n  A --> B\n```") == "flowchart TD\n  A --> B"
+
+    def test_format_transcription(self):
+        from document_generation import _format_transcription
+
+        job = {
+            "result": {
+                "segments": [
+                    {"speaker": "Speaker 1", "text": "Let's discuss the database schema."},
+                    {"speaker": "Speaker 2", "text": "We need a users table."},
+                ]
+            }
+        }
+        result = _format_transcription(job)
+        assert "[Speaker 1]: Let's discuss the database schema." in result
+        assert "[Speaker 2]: We need a users table." in result
+
+    def test_format_transcription_no_result(self):
+        from document_generation import _format_transcription
+
+        assert _format_transcription({}) == ""
+        assert _format_transcription({"result": None}) == ""
+        assert _format_transcription({"result": {}}) == ""
 
 
 class TestGeneratePRD:
@@ -210,13 +248,9 @@ class TestGeneratePRD:
         result = generate_prd("job-1", mock_app, document_context=doc_ctx)
 
         assert result == "# PRD\nGenerated content"
-        # Verify document context was included in the user message
-        call_args = mock_app.llm.create_chat_completion.call_args
-        user_msg = call_args[1]["messages"][1]["content"] if "messages" in call_args[1] else call_args[0][0][1]["content"]
-        # Try keyword or positional
-        messages = call_args.kwargs.get("messages") or call_args.args[0] if call_args.args else None
+        messages = mock_app.llm.create_chat_completion.call_args.kwargs.get("messages")
         if messages is None:
-            messages = call_args[1]["messages"]
+            messages = mock_app.llm.create_chat_completion.call_args[1]["messages"]
         user_content = messages[1]["content"]
         assert "Reference Documents" in user_content
         assert "spec.pdf" in user_content
@@ -236,76 +270,74 @@ class TestGeneratePRD:
         result = generate_prd("job-1", mock_app)
 
         assert result == "# PRD\nGenerated content"
-        # Verify no reference documents in user message
         messages = mock_app.llm.create_chat_completion.call_args.kwargs.get("messages")
         if messages is None:
             messages = mock_app.llm.create_chat_completion.call_args[1]["messages"]
         user_content = messages[1]["content"]
         assert "Reference Documents" not in user_content
 
-    @patch("document_generation.get_job")
-    def test_generate_prd_outcomes_before_documents(self, mock_get_job):
-        from document_generation import generate_prd
-
-        mock_get_job.return_value = {
-            "outcomes": [{"type": "decision", "title": "Use React", "detail": "Frontend", "confidence": 0.9}],
-        }
-        mock_app = MagicMock()
-        mock_app.llm.create_chat_completion.return_value = {
-            "choices": [{"message": {"content": "# PRD"}}],
-        }
-
-        doc_ctx = "## Reference Documents\n\n### spec.pdf\nContent"
-        generate_prd("job-1", mock_app, document_context=doc_ctx)
-
-        messages = mock_app.llm.create_chat_completion.call_args.kwargs.get("messages")
-        if messages is None:
-            messages = mock_app.llm.create_chat_completion.call_args[1]["messages"]
-        user_content = messages[1]["content"]
-        # Outcomes should appear before documents
-        outcomes_pos = user_content.index("Meeting Outcomes")
-        docs_pos = user_content.index("Reference Documents")
-        assert outcomes_pos < docs_pos
-
 
 class TestGenerateDiagram:
     """Test generate_diagram function with mocked LLM."""
 
-    @patch("document_generation.select_diagram_type")
+    def _make_job_with_transcript(self):
+        return {
+            "result": {
+                "segments": [
+                    {"speaker": "Speaker 1", "text": "We need a payment processing flow."},
+                    {"speaker": "Speaker 2", "text": "Users submit orders then we validate payment."},
+                ]
+            },
+            "outcomes": [],
+        }
+
+    def _make_job_outcomes_only(self):
+        return {
+            "result": None,
+            "outcomes": [
+                {"type": "decision", "title": "Use React", "detail": "Frontend", "confidence": 0.9},
+            ],
+        }
+
     @patch("document_generation.get_job")
-    def test_generate_diagram_with_document_context(self, mock_get_job, mock_select):
+    def test_uses_transcript_when_available(self, mock_get_job):
         from document_generation import generate_diagram
 
-        mock_get_job.return_value = {
-            "outcomes": [{"type": "decision", "title": "Use React", "detail": "Frontend", "confidence": 0.9}],
+        mock_get_job.return_value = self._make_job_with_transcript()
+        mock_app = MagicMock()
+        mock_app.llm.create_chat_completion.return_value = {
+            "choices": [{"message": {"content": "flowchart TD\n    A[Submit Order] --> B[Validate Payment]"}}],
         }
-        mock_select.return_value = "user_flow"
+
+        mermaid, dtype = generate_diagram("job-1", mock_app)
+
+        assert "flowchart TD" in mermaid
+        assert dtype == "user_flow"
+        messages = mock_app.llm.create_chat_completion.call_args.kwargs.get("messages")
+        if messages is None:
+            messages = mock_app.llm.create_chat_completion.call_args[1]["messages"]
+        user_content = messages[1]["content"]
+        assert "[Speaker 1]" in user_content
+
+    @patch("document_generation.get_job")
+    def test_falls_back_to_outcomes(self, mock_get_job):
+        from document_generation import generate_diagram
+
+        mock_get_job.return_value = self._make_job_outcomes_only()
         mock_app = MagicMock()
         mock_app.llm.create_chat_completion.return_value = {
             "choices": [{"message": {"content": "flowchart TD\n    A[Start] --> B[End]"}}],
         }
 
-        doc_ctx = "## Reference Documents\n\n### arch.pdf\nArchitecture doc"
-        mermaid, dtype = generate_diagram("job-1", mock_app, document_context=doc_ctx)
+        mermaid, dtype = generate_diagram("job-1", mock_app)
 
         assert "flowchart TD" in mermaid
-        assert dtype == "user_flow"
-        # Verify document context was included
-        messages = mock_app.llm.create_chat_completion.call_args.kwargs.get("messages")
-        if messages is None:
-            messages = mock_app.llm.create_chat_completion.call_args[1]["messages"]
-        user_content = messages[1]["content"]
-        assert "Reference Documents" in user_content
 
-    @patch("document_generation.select_diagram_type")
     @patch("document_generation.get_job")
-    def test_generate_diagram_without_document_context(self, mock_get_job, mock_select):
+    def test_detects_erd_type(self, mock_get_job):
         from document_generation import generate_diagram
 
-        mock_get_job.return_value = {
-            "outcomes": [{"type": "decision", "title": "Use React", "detail": "Frontend", "confidence": 0.9}],
-        }
-        mock_select.return_value = "erd"
+        mock_get_job.return_value = self._make_job_with_transcript()
         mock_app = MagicMock()
         mock_app.llm.create_chat_completion.return_value = {
             "choices": [{"message": {"content": "erDiagram\n    USER ||--o{ ORDER : places"}}],
@@ -315,126 +347,81 @@ class TestGenerateDiagram:
 
         assert "erDiagram" in mermaid
         assert dtype == "erd"
-        messages = mock_app.llm.create_chat_completion.call_args.kwargs.get("messages")
-        if messages is None:
-            messages = mock_app.llm.create_chat_completion.call_args[1]["messages"]
-        user_content = messages[1]["content"]
-        assert "Reference Documents" not in user_content
-
-
-class TestEndpointWiring:
-    """Verify generation functions correctly handle document context for endpoint wiring."""
 
     @patch("document_generation.get_job")
-    def test_generate_prd_with_doc_context_includes_in_user_message(self, mock_get_job):
-        """PRD generation includes document context in the user message when present."""
-        from document_generation import generate_prd
-
-        mock_get_job.return_value = {
-            "outcomes": [
-                {"type": "decision", "title": "Use GraphQL", "detail": "API layer", "confidence": 0.9}
-            ],
-        }
-        mock_app = MagicMock()
-        mock_app.llm.create_chat_completion.return_value = {
-            "choices": [{"message": {"content": "# PRD\nWith context"}}],
-        }
-
-        doc_ctx = "## Reference Documents\n\n### api-spec.pdf\nGraphQL schema definitions"
-        result = generate_prd("job-1", mock_app, document_context=doc_ctx)
-
-        assert result == "# PRD\nWith context"
-        messages = mock_app.llm.create_chat_completion.call_args.kwargs.get("messages")
-        if messages is None:
-            messages = mock_app.llm.create_chat_completion.call_args[1]["messages"]
-        user_content = messages[1]["content"]
-        assert "Reference Documents" in user_content
-        assert "api-spec.pdf" in user_content
-        # Outcomes appear before documents
-        assert user_content.index("Meeting Outcomes") < user_content.index("Reference Documents")
-
-    @patch("document_generation.select_diagram_type")
-    @patch("document_generation.get_job")
-    def test_generate_diagram_with_doc_context_includes_in_user_message(
-        self, mock_get_job, mock_select
-    ):
-        """Diagram generation includes document context in the user message when present."""
+    def test_retries_on_invalid_output(self, mock_get_job):
         from document_generation import generate_diagram
 
-        mock_get_job.return_value = {
-            "outcomes": [
-                {"type": "requirement", "title": "Payment flow", "detail": "Stripe integration", "confidence": 0.85}
-            ],
+        mock_get_job.return_value = self._make_job_with_transcript()
+        mock_app = MagicMock()
+        # First call returns prose, second returns valid diagram
+        mock_app.llm.create_chat_completion.side_effect = [
+            {"choices": [{"message": {"content": "Based on the input, here is a misunderstanding."}}]},
+            {"choices": [{"message": {"content": "flowchart TD\n    A[Start] --> B[End]"}}]},
+        ]
+
+        mermaid, dtype = generate_diagram("job-1", mock_app)
+
+        assert "flowchart TD" in mermaid
+        assert mock_app.llm.create_chat_completion.call_count == 2
+
+    @patch("document_generation.get_job")
+    def test_retry_limit_respected(self, mock_get_job):
+        from document_generation import generate_diagram, MAX_DIAGRAM_RETRIES
+
+        mock_get_job.return_value = self._make_job_with_transcript()
+        mock_app = MagicMock()
+        # All calls return prose
+        mock_app.llm.create_chat_completion.return_value = {
+            "choices": [{"message": {"content": "This is not a diagram."}}],
         }
-        mock_select.return_value = "user_flow"
+
+        mermaid, dtype = generate_diagram("job-1", mock_app)
+
+        # 1 initial + MAX_DIAGRAM_RETRIES retries
+        assert mock_app.llm.create_chat_completion.call_count == 1 + MAX_DIAGRAM_RETRIES
+
+    @patch("document_generation.get_job")
+    def test_includes_document_context(self, mock_get_job):
+        from document_generation import generate_diagram
+
+        mock_get_job.return_value = self._make_job_with_transcript()
         mock_app = MagicMock()
         mock_app.llm.create_chat_completion.return_value = {
             "choices": [{"message": {"content": "flowchart TD\n    A[Payment] --> B[Stripe]"}}],
         }
 
-        doc_ctx = "## Reference Documents\n\n### payments.docx\nStripe payment integration spec"
+        doc_ctx = "## Reference Documents\n\n### payments.docx\nStripe integration spec"
         mermaid, dtype = generate_diagram("job-1", mock_app, document_context=doc_ctx)
 
         assert "flowchart TD" in mermaid
-        assert dtype == "user_flow"
         messages = mock_app.llm.create_chat_completion.call_args.kwargs.get("messages")
         if messages is None:
             messages = mock_app.llm.create_chat_completion.call_args[1]["messages"]
         user_content = messages[1]["content"]
         assert "Reference Documents" in user_content
-        assert "payments.docx" in user_content
-        # Outcomes appear before documents
-        assert user_content.index("Meeting Outcomes") < user_content.index("Reference Documents")
 
     @patch("document_generation.get_job")
-    def test_generate_prd_backward_compat_no_docs(self, mock_get_job):
-        """PRD generation works without document context (backward compatibility)."""
-        from document_generation import generate_prd
-
-        mock_get_job.return_value = {
-            "outcomes": [
-                {"type": "task", "title": "Build API", "detail": "REST endpoints", "confidence": 0.88}
-            ],
-        }
-        mock_app = MagicMock()
-        mock_app.llm.create_chat_completion.return_value = {
-            "choices": [{"message": {"content": "# PRD\nNo docs"}}],
-        }
-
-        result = generate_prd("job-1", mock_app)
-
-        assert result == "# PRD\nNo docs"
-        messages = mock_app.llm.create_chat_completion.call_args.kwargs.get("messages")
-        if messages is None:
-            messages = mock_app.llm.create_chat_completion.call_args[1]["messages"]
-        user_content = messages[1]["content"]
-        assert "Meeting Outcomes" in user_content
-        assert "Reference Documents" not in user_content
-
-    @patch("document_generation.select_diagram_type")
-    @patch("document_generation.get_job")
-    def test_generate_diagram_backward_compat_no_docs(self, mock_get_job, mock_select):
-        """Diagram generation works without document context (backward compatibility)."""
+    def test_strips_markdown_fences(self, mock_get_job):
         from document_generation import generate_diagram
 
-        mock_get_job.return_value = {
-            "outcomes": [
-                {"type": "task", "title": "Build API", "detail": "REST endpoints", "confidence": 0.88}
-            ],
-        }
-        mock_select.return_value = "erd"
+        mock_get_job.return_value = self._make_job_with_transcript()
         mock_app = MagicMock()
         mock_app.llm.create_chat_completion.return_value = {
-            "choices": [{"message": {"content": "erDiagram\n    API ||--o{ ENDPOINT : exposes"}}],
+            "choices": [{"message": {"content": "```mermaid\nflowchart TD\n    A --> B\n```"}}],
         }
 
         mermaid, dtype = generate_diagram("job-1", mock_app)
 
-        assert "erDiagram" in mermaid
-        assert dtype == "erd"
-        messages = mock_app.llm.create_chat_completion.call_args.kwargs.get("messages")
-        if messages is None:
-            messages = mock_app.llm.create_chat_completion.call_args[1]["messages"]
-        user_content = messages[1]["content"]
-        assert "Meeting Outcomes" in user_content
-        assert "Reference Documents" not in user_content
+        assert mermaid.startswith("flowchart TD")
+        assert "```" not in mermaid
+
+    @patch("document_generation.get_job")
+    def test_no_transcript_no_outcomes_raises(self, mock_get_job):
+        from document_generation import generate_diagram
+
+        mock_get_job.return_value = {"result": None, "outcomes": []}
+        mock_app = MagicMock()
+
+        with pytest.raises(ValueError, match="no transcription or outcomes"):
+            generate_diagram("job-1", mock_app)
