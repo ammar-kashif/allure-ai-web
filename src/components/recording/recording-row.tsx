@@ -22,7 +22,7 @@ export function RecordingRow({ recording, onAssignProject }: RecordingRowProps) 
       onClick={() => router.push(`/recordings/${recording.id}`)}
     >
       <TableCell className="font-medium">{recording.title}</TableCell>
-      <TableCell>{formatDuration(recording.durationMs)}</TableCell>
+      <TableCell className="font-numeric">{formatDuration(recording.durationMs)}</TableCell>
       <TableCell>
         <StatusBadge status={recording.status} />
       </TableCell>
@@ -32,7 +32,7 @@ export function RecordingRow({ recording, onAssignProject }: RecordingRowProps) 
           onAssign={(projectId) => onAssignProject(recording.id, projectId)}
         />
       </TableCell>
-      <TableCell className="text-muted-foreground">
+      <TableCell className="text-muted-foreground font-numeric">
         {formatTimestamp(recording.createdAt)}
       </TableCell>
     </TableRow>

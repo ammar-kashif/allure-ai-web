@@ -57,10 +57,8 @@ function StatCard({
     <div className="flex flex-1 items-center gap-3 rounded-xl bg-card p-4 shadow-[var(--shadow-card)]">
       {icon}
       <div>
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="font-heading text-lg font-semibold tracking-[-0.01em]">
-          {value}
-        </p>
+        <p className="text-label text-muted-foreground">{label}</p>
+        <p className="text-headline font-numeric">{value}</p>
       </div>
     </div>
   )

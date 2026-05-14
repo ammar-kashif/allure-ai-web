@@ -80,12 +80,10 @@ export default function DocumentDetailPage({
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center gap-3">
-          <h2 className="text-[1.75rem] font-heading font-bold tracking-[-0.02em]">
-            {document.title}
-          </h2>
+          <h2 className="text-display">{document.title}</h2>
           <DocumentTypeBadge type={document.type} />
         </div>
-        <p className="text-[0.8125rem] text-muted-foreground">
+        <p className="text-label text-muted-foreground font-numeric">
           Generated on {formatDate(document.createdAt)}
         </p>
       </div>

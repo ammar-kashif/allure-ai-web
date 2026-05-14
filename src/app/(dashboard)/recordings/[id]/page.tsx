@@ -189,7 +189,7 @@ export default function RecordingDetailPage({
           {isEditing ? (
             <input
               ref={inputRef}
-              className="text-[1.75rem] font-heading font-bold tracking-[-0.02em] bg-transparent border-b border-primary outline-none"
+              className="text-display bg-transparent border-b border-primary outline-none"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
               onBlur={saveTitle}
@@ -200,7 +200,7 @@ export default function RecordingDetailPage({
             />
           ) : (
             <h2
-              className="text-[1.75rem] font-heading font-bold tracking-[-0.02em] cursor-pointer hover:text-muted-foreground transition-colors duration-[var(--duration-fast)]"
+              className="text-display cursor-pointer hover:text-muted-foreground transition-colors duration-[var(--duration-fast)]"
               onClick={startEditing}
               title="Click to rename"
             >
@@ -230,9 +230,9 @@ export default function RecordingDetailPage({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="flex items-center gap-4 text-[0.8125rem] text-muted-foreground">
-          <span>{formatTimestamp(recording.createdAt)}</span>
-          <span>{formatDuration(recording.durationMs)}</span>
+        <div className="flex items-center gap-4 text-label text-muted-foreground">
+          <span className="font-numeric">{formatTimestamp(recording.createdAt)}</span>
+          <span className="font-numeric">{formatDuration(recording.durationMs)}</span>
           {recording.projectId && (
             <span>{projectList.find((p) => p.id === recording.projectId)?.name || "Project assigned"}</span>
           )}
@@ -334,8 +334,8 @@ export default function RecordingDetailPage({
           <TabsContent value="info">
             <div className="space-y-4 pt-4">
               <div className="rounded-xl bg-card p-5 shadow-[var(--shadow-card)] space-y-3">
-                <h3 className="font-heading font-semibold tracking-[-0.01em]">Recording Info</h3>
-                <div className="grid grid-cols-2 gap-2 text-[0.9375rem]">
+                <h3 className="text-headline">Recording Info</h3>
+                <div className="grid grid-cols-2 gap-2 text-body">
                   <span className="text-muted-foreground">Title</span>
                   <span>{recording.title}</span>
                   <span className="text-muted-foreground">Duration</span>

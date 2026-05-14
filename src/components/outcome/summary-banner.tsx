@@ -38,10 +38,10 @@ export function SummaryBanner({ outcomes }: SummaryBannerProps) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl bg-primary/5 px-5 py-3.5 shadow-[var(--shadow-xs)]">
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/70 bg-card px-5 py-3.5">
       <div className="flex items-center gap-1.5">
-        <span className="text-2xl font-heading font-semibold tracking-[-0.02em]">{total}</span>
-        <span className="text-[0.8125rem] text-muted-foreground">outcomes</span>
+        <span className="text-headline font-numeric">{total}</span>
+        <span className="text-label text-muted-foreground">outcomes</span>
       </div>
 
       <div className="h-6 w-px bg-border" />
@@ -65,9 +65,9 @@ export function SummaryBanner({ outcomes }: SummaryBannerProps) {
       {needsReview > 0 && (
         <>
           <div className="h-6 w-px bg-border" />
-          <Badge variant="outline" className="gap-1 border-amber-300 bg-amber-50 text-amber-800">
+          <Badge variant="outline" className="gap-1.5 text-muted-foreground">
             <AlertTriangle className="size-3" />
-            <span>Needs review: {needsReview}</span>
+            <span>Needs review: <span className="font-numeric font-medium text-foreground">{needsReview}</span></span>
           </Badge>
         </>
       )}

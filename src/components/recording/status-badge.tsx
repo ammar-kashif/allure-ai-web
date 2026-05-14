@@ -6,25 +6,28 @@ import { cn } from "@/lib/utils"
 
 const statusConfig: Record<
   RecordingStatus,
-  { label: string; variant: "default" | "secondary" | "destructive" | "outline"; className?: string }
+  { label: string; variant: "default" | "secondary" | "destructive" | "outline"; className?: string; dot?: "none" | "filled" | "pulse" }
 > = {
   unassigned: {
     label: "Unassigned",
     variant: "outline",
+    dot: "none",
   },
   processing: {
     label: "Processing",
-    variant: "secondary",
-    className: "bg-primary/10 text-primary border-primary/20",
+    variant: "outline",
+    className: "text-primary border-primary/30",
+    dot: "pulse",
   },
   ready: {
     label: "Ready",
-    variant: "default",
-    className: "bg-emerald-600 text-white",
+    variant: "outline",
+    dot: "filled",
   },
   error: {
     label: "Error",
     variant: "destructive",
+    dot: "none",
   },
 }
 
@@ -38,16 +41,16 @@ export function StatusBadge({ status }: StatusBadgeProps) {
   return (
     <Badge
       variant={config.variant}
-      className={cn(
-        config.className,
-        status === "processing" && "gap-1.5"
-      )}
+      className={cn(config.className, "gap-1.5")}
     >
-      {status === "processing" && (
-        <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-75" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-current" />
+      {config.dot === "pulse" && (
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-60" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
         </span>
+      )}
+      {config.dot === "filled" && (
+        <span className="inline-flex h-1.5 w-1.5 rounded-full bg-foreground/70" />
       )}
       {config.label}
     </Badge>

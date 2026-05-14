@@ -83,7 +83,7 @@ function SpeakerRow({ stat, recordingId }: { stat: SpeakerStat; recordingId: str
             placeholder="Role"
           />
         </div>
-        <span className="ml-auto text-sm font-medium text-muted-foreground">
+        <span className="ml-auto text-label text-muted-foreground font-numeric">
           {stat.talkTimePct.toFixed(0)}% talk time
         </span>
       </div>
@@ -104,8 +104,8 @@ function SpeakerRow({ stat, recordingId }: { stat: SpeakerStat; recordingId: str
 function MetricCell({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="font-heading font-semibold tabular-nums">{value}</p>
+      <p className="text-label text-muted-foreground">{label}</p>
+      <p className="text-title font-numeric">{value}</p>
     </div>
   )
 }

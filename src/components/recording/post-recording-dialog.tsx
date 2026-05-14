@@ -161,7 +161,7 @@ export function PostRecordingDialog() {
         }}
       >
         <DialogHeader>
-          <DialogTitle className="font-heading">Recording Details</DialogTitle>
+          <DialogTitle className="text-headline">Recording Details</DialogTitle>
           <DialogDescription>
             Name your recording and assign it to a project.
           </DialogDescription>
@@ -217,14 +217,14 @@ export function PostRecordingDialog() {
           )}
           {status === "ready" && (
             <>
-              <Check className="h-4 w-4 text-green-600" />
-              <span className="text-green-600">Transcription complete</span>
+              <Check className="h-4 w-4 text-foreground" />
+              <span className="text-foreground">Transcription complete</span>
             </>
           )}
           {status === "error" && (
             <>
-              <AlertCircle className="h-4 w-4 text-red-600" />
-              <span className="text-red-600">Transcription failed</span>
+              <AlertCircle className="h-4 w-4 text-destructive" />
+              <span className="text-destructive">Transcription failed</span>
             </>
           )}
           {status === "unassigned" && (

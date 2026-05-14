@@ -57,18 +57,11 @@ export function OutcomeCard({
   const extraRefs = outcome.evidenceRefs.slice(1)
 
   return (
-    <div
-      className={cn(
-        "rounded-xl bg-card p-5 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] transition-[box-shadow,transform] duration-[var(--duration-normal)] ease-[var(--ease-out)] hover:-translate-y-px border-l-4",
-        isHighConfidence ? "border-l-green-500" : "border-l-amber-500"
-      )}
-    >
+    <div className="rounded-xl border border-border/70 bg-card p-5 shadow-[var(--shadow-card)] transition-[box-shadow,transform] duration-[var(--duration-normal)] ease-[var(--ease-out)] hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-px">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-1">
-          <h4 className="font-semibold leading-tight tracking-[-0.01em] line-clamp-1">
-            {outcome.title}
-          </h4>
-          <p className="text-[0.8125rem] leading-relaxed text-muted-foreground line-clamp-2">
+          <h4 className="text-title line-clamp-1">{outcome.title}</h4>
+          <p className="text-label text-muted-foreground line-clamp-2">
             {outcome.detail}
           </p>
         </div>
@@ -76,16 +69,20 @@ export function OutcomeCard({
         <div className="flex shrink-0 items-center gap-2">
           <span
             className={cn(
-              "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+              "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium font-numeric",
               isHighConfidence
-                ? "bg-green-100 text-green-800"
-                : "bg-amber-100 text-amber-800"
+                ? "border-border/70 text-foreground"
+                : "border-border/70 text-muted-foreground"
             )}
           >
+            <span className={cn(
+              "inline-flex h-1.5 w-1.5 rounded-full",
+              isHighConfidence ? "bg-foreground/70" : "border border-foreground/50"
+            )} />
             {outcome.confidence.toFixed(2)}
           </span>
           {!isHighConfidence && (
-            <span className="text-xs font-medium text-amber-700">
+            <span className="text-xs font-medium text-muted-foreground">
               Needs review
             </span>
           )}
@@ -120,7 +117,7 @@ export function OutcomeCard({
       {canPromote && (
         <div className="mt-3">
           {isPromoted ? (
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
               <Check className="size-3.5" />
               Promoted
             </span>
@@ -158,7 +155,9 @@ function EvidenceLink({
     >
       <ExternalLink className="size-3" />
       <span>
-        {formatTimecode(ref_.timestamp)} -- {ref_.speaker}
+        <span className="font-numeric">{formatTimecode(ref_.timestamp)}</span>
+        <span aria-hidden> · </span>
+        {ref_.speaker}
       </span>
     </button>
   )

@@ -27,10 +27,10 @@ const STATUS_TABS = [
   { value: "done", label: "Done" },
 ] as const
 
-const statusBadgeConfig: Record<TaskStatus, { label: string; className: string }> = {
-  todo: { label: "To Do", className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
-  in_progress: { label: "In Progress", className: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400" },
-  done: { label: "Done", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
+const statusBadgeConfig: Record<TaskStatus, { label: string; dot: "outline" | "primary" | "filled" }> = {
+  todo:        { label: "To Do",       dot: "outline" },
+  in_progress: { label: "In Progress", dot: "primary" },
+  done:        { label: "Done",        dot: "filled"  },
 }
 
 interface TaskListViewProps {
@@ -107,6 +107,12 @@ export function TaskListView({ onTaskClick, onCreateClick }: TaskListViewProps) 
         ) : (
           taskList.map((task) => {
             const statusConfig = statusBadgeConfig[task.status]
+            const dotClass =
+              statusConfig.dot === "primary"
+                ? "bg-primary"
+                : statusConfig.dot === "filled"
+                ? "bg-foreground"
+                : "border border-foreground/40"
             return (
               <TableRow
                 key={task.id}
@@ -115,14 +121,15 @@ export function TaskListView({ onTaskClick, onCreateClick }: TaskListViewProps) 
               >
                 <TableCell className="font-medium">{task.title}</TableCell>
                 <TableCell>
-                  <Badge variant="secondary" className={statusConfig.className}>
+                  <Badge variant="outline" className="gap-1.5 text-muted-foreground">
+                    <span className={`inline-flex h-1.5 w-1.5 rounded-full ${dotClass}`} />
                     {statusConfig.label}
                   </Badge>
                 </TableCell>
                 <TableCell>
                   <TaskPriorityBadge priority={task.priority} />
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="text-muted-foreground font-numeric">
                   {formatDate(task.dueDate)}
                 </TableCell>
               </TableRow>

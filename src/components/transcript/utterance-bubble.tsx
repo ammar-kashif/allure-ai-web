@@ -65,11 +65,11 @@ export function UtteranceBubble({
         {role && (
           <span className="text-xs text-muted-foreground">{role}</span>
         )}
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-muted-foreground font-numeric">
           {formatTimecode(utterance.startTime)}
         </span>
       </div>
-      <p className="text-[0.9375rem] leading-relaxed">{utterance.text}</p>
+      <p className="text-body">{utterance.text}</p>
     </div>
   )
 }

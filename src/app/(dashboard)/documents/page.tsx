@@ -115,10 +115,8 @@ export default function DocumentsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-[1.75rem] font-heading font-bold tracking-[-0.02em]">
-          Documents
-        </h1>
-        <p className="mt-1 text-[0.9375rem] text-muted-foreground">
+        <h1 className="text-display">Documents</h1>
+        <p className="mt-1 text-body text-muted-foreground">
           Generated PRDs and diagrams from your recordings.
         </p>
       </div>

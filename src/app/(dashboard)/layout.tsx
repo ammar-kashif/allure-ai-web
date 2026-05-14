@@ -18,10 +18,21 @@ export default function DashboardLayout({
         <SidebarProvider>
           <AppSidebar />
           <SidebarInset className="h-svh">
-            <header className="flex h-14 shrink-0 items-center gap-2 px-6 shadow-[var(--shadow-sm)]">
+            <header
+              className="flex h-12 shrink-0 items-center gap-2 border-b border-border/60"
+              style={{ paddingInline: "clamp(1rem, 2.5vw, 2rem)" }}
+            >
               <SidebarTrigger />
             </header>
-            <main className="flex-1 overflow-y-auto px-6 py-8 animate-fade-in-up">{children}</main>
+            <main
+              className="flex-1 overflow-y-auto animate-fade-in-up"
+              style={{
+                paddingInline: "clamp(1rem, 2.5vw, 2rem)",
+                paddingBlock: "clamp(1.5rem, 3vw, 2.5rem)",
+              }}
+            >
+              <div className="mx-auto w-full max-w-[1400px]">{children}</div>
+            </main>
             <div id="player-portal" />
           </SidebarInset>
           <RecordingFAB />

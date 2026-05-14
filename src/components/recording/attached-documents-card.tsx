@@ -57,9 +57,7 @@ export function AttachedDocumentsCard({ recordingId }: AttachedDocumentsCardProp
   return (
     <div className="rounded-xl bg-card p-5 shadow-[var(--shadow-card)] space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-heading font-semibold tracking-[-0.01em]">
-          Attached Documents
-        </h3>
+        <h3 className="text-headline">Attached Documents</h3>
         <Button
           variant="outline"
           size="sm"
@@ -98,7 +96,7 @@ export function AttachedDocumentsCard({ recordingId }: AttachedDocumentsCardProp
                 {attachment.extraction_error && (
                   <Tooltip>
                     <TooltipTrigger render={<span className="inline-flex shrink-0" />}>
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                      <AlertTriangle className="h-3.5 w-3.5 text-destructive/80" />
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>Extraction error: {attachment.extraction_error}</p>

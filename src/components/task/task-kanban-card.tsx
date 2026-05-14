@@ -5,10 +5,10 @@ import { CSS } from "@dnd-kit/utilities"
 import { format } from "date-fns"
 import type { Task, TaskPriority } from "@/types/outcome"
 
-const priorityColors: Record<TaskPriority, string> = {
-  high: "bg-red-500",
-  medium: "bg-amber-500",
-  low: "bg-green-500",
+const priorityDot: Record<TaskPriority, string> = {
+  high:   "bg-foreground",
+  medium: "border border-foreground/60 bg-transparent",
+  low:    "border border-foreground/30 bg-transparent",
 }
 
 interface TaskKanbanCardProps {
@@ -57,7 +57,7 @@ export function TaskKanbanCard({ task, onTaskClick, overlay }: TaskKanbanCardPro
     >
       <div className="flex items-start gap-2">
         <span
-          className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${priorityColors[task.priority]}`}
+          className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${priorityDot[task.priority]}`}
           title={`${task.priority} priority`}
         />
         <div className="min-w-0 flex-1">

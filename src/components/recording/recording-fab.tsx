@@ -62,20 +62,24 @@ export function RecordingFAB() {
           "fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full transition-[transform,box-shadow,background-color] duration-[var(--duration-normal)] ease-[var(--ease-out)]",
           "focus:outline-none focus-visible:shadow-[var(--shadow-focus)]",
           isRecording
-            ? "animate-pulse bg-red-500 px-5 py-3 text-white shadow-[var(--shadow-lg)] hover:bg-red-600 hover:shadow-[var(--shadow-xl)] active:scale-95"
-            : "bg-primary text-primary-foreground shadow-[var(--shadow-lg)] hover:shadow-[var(--shadow-xl)] hover:-translate-y-0.5 hover:brightness-110 active:scale-95 p-4"
+            ? "bg-destructive px-4 py-2.5 text-background shadow-[var(--shadow-md)] hover:shadow-[var(--shadow-lg)] active:scale-[0.97]"
+            : "bg-foreground p-4 text-background shadow-[var(--shadow-md)] hover:shadow-[var(--shadow-lg)] hover:-translate-y-0.5 active:scale-[0.97]"
         )}
         aria-label={isRecording ? "Stop recording" : "Start recording"}
       >
         {isRecording ? (
           <>
-            <Square className="h-5 w-5 fill-current" />
-            <span className="text-sm font-medium tabular-nums">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-background opacity-70" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-background" />
+            </span>
+            <span className="text-sm font-medium font-numeric">
               {formatDuration(elapsedSeconds * 1000)}
             </span>
+            <Square className="h-3.5 w-3.5 fill-current" />
           </>
         ) : (
-          <Mic className="h-5 w-5" />
+          <Mic className="h-5 w-5" strokeWidth={1.75} />
         )}
       </button>
 

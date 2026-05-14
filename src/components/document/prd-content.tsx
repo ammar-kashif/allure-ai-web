@@ -10,8 +10,8 @@ interface PrdContentProps {
 
 export function PrdContent({ content }: PrdContentProps) {
   return (
-    <div className="rounded-xl bg-card p-6 shadow-[var(--shadow-card)]">
-      <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none">
+    <div className="rounded-xl bg-card shadow-[var(--shadow-card)]" style={{ padding: "clamp(1.25rem, 3vw, 2.5rem)" }}>
+      <div className="prose prose-sm sm:prose-base dark:prose-invert mx-auto max-w-[72ch]">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeSanitize]}

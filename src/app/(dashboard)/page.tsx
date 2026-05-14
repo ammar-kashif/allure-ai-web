@@ -10,13 +10,15 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <Skeleton className="h-8 w-48" />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <Skeleton className="h-24 rounded-xl" />
-        <Skeleton className="h-24 rounded-xl" />
-        <Skeleton className="h-24 rounded-xl" />
-        <Skeleton className="h-24 rounded-xl" />
+      <div className="grid grid-cols-2 gap-x-8 gap-y-6 border-y border-border/70 py-6 md:grid-cols-4 md:gap-0 md:divide-x md:divide-border/70">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="space-y-2 md:px-8 md:first:pl-0 md:last:pr-0">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-7 w-12" />
+          </div>
+        ))}
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Skeleton className="h-64 rounded-xl" />
@@ -47,22 +49,20 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-[1.75rem] font-heading font-bold tracking-[-0.02em] text-foreground">
-        Dashboard
-      </h1>
+      <h1 className="text-display text-foreground">Dashboard</h1>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
-        <div className="animate-stagger" style={{ "--stagger-index": 0 } as React.CSSProperties}>
-          <StatCard title="Total Recordings" value={totalRecordings} icon={Mic} />
+      <div className="grid grid-cols-2 gap-x-8 gap-y-6 border-y border-border/70 py-6 md:grid-cols-4 md:divide-x md:divide-border/70 md:gap-0">
+        <div className="animate-stagger md:px-8 md:first:pl-0" style={{ "--stagger-index": 0 } as React.CSSProperties}>
+          <StatCard title="Recordings" value={totalRecordings} icon={Mic} />
         </div>
-        <div className="animate-stagger" style={{ "--stagger-index": 1 } as React.CSSProperties}>
-          <StatCard title="Outcomes Extracted" value={outcomesExtracted} icon={Brain} />
+        <div className="animate-stagger md:px-8" style={{ "--stagger-index": 1 } as React.CSSProperties}>
+          <StatCard title="Outcomes" value={outcomesExtracted} icon={Brain} />
         </div>
-        <div className="animate-stagger" style={{ "--stagger-index": 2 } as React.CSSProperties}>
-          <StatCard title="Tasks Created" value={tasksCreated} icon={CheckSquare} />
+        <div className="animate-stagger md:px-8" style={{ "--stagger-index": 2 } as React.CSSProperties}>
+          <StatCard title="Tasks" value={tasksCreated} icon={CheckSquare} />
         </div>
-        <div className="animate-stagger" style={{ "--stagger-index": 3 } as React.CSSProperties}>
-          <StatCard title="Documents Generated" value={documentsGenerated} icon={FileText} />
+        <div className="animate-stagger md:px-8 md:last:pr-0" style={{ "--stagger-index": 3 } as React.CSSProperties}>
+          <StatCard title="Documents" value={documentsGenerated} icon={FileText} />
         </div>
       </div>
 

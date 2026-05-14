@@ -18,11 +18,11 @@ const typeLabels: Record<OutcomeType, string> = {
   blocker: "Blocker",
 }
 
-const typeColors: Record<OutcomeType, string> = {
-  decision: "bg-blue-100 text-blue-700",
-  action_item: "bg-violet-100 text-violet-700",
-  requirement: "bg-indigo-100 text-indigo-700",
-  blocker: "bg-red-100 text-red-700",
+const typeAccent: Record<OutcomeType, string> = {
+  decision: "text-foreground/80 border-foreground/20",
+  action_item: "text-foreground/80 border-foreground/20",
+  requirement: "text-foreground/80 border-foreground/20",
+  blocker: "text-destructive border-destructive/30",
 }
 
 export function RecentOutcomes({ outcomes }: RecentOutcomesProps) {
@@ -36,7 +36,7 @@ export function RecentOutcomes({ outcomes }: RecentOutcomesProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-heading tracking-[-0.01em]">Recent Outcomes</CardTitle>
+        <CardTitle className="text-title">Recent Outcomes</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {topOutcomes.map((outcome) => (
@@ -46,19 +46,17 @@ export function RecentOutcomes({ outcomes }: RecentOutcomesProps) {
             className="flex items-center justify-between rounded-lg p-3 transition-[background-color,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-muted/50 active:scale-[0.995]"
           >
             <div className="flex flex-col gap-0.5">
-              <span className="text-base font-medium">{outcome.title}</span>
+              <span className="text-body font-medium">{outcome.title}</span>
               <Badge
-                variant="secondary"
-                className={`w-fit text-xs ${typeColors[outcome.type]}`}
+                variant="outline"
+                className={`w-fit text-xs ${typeAccent[outcome.type]}`}
               >
                 {typeLabels[outcome.type]}
               </Badge>
             </div>
             <span
-              className={`text-base font-medium ${
-                outcome.confidence >= 0.8
-                  ? "text-green-600"
-                  : "text-amber-600"
+              className={`text-body font-medium font-numeric ${
+                outcome.confidence >= 0.8 ? "text-foreground" : "text-muted-foreground"
               }`}
             >
               {Math.round(outcome.confidence * 100)}%
@@ -67,7 +65,7 @@ export function RecentOutcomes({ outcomes }: RecentOutcomesProps) {
         ))}
         <Link
           href="/recordings"
-          className="mt-3 block text-center text-[0.8125rem] font-medium text-primary transition-colors duration-[var(--duration-fast)] hover:text-primary/80"
+          className="mt-3 block text-center text-label text-primary transition-colors duration-[var(--duration-fast)] hover:text-primary/80"
         >
           View all recordings
         </Link>
