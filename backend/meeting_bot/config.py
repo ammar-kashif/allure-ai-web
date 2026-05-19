@@ -23,10 +23,13 @@ MAX_RECORDING_MINUTES = int(_env("MEETING_BOT_MAX_MINUTES", "185"))
 WATCHER_POLL_SECONDS = float(_env("MEETING_BOT_POLL_SECONDS", "2.0"))
 FILE_STABILITY_SECONDS = float(_env("MEETING_BOT_STABILITY_SECONDS", "3.0"))
 
-# Forwarder transcode -- normalize each recording to 16 kHz mono MP3 before
-# uploading to the frontend. Allure only ever consumes 16 kHz mono, so this
-# cuts upload size by ~4-5x on top of the bot's MP3 output (~30x vs raw WAV).
-FORWARD_TRANSCODE_ENABLED = _env("FORWARD_TRANSCODE_ENABLED", "true").lower() in (
+# Forwarder transcode -- optional re-encode to a smaller 16 kHz mono MP3
+# before uploading. DISABLED BY DEFAULT because the extra MP3 generation
+# noticeably degrades Moonshine STT quality on the bot's already-compressed
+# Meet audio (Meet Opus -> bot MP3 -> our MP3 -> backend PCM is three lossy
+# stages, vs one for native browser recordings). Re-enable only if the
+# upload size matters more than transcript accuracy.
+FORWARD_TRANSCODE_ENABLED = _env("FORWARD_TRANSCODE_ENABLED", "false").lower() in (
     "1",
     "true",
     "yes",

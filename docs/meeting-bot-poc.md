@@ -78,11 +78,11 @@ MEETING_BOT_POLL_SECONDS=2.0
 MEETING_BOT_STABILITY_SECONDS=3.0
 MEETING_BOT_MAX_MINUTES=185
 
-# Forwarder transcode (defaults shown). Resamples each recording to 16 kHz
-# mono MP3 before uploading to the frontend -- cuts upload size ~4-5x on
-# top of the bot's MP3 output. Set FORWARD_TRANSCODE_ENABLED=false to
-# upload the raw source.
-FORWARD_TRANSCODE_ENABLED=true
+# Forwarder transcode (defaults shown). DISABLED by default -- the extra
+# MP3 generation noticeably degrades STT quality on already-compressed bot
+# audio. Re-enable only when the ~5x upload size cut matters more than
+# transcript accuracy.
+FORWARD_TRANSCODE_ENABLED=false
 FORWARD_TRANSCODE_BITRATE=48k
 ```
 
