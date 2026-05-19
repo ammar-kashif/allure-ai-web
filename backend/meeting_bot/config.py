@@ -22,3 +22,14 @@ MAX_RECORDING_MINUTES = int(_env("MEETING_BOT_MAX_MINUTES", "185"))
 # Watcher tuning
 WATCHER_POLL_SECONDS = float(_env("MEETING_BOT_POLL_SECONDS", "2.0"))
 FILE_STABILITY_SECONDS = float(_env("MEETING_BOT_STABILITY_SECONDS", "3.0"))
+
+# Forwarder transcode -- normalize each recording to 16 kHz mono MP3 before
+# uploading to the frontend. Allure only ever consumes 16 kHz mono, so this
+# cuts upload size by ~4-5x on top of the bot's MP3 output (~30x vs raw WAV).
+FORWARD_TRANSCODE_ENABLED = _env("FORWARD_TRANSCODE_ENABLED", "true").lower() in (
+    "1",
+    "true",
+    "yes",
+    "on",
+)
+FORWARD_TRANSCODE_BITRATE = _env("FORWARD_TRANSCODE_BITRATE", "48k")

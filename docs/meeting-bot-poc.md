@@ -77,6 +77,13 @@ FRONTEND_URL=http://localhost:3000
 MEETING_BOT_POLL_SECONDS=2.0
 MEETING_BOT_STABILITY_SECONDS=3.0
 MEETING_BOT_MAX_MINUTES=185
+
+# Forwarder transcode (defaults shown). Resamples each recording to 16 kHz
+# mono MP3 before uploading to the frontend -- cuts upload size ~4-5x on
+# top of the bot's MP3 output. Set FORWARD_TRANSCODE_ENABLED=false to
+# upload the raw source.
+FORWARD_TRANSCODE_ENABLED=true
+FORWARD_TRANSCODE_BITRATE=48k
 ```
 
 ## Running the POC
@@ -126,15 +133,20 @@ The CLI prints `{recording_id, status, platform, bot_response}`. Save that `reco
 
 ## Size budget
 
-A 3-minute Google Meet recording costs roughly:
+A 3-minute Google Meet recording, end-to-end:
 
-| Stage | `AUDIO_FORMAT=wav` (default) | `AUDIO_FORMAT=mp3` (recommended) |
-|---|---|---|
-| Bot writes to disk | ~25 MB (44.1 kHz stereo PCM) | ~3 MB (libmp3lame VBR q=2) |
-| Network bot → frontend → backend | 25 MB × 2 hops | 3 MB × 2 hops |
-| Backend canonical WAV (`backend/uploads/<id>.wav`) | 4.6 MB (16 kHz mono PCM) | 4.6 MB (unchanged — backend always normalizes) |
+| Stage | Bot `wav` only | + bot `mp3` | + forwarder transcode (default) |
+|---|---|---|---|
+| Bot writes to disk | ~25 MB (44.1k stereo PCM) | ~3 MB (mp3 VBR q=2) | ~3 MB (unchanged at bot) |
+| Network: bot watcher → frontend → backend | 25 MB × 2 hops | 3 MB × 2 hops | **~800 KB × 2 hops** |
+| Backend canonical WAV (`backend/uploads/<id>.wav`) | 4.6 MB (16k mono PCM) | 4.6 MB | 4.6 MB (unchanged — backend always normalizes) |
 
-The watcher (`backend/meeting_bot/watcher.py:_AUDIO_EXTENSIONS`) prefers `.mp3` first, then `.wav`, then `-with-audio.mp4`, so flipping the bot's `AUDIO_FORMAT` is a pure operator change — no Allure code touches needed. Moonshine STT and the speaker stats pipeline are unaffected (the backend downsamples to 16 kHz mono regardless of input format).
+Two independent knobs:
+
+1. **Bot `AUDIO_FORMAT=mp3`** (operator-side, in `~/meeting-bot/.env`). Cuts what the bot writes to disk ~8×. Watcher (`backend/meeting_bot/watcher.py:_AUDIO_EXTENSIONS`) prefers `.mp3` first, so no Allure code change needed.
+2. **`FORWARD_TRANSCODE_ENABLED=true`** (Allure-side, default on). The forwarder runs `ffmpeg -ar 16000 -ac 1 -c:a libmp3lame -b:a 48k` on each recording before POSTing to the frontend. The backend always downsamples to 16 kHz mono anyway, so this just cuts what crosses the wire. On ffmpeg failure the forwarder falls back to uploading the raw source — one bad file can't sink the pipeline. Tunable via `FORWARD_TRANSCODE_BITRATE` (default `48k`, override to `32k` for even smaller files or `64k` for headroom).
+
+Net effect with both enabled: a 25 MB raw-WAV pipeline becomes an ~800 KB upload — ~30× reduction with no measurable hit to Moonshine STT or speaker stats.
 
 ## Known POC limitations
 
