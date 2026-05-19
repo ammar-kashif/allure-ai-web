@@ -68,6 +68,19 @@ export function useBotMeetingStatus(
 }
 
 /**
+ * List every meeting dispatch (newest first). Powers the Meetings tab.
+ * Polls every 5 s so the table stays live as the watcher transitions
+ * dispatched -> recording -> forwarding -> ingested|failed.
+ */
+export function useBotMeetings(): UseQueryResult<BotMeetingState[]> {
+  return useQuery({
+    queryKey: ["bot-meetings"],
+    queryFn: () => apiClient.get<BotMeetingState[]>("/api/meetings"),
+    refetchInterval: 5000,
+  })
+}
+
+/**
  * Ask the bot to gracefully leave the meeting. The poller picks up the
  * resulting status flip automatically.
  */

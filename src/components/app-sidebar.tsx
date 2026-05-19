@@ -12,12 +12,13 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { Home, Mic, CheckSquare, FileText, Settings } from "lucide-react"
+import { Bot, Home, Mic, CheckSquare, FileText, Settings } from "lucide-react"
 import Link from "next/link"
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Recordings", url: "/recordings", icon: Mic },
+  { title: "Meetings", url: "/meetings", icon: Bot },
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
   { title: "Documents", url: "/documents", icon: FileText },
 ]
