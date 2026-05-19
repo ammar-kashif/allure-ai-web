@@ -66,6 +66,10 @@ Whatever you set for `LOCAL_RECORDINGS_DIR` must match Allure's `MEETING_BOT_REC
 Add to your Allure root `.env` (used by `backend`):
 
 ```bash
+# REQUIRED on macOS to avoid the Phi-4 + Moonshine OpenMP deadlock -- see
+# "Known POC limitations" below.
+LLM_GPU=1
+
 MEETING_BOT_URL=http://localhost:3001
 MEETING_BOT_RECORDINGS_DIR=~/meeting-bot/recordings
 FRONTEND_URL=http://localhost:3000
@@ -123,10 +127,13 @@ The CLI prints `{recording_id, status, platform, bot_response}`. Save that `reco
 
 ## Known POC limitations
 
-- **Mixed-stream mono audio.** The bot captures every remote participant in one channel via the meeting tab's audio output. SpeechBrain ECAPA-TDNN diarization with the current defaults (10 s window, cosine 0.7) may over- or under-cluster on heavily compressed voices. If the first end-to-end test shows poor speaker assignment, tune `FastDiarizer(window_size=..., distance_threshold=...)` in `backend/transcription.py:69`.
+- **Run the backend with `LLM_GPU=1` (Metal) on macOS — mandatory.** Phi-4-mini via llama-cpp on pure CPU (`LLM_GPU=0`) grabs the global OpenMP thread pool and deadlocks Moonshine's OpenMP-based inference. STT hangs forever, the worker thread sits at 0 % CPU, no error is logged. Verified on Apple Silicon: with `LLM_GPU=1` the pipeline completes in <60 s; with `LLM_GPU=0` it never returns. If you must run pure-CPU, you'll need to pin one of the two libs to a single thread (`OMP_NUM_THREADS=1`) before importing it, but that defeats the parallelism.
+- **Mixed-stream mono audio.** The bot captures every remote participant in one channel via the meeting tab's audio output. SpeechBrain ECAPA-TDNN diarization with the current defaults (10 s window, cosine 0.7) often collapses multiple speakers into one on short or heavily compressed samples (we saw 2 voices merge into 1 on a 2.4 min POC recording). Tune `FastDiarizer(window_size=..., distance_threshold=...)` in `backend/transcription.py:69` if assignment is poor — drop `distance_threshold` to 0.5 first, then `window_size` to 4 s.
+- **Bot dropped into a Workspace-restricted Meet?** Guest mode (`GOOGLE_GUEST_MODE=true`) is rejected by Google Workspace tenants that disallow unauthenticated participants. Run `npm run google:login` once (interactive Chrome popup) to save a signed-in profile to `~/meeting-bot/.puppeteer-profile`, then set `GOOGLE_GUEST_MODE=false`.
+- **macOS Chrome path.** `npm install` downloads Chrome for Testing to `~/.cache/puppeteer/chrome/mac_arm-<version>/...`. Set `CHROME_PATH=<that path>/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing` in the bot's `.env`. The bot's default `/usr/bin/google-chrome` is Linux-only.
 - **No completion webhook.** The simple bot doesn't notify when it finishes; the watcher polls (`size stable for 3s` + `/isbusy == 0`).
 - **No bot-side auth.** Bind the bot to `127.0.0.1` only (default in `.env` above).
-- **Bot must be running with `HEADLESS=false`.** Tab audio capture is unreliable in headless mode on macOS. The bot will open a visible Chrome window every time it joins.
+- **Headless vs visible.** `HEADLESS=true` works on macOS for Meet audio capture in our testing and avoids a Dock icon entirely. If audio quality drops in your environment, flip to `HEADLESS=false` and put the visible Chrome window on a different Space.
 - **Recording cap.** The bot's own `MAX_RECORDING_DURATION_MINUTES` defaults to 180. Allure's `MEETING_BOT_MAX_MINUTES` (185) is the absolute fail-fast for a crashed bot.
 
 ## Failure modes and recovery
