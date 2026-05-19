@@ -10,6 +10,7 @@ import {
   Loader2,
   MoreVertical,
   Pencil,
+  RotateCw,
   Share2,
   Trash2,
 } from "lucide-react"
@@ -35,6 +36,7 @@ import {
   useTranscript,
   useRenameRecording,
   useDeleteRecording,
+  useReprocessRecording,
 } from "@/hooks/use-recordings"
 import {
   useGeneratePrd,
@@ -155,6 +157,15 @@ export default function RecordingDetailPage({
     })
   }, [id, deleteMutation, router])
 
+  // Reprocess
+  const reprocessMutation = useReprocessRecording()
+  const handleReprocess = useCallback(() => {
+    if (!window.confirm("Re-run the pipeline on this recording? The current transcript and outcomes will be replaced.")) {
+      return
+    }
+    reprocessMutation.mutate(id)
+  }, [id, reprocessMutation])
+
   if (isLoading) {
     return <RecordingDetailSkeleton />
   }
@@ -221,6 +232,13 @@ export default function RecordingDetailPage({
                 Rename
               </DropdownMenuItem>
               <DropdownMenuItem
+                onClick={handleReprocess}
+                disabled={reprocessMutation.isPending || isProcessing}
+              >
+                <RotateCw className="mr-2 h-4 w-4" />
+                Reprocess
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 onClick={handleDelete}
                 className="text-destructive focus:text-destructive"
               >
@@ -230,6 +248,11 @@ export default function RecordingDetailPage({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        {recording.description ? (
+          <p className="text-body text-muted-foreground max-w-3xl">
+            {recording.description}
+          </p>
+        ) : null}
         <div className="flex items-center gap-4 text-label text-muted-foreground">
           <span className="font-numeric">{formatTimestamp(recording.createdAt)}</span>
           <span className="font-numeric">{formatDuration(recording.durationMs)}</span>
