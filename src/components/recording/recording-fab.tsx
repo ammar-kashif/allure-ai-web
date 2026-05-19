@@ -105,7 +105,7 @@ export function RecordingFAB() {
           <DropdownMenuGroup>
             <DropdownMenuLabel>Start a recording</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => startRecording()}>
+            <DropdownMenuItem onClick={() => startRecording()}>
               <Mic className="mr-2 h-4 w-4" strokeWidth={1.75} />
               <div className="flex flex-col">
                 <span>Record this device</span>
@@ -114,7 +114,7 @@ export function RecordingFAB() {
                 </span>
               </div>
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setBotDialogOpen(true)}>
+            <DropdownMenuItem onClick={() => setBotDialogOpen(true)}>
               <Bot className="mr-2 h-4 w-4" strokeWidth={1.75} />
               <div className="flex flex-col">
                 <span>Send bot to a meeting</span>
