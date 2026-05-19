@@ -114,7 +114,7 @@ async def lifespan(app: FastAPI):
         encoder=encoder,
         window_size=float(os.environ.get("DIARIZER_WINDOW_SECONDS", "4.0")),
         distance_threshold=float(
-            os.environ.get("DIARIZER_DISTANCE_THRESHOLD", "0.5")
+            os.environ.get("DIARIZER_DISTANCE_THRESHOLD", "0.7")
         ),
     )
     logger.info("SpeechBrain ECAPA-TDNN diarizer loaded in %.1fs", time.perf_counter() - t1)

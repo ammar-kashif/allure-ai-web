@@ -82,9 +82,9 @@ class FastDiarizer:
         min_segment_duration: Drop speaker segments shorter than this (seconds).
         distance_threshold: Cosine distance cutoff for AgglomerativeClustering.
             Lower = more sensitive to voice differences -> more clusters.
-            0.5 reliably separated 2 distinct voices on Meet's mixed-stream
-            mono audio in live testing; 0.7 (previous hardcoded value)
-            collapsed them into one.
+            0.7 is the upstream-tuned default and the right baseline on Meet
+            mixed-stream audio. 0.5 was tried but produced too many clusters
+            (false splits). Tune via DIARIZER_DISTANCE_THRESHOLD env var.
     """
 
     def __init__(
@@ -93,7 +93,7 @@ class FastDiarizer:
         window_size: float = 4.0,
         hop_size: float = 2.0,
         min_segment_duration: float = 1.0,
-        distance_threshold: float = 0.5,
+        distance_threshold: float = 0.7,
     ):
         self.encoder = encoder
         self.window_size = window_size
