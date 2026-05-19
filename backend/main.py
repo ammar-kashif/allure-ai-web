@@ -22,6 +22,8 @@ from fastapi.responses import FileResponse
 from audio_utils import convert_to_wav, detect_no_audio_track, validate_audio_format
 from job_queue import job_queue, process_worker
 from extraction import format_backlink
+from meeting_bot import dispatch_store
+from meeting_bot.router import router as meeting_bot_router
 from models import (
     AttachmentResponse,
     AttachmentTextResponse,
@@ -85,6 +87,7 @@ async def lifespan(app: FastAPI):
     # Startup
     os.makedirs(UPLOADS_DIR, exist_ok=True)
     init_db()
+    dispatch_store.init()
 
     # Load Moonshine Voice transcriber
     t0 = time.perf_counter()
@@ -167,6 +170,8 @@ app.add_middleware(
     allow_headers=["*"],
     allow_credentials=True,
 )
+
+app.include_router(meeting_bot_router)
 
 
 @app.get("/health")
