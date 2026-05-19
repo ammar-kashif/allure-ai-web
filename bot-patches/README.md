@@ -4,11 +4,12 @@ Local modifications to `moawizbinyamin/meeting-bot` that the Allure POC depends 
 
 ## `meetui-participant-exit.patch`
 
-**What it does.** Three independent fixes to the simple Google Meet bot:
+**What it does.** Four independent fixes to the simple Google Meet bot:
 
 1. **Participant-count exit (meetUi.ts)** — adds a fallback "leave when all participants are gone" trigger to `waitUntilMeetingEnds`. The loop counts `[data-participant-id]` elements (Meet renders one per participant, including the bot). When the count drops to `1` (only the bot remains) for 3 consecutive polls (≈ 9 s), the bot exits cleanly. Three corroborating signals are gathered each poll — `<audio>` total, live-MediaStream-track count, and `[data-allocation-index]` video tiles — and logged on change as `Meet signal change: p=N v=N a=N aLive=N call=true|false` for easy diagnosis. An earlier version counted `<audio>` nodes directly; that was discarded after live testing showed Meet keeps stale `<audio>` elements long after participants leave.
 2. **Detached-Frame recovery (GoogleMeetSimpleBot.ts)** — wraps `audioCapture.stop()` and `screenRecorder.stop()` in try/catch. When Meet navigates away from the meeting URL before the bot's post-end cleanup runs, `page.evaluate` throws `Attempted to use detached Frame`, the exception escapes the post-end block, and `finalizeAudioRecording` never runs — losing the entire recording (this cost us multiple POC runs). The MediaRecorder's data is already flushed to disk by then, so swallowing the stop error and letting finalize run on the existing `.tmp.webm` recovers the recording.
 3. **Less-loose text-match (meetUi.ts)** — removes `"no one else is here"` from the end-of-meeting phrase list. Meet renders that string transiently during normal participant churn and was firing false positives that, combined with bug #2, lost recordings entirely.
+4. **`POST /jobs/stop` endpoint (app/index.ts + meetUi.ts)** — allows an external caller (Allure backend, in our integration) to request a clean exit of the current meeting job. The endpoint sets a module-level flag that `waitUntilMeetingEnds` consumes on its next poll (≤ 3 s), returns `'ended'`, and the bot's normal post-end finalize runs. Recording is saved, bot becomes idle, ready for the next dispatch — **no process restart required**. This is what the Allure UI's "Stop recording" button hits.
 
 **How to apply on a fresh bot clone.**
 
