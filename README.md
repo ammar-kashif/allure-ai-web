@@ -17,6 +17,7 @@ Meeting intelligence platform that records meetings, transcribes audio with spea
 - **PRD Generation** — Generate structured product requirement documents with Mermaid diagrams from meeting outcomes and uploaded reference docs (PDF/DOCX)
 - **Task Management** — Promote extracted outcomes to trackable tasks
 - **Dashboard** — Aggregated stats across recordings, outcomes, tasks, and documents
+- **Live meetings via bot (POC)** — Dispatch a Puppeteer-based bot to join Google Meet / Teams / Zoom and feed the recording straight into the pipeline. See [`docs/meeting-bot-poc.md`](docs/meeting-bot-poc.md).
 
 ## Prerequisites
 

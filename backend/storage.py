@@ -54,6 +54,35 @@ def init_db(db_path: Optional[str] = None) -> None:
         )
         """
     )
+    _conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS logs (
+            id TEXT PRIMARY KEY,
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+            level TEXT NOT NULL,
+            category TEXT NOT NULL,
+            event TEXT NOT NULL,
+            status TEXT NOT NULL,
+            message TEXT NOT NULL DEFAULT '',
+            recording_id TEXT,
+            job_id TEXT,
+            dispatch_id TEXT,
+            duration_ms INTEGER,
+            metadata TEXT NOT NULL DEFAULT '{}'
+        )
+        """
+    )
+    _conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_logs_created_at ON logs(created_at DESC)"
+    )
+    _conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_logs_category ON logs(category)"
+    )
+    _conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_status ON logs(status)")
+    _conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_job_id ON logs(job_id)")
+    _conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_logs_dispatch_id ON logs(dispatch_id)"
+    )
     _conn.commit()
 
 

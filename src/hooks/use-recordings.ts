@@ -34,20 +34,27 @@ export function useRecording(id: string): UseQueryResult<Recording> {
 export function useRecordingStatus(
   id: string,
   enabled: boolean
-): UseQueryResult<{ status: RecordingStatus }> {
+): UseQueryResult<{ status: RecordingStatus; extraction_status?: string }> {
   const queryClient = useQueryClient()
 
   return useQuery({
     queryKey: ["recording-status", id],
     queryFn: async () => {
-      const result = await apiClient.get<{ status: RecordingStatus }>(
-        `/api/recordings/${id}/status`
-      )
+      const result = await apiClient.get<{
+        status: RecordingStatus
+        extraction_status?: string
+      }>(`/api/recordings/${id}/status`)
 
       // When status changes to ready or error, invalidate recordings list
       if (result.status === "ready" || result.status === "error") {
         queryClient.invalidateQueries({ queryKey: ["recordings"] })
         queryClient.invalidateQueries({ queryKey: ["recording", id] })
+      }
+      // Also invalidate the recording row when extraction completes —
+      // the status route may have just synced meeting_title/description.
+      if (result.extraction_status === "completed") {
+        queryClient.invalidateQueries({ queryKey: ["recording", id] })
+        queryClient.invalidateQueries({ queryKey: ["transcript", id] })
       }
 
       return result
@@ -55,8 +62,16 @@ export function useRecordingStatus(
     enabled,
     refetchInterval: (query) => {
       const data = query.state.data
-      // Stop polling when status is ready or error
-      if (data?.status === "ready" || data?.status === "error") {
+      // Stop polling once status is ready/error AND extraction is settled.
+      const extractionSettled =
+        data?.extraction_status === "completed" ||
+        data?.extraction_status === "failed" ||
+        data?.extraction_status === "none" ||
+        data?.extraction_status === undefined
+      if (
+        (data?.status === "ready" || data?.status === "error") &&
+        extractionSettled
+      ) {
         return false
       }
       return 3000
@@ -124,6 +139,34 @@ export function useDeleteRecording(): UseMutationResult<
       apiClient.delete<void>(`/api/recordings/${recordingId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recordings"] })
+    },
+  })
+}
+
+export function useReprocessRecording(): UseMutationResult<
+  void,
+  Error,
+  string
+> {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (recordingId: string) =>
+      apiClient.post<void>(`/api/recordings/${recordingId}/reprocess`, {}),
+    onSuccess: (_data, recordingId) => {
+      queryClient.invalidateQueries({ queryKey: ["recordings"] })
+      queryClient.invalidateQueries({ queryKey: ["recording", recordingId] })
+      queryClient.invalidateQueries({ queryKey: ["transcript", recordingId] })
+      // Also bust the polling/cache for extraction-status and outcomes —
+      // otherwise the sticky "completed" cache from the previous run stops
+      // the polling and the OutcomesTab never sees the new extraction round.
+      queryClient.invalidateQueries({
+        queryKey: ["recording-status", recordingId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ["extraction-status", recordingId],
+      })
+      queryClient.invalidateQueries({ queryKey: ["outcomes", recordingId] })
     },
   })
 }

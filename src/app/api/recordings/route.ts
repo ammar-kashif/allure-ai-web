@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { existsSync, mkdirSync, writeFileSync } from "fs"
 import { join } from "path"
 
-import { getRecordings, createRecording, updateRecording } from "@/lib/db/recordings"
+import { getRecordings, getRecording, createRecording, updateRecording } from "@/lib/db/recordings"
 import type { RecordingStatus } from "@/types/recording"
 
 const RECORDINGS_DIR = join(process.cwd(), "public", "recordings")
@@ -36,6 +36,15 @@ export async function POST(request: NextRequest) {
       { error: "File too large. Maximum size is 500MB." },
       { status: 413 }
     )
+  }
+
+  // Idempotency: a retried upload (e.g. the meeting-bot forwarder retrying
+  // on a transient error) must not 500 on the UNIQUE PK. If a row with this
+  // id already exists, treat the request as a no-op and return the existing
+  // row -- the original upload's pipeline is already running.
+  const existing = getRecording(recordingId)
+  if (existing) {
+    return NextResponse.json(existing, { status: 200 })
   }
 
   // Save file locally

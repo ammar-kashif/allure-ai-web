@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "sonner"
 import { Providers } from "@/components/providers"
 import { AppSidebar } from "@/components/app-sidebar"
+import { BotRecordingBanner } from "@/components/recording/bot-recording-banner"
 import { RecordingFAB } from "@/components/recording/recording-fab"
 
 export default function DashboardLayout({
@@ -36,6 +37,7 @@ export default function DashboardLayout({
             <div id="player-portal" />
           </SidebarInset>
           <RecordingFAB />
+          <BotRecordingBanner />
           <Toaster position="bottom-left" richColors closeButton />
         </SidebarProvider>
       </TooltipProvider>

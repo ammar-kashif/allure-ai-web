@@ -1,0 +1,242 @@
+diff --git a/src/app/index.ts b/src/app/index.ts
+index be54380..589ead9 100644
+--- a/src/app/index.ts
++++ b/src/app/index.ts
+@@ -7,6 +7,7 @@ import microsoftRouter from './microsoft';
+ import zoomRouter from './zoom';
+ import { globalJobStore } from '../lib/globalJobStore';
+ import { RedisConsumerService } from '../connect/RedisConsumerService';
++import { requestStopCurrentJob } from '../simple/meetUi';
+ 
+ const app = express();
+ 
+@@ -26,13 +27,28 @@ app.get('/isbusy', async (req, res) => {
+ 
+ app.get('/health', async (req, res) => {
+   // Simple health check endpoint for Docker
+-  return res.status(200).json({ 
+-    status: 'healthy', 
++  return res.status(200).json({
++    status: 'healthy',
+     timestamp: new Date().toISOString(),
+     uptime: process.uptime()
+   });
+ });
+ 
++// Allow an external caller (Allure backend, in our integration) to request
++// the current meeting job to exit cleanly. The meetUi.ts waitUntilMeetingEnds
++// loop picks up the flag on its next poll (within ~3s), returns 'ended', and
++// the bot's normal post-end finalize runs -- recording is saved, bot becomes
++// idle, ready for the next dispatch. No process restart needed.
++app.post('/jobs/stop', async (req, res) => {
++  const wasBusy = globalJobStore.isBusy();
++  requestStopCurrentJob();
++  return res.status(202).json({
++    ok: true,
++    wasBusy,
++    note: 'Stop flag set; the meeting wait loop will exit within ~3s.',
++  });
++});
++
+ // Create a Gauge metric for busy status (0 or 1)
+ const busyStatus = new client.Gauge({
+   name: 'isbusy',
+diff --git a/src/simple/GoogleMeetSimpleBot.ts b/src/simple/GoogleMeetSimpleBot.ts
+index 154eb16..47b06e3 100644
+--- a/src/simple/GoogleMeetSimpleBot.ts
++++ b/src/simple/GoogleMeetSimpleBot.ts
+@@ -167,12 +167,30 @@ export class GoogleMeetSimpleBot {
+       const endReason = await waitUntilMeetingEnds(page, this.logger, maxMs);
+       this.logger.info('Stopping recording', { endReason });
+ 
++      // The stop() calls do a page.evaluate; if Meet already navigated away
++      // we hit "Attempted to use detached Frame". The MediaRecorder data is
++      // already flushed to disk by this point, so swallow the error and let
++      // finalizeAudioRecording run on the .tmp.webm we already have.
+       if (audioCapture) {
+-        await audioCapture.stop();
++        try {
++          await audioCapture.stop();
++        } catch (stopErr) {
++          this.logger.warn(
++            'audioCapture.stop() failed (likely detached frame) — continuing to finalize from .tmp.webm',
++            { stopErr: (stopErr as Error)?.message }
++          );
++        }
+         audioCapture = null;
+       }
+       if (screenRecorder) {
+-        await screenRecorder.stop();
++        try {
++          await screenRecorder.stop();
++        } catch (stopErr) {
++          this.logger.warn(
++            'screenRecorder.stop() failed (likely detached frame) — continuing',
++            { stopErr: (stopErr as Error)?.message }
++          );
++        }
+         screenRecorder = null;
+       }
+ 
+diff --git a/src/simple/meetUi.ts b/src/simple/meetUi.ts
+index 0d5a277..0cc6f9d 100644
+--- a/src/simple/meetUi.ts
++++ b/src/simple/meetUi.ts
+@@ -7,6 +7,21 @@ export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+ export const sanitizeFileName = (name: string) =>
+   name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-');
+ 
++// External stop signal: callers (e.g. an HTTP /jobs/stop handler) set this
++// flag and the wait loop picks it up on its next poll, exits cleanly, and
++// the normal post-end finalize runs. Bot stays alive for the next dispatch.
++let stopRequested = false;
++export function requestStopCurrentJob(): void {
++  stopRequested = true;
++}
++function consumeStopRequested(): boolean {
++  if (stopRequested) {
++    stopRequested = false;
++    return true;
++  }
++  return false;
++}
++
+ export async function clickByTexts(
+   page: Page,
+   texts: string[],
+@@ -129,11 +144,28 @@ export async function waitUntilMeetingEnds(
+   logger: Logger,
+   maxMs: number
+ ): Promise<'ended' | 'max_duration'> {
++  // Clear any stop flag left over from before this job (e.g. an operator
++  // /jobs/stop that fired while the bot was between jobs). Without this,
++  // the very first poll of a new job would consume the stale flag and exit
++  // instantly -- which is exactly what bit us once.
++  stopRequested = false;
++
+   const deadline = Date.now() + maxMs;
+   let absentLeaveButtonChecks = 0;
++  let aloneChecks = 0;
+   const absentChecksRequired = 2;
++  // 3 polls * 3s = 9s of "only the bot remains" before we exit.
++  const aloneChecksRequired = 3;
++  // Track previous signal snapshot so we can log only on change. Avoids
++  // flooding the log every 3s while everything is steady.
++  let prevSnapshot = '';
+ 
+   while (Date.now() < deadline) {
++    if (consumeStopRequested()) {
++      logger.info('Stop requested via /jobs/stop — exiting meeting loop');
++      return 'ended';
++    }
++
+     if (page.isClosed()) {
+       logger.info('Browser closed — treating meeting as ended');
+       return 'ended';
+@@ -145,20 +177,80 @@ export async function waitUntilMeetingEnds(
+         const leaveBtn = document.querySelector('button[aria-label="Leave call"]');
+         const inCall =
+           !!leaveBtn && (leaveBtn as HTMLElement).offsetParent !== null;
++        // 'no one else is here' removed -- Meet shows it transiently. We
++        // rely on participant counting instead, which is unambiguous.
+         const endedPhrases = [
+           'you left the meeting',
+           "you've been removed from the meeting",
+           'the meeting has ended',
+           'return to home screen',
+           'meeting ended',
+-          'no one else is here',
+           'you are no longer in the meeting',
+         ];
+         const endedByText = endedPhrases.some((p) => body.includes(p));
+         const onMeet = window.location.href.includes('meet.google.com');
+-        return { inCall, endedByText, onMeet };
++
++        // --- multi-signal participant detection ---
++        // Meet renders each participant (including the bot) with a
++        // [data-participant-id] node somewhere in the tree. This is the
++        // primary signal.
++        const participantTiles = document.querySelectorAll(
++          '[data-participant-id]'
++        ).length;
++
++        // Audio elements -- left for diagnostic purposes only. Meet keeps
++        // stale <audio> nodes in the DOM after participants leave, so this
++        // count is sticky. NOT used for exit.
++        const audios = Array.from(document.querySelectorAll('audio'));
++        const audioTotal = audios.length;
++
++        // Audio elements with at least one LIVE MediaStreamTrack. This DOES
++        // drop when a participant's stream ends, even if the <audio> node
++        // lingers. Useful fallback if participantTiles selector breaks
++        // someday.
++        let audioLive = 0;
++        for (const el of audios) {
++          const mediaEl = el as HTMLMediaElement;
++          const stream = mediaEl.srcObject as MediaStream | null;
++          if (!stream) continue;
++          if (stream.getAudioTracks().some((t) => t.readyState === 'live')) {
++            audioLive += 1;
++          }
++        }
++
++        // Video tiles in the call grid -- another corroborating signal.
++        const videoTiles = document.querySelectorAll(
++          '[data-allocation-index]'
++        ).length;
++
++        return {
++          inCall,
++          endedByText,
++          onMeet,
++          participantTiles,
++          audioTotal,
++          audioLive,
++          videoTiles,
++        };
+       })
+-      .catch(() => ({ inCall: false, endedByText: true, onMeet: false }));
++      .catch(() => ({
++        inCall: false,
++        endedByText: true,
++        onMeet: false,
++        participantTiles: 0,
++        audioTotal: 0,
++        audioLive: 0,
++        videoTiles: 0,
++      }));
++
++    // One-line snapshot so we can spot which signal moves when in the log.
++    const snapshot =
++      `p=${state.participantTiles} v=${state.videoTiles} ` +
++      `a=${state.audioTotal} aLive=${state.audioLive} call=${state.inCall}`;
++    if (snapshot !== prevSnapshot) {
++      logger.info(`Meet signal change: ${snapshot}`);
++      prevSnapshot = snapshot;
++    }
+ 
+     if (state.endedByText || !state.onMeet) {
+       logger.info('Meeting ended (message or left Meet URL)');
+@@ -175,6 +267,22 @@ export async function waitUntilMeetingEnds(
+       absentLeaveButtonChecks = 0;
+     }
+ 
++    // Primary exit signal: only the bot is left in the participant list.
++    // participantTiles == 1 means just the bot's own tile remains.
++    // We require the selector to have returned > 0 at some prior point
++    // (we'd never see 1 if the selector is wrong -- it'd be 0 from start).
++    if (state.participantTiles === 1) {
++      aloneChecks += 1;
++      if (aloneChecks >= aloneChecksRequired) {
++        logger.info(
++          'Only the bot remains in the participant list for 9s — exiting'
++        );
++        return 'ended';
++      }
++    } else {
++      aloneChecks = 0;
++    }
++
+     await sleep(3000);
+   }
+ 

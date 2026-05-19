@@ -127,41 +127,164 @@ def test_align_transcript_with_speakers():
 
 
 # ---------------------------------------------------------------------------
-# AgglomerativeClustering replaces MeanShift
+# FastDiarizer: VAD + normalized + complete-linkage clustering
 # ---------------------------------------------------------------------------
 
 
-def test_diarizer_uses_agglomerative_clustering():
-    """FastDiarizer.diarize() uses AgglomerativeClustering with correct params."""
+def _vad_full_speech_stub(audio_tensor, _model, sampling_rate, **_kwargs):
+    """Return one speech segment covering the whole audio_tensor."""
+    n = int(audio_tensor.shape[-1])
+    return [{"start": 0, "end": n}]
+
+
+def _make_diarizer(encoder, **overrides):
+    """Build a FastDiarizer with sensible test defaults (agglomerative
+    clustering by default so tests stay deterministic and small)."""
     from transcription import FastDiarizer
 
-    mock_encoder = MagicMock()
-    # Simulate encoder returning 192-dim embeddings
+    kwargs = dict(
+        encoder=encoder,
+        vad_model=MagicMock(),
+        window_size=1.0,
+        hop_size=0.5,
+        min_segment_duration=0.0,
+        clustering_method="agglomerative",
+        distance_threshold=0.5,
+        linkage="complete",
+        vad_threshold=0.5,
+        min_speech_duration=0.0,
+        centroid_merge_threshold=0.0,
+        max_speakers=8,
+        min_windows_for_spectral=10,
+    )
+    kwargs.update(overrides)
+    return FastDiarizer(**kwargs)
+
+
+def test_diarizer_agglomerative_uses_precomputed_cosine_complete():
+    """When configured for agglomerative, FastDiarizer uses
+    AgglomerativeClustering on a precomputed cosine-distance matrix."""
     import numpy as np
     import torch
 
+    mock_encoder = MagicMock()
+    mock_encoder.encode_batch.return_value = torch.tensor(
+        np.random.randn(1, 192).astype(np.float32)
+    )
+    diarizer = _make_diarizer(mock_encoder)
+
+    with patch("transcription.AgglomerativeClustering") as mock_cls, \
+         patch("transcription.get_speech_timestamps", side_effect=_vad_full_speech_stub), \
+         patch("transcription.librosa") as mock_librosa:
+        mock_instance = MagicMock()
+        mock_instance.fit_predict.return_value = np.array([0, 0, 1, 1, 0])
+        mock_cls.return_value = mock_instance
+        mock_librosa.load.return_value = (np.zeros(48000, dtype=np.float32), 16000)
+
+        diarizer.diarize("fake.wav")
+
+        mock_cls.assert_called_once_with(
+            n_clusters=None,
+            distance_threshold=0.5,
+            metric="precomputed",
+            linkage="complete",
+        )
+
+
+def test_diarizer_skips_silence_via_vad():
+    """Only audio inside VAD speech intervals should reach the encoder."""
+    import numpy as np
+    import torch
+
+    mock_encoder = MagicMock()
     mock_encoder.encode_batch.return_value = torch.tensor(
         np.random.randn(1, 192).astype(np.float32)
     )
 
-    diarizer = FastDiarizer(encoder=mock_encoder, window_size=1.0, hop_size=0.5)
+    diarizer = _make_diarizer(
+        mock_encoder, window_size=0.5, hop_size=0.5
+    )
 
-    with patch("transcription.AgglomerativeClustering") as mock_cls:
-        mock_instance = MagicMock()
-        mock_instance.fit_predict.return_value = np.array([0, 0, 1, 1, 0])
-        mock_cls.return_value = mock_instance
+    # 3s of audio at 16kHz; VAD says speech is only samples [8000, 16000) (0.5s-1.0s)
+    def vad_stub(_audio, _model, sampling_rate, **_kwargs):
+        return [{"start": 8000, "end": 16000}]
 
-        with patch("transcription.librosa") as mock_librosa:
-            # Return 3 seconds of audio at 16kHz
-            mock_librosa.load.return_value = (np.zeros(48000, dtype=np.float32), 16000)
-            diarizer.diarize("fake.wav")
-
-        mock_cls.assert_called_once_with(
-            n_clusters=None,
-            distance_threshold=0.7,
-            metric="cosine",
-            linkage="average",
+    with patch("transcription.get_speech_timestamps", side_effect=vad_stub), \
+         patch("transcription.librosa") as mock_librosa:
+        mock_librosa.load.return_value = (
+            np.zeros(48000, dtype=np.float32), 16000
         )
+        diarizer.diarize("fake.wav")
+
+    # Speech interval is exactly 0.5s long with a 0.5s window -> one embed only
+    assert mock_encoder.encode_batch.call_count == 1
+
+
+def test_diarizer_returns_non_overlapping_sorted_segments():
+    """Output segments must be time-sorted and pairwise non-overlapping."""
+    import numpy as np
+    import torch
+
+    mock_encoder = MagicMock()
+    # 6 embeddings forming two clear clusters
+    cluster_a = np.tile([1.0, 0.0] + [0.0] * 190, (3, 1)).astype(np.float32)
+    cluster_b = np.tile([0.0, 1.0] + [0.0] * 190, (3, 1)).astype(np.float32)
+    embeddings = np.vstack([cluster_a, cluster_b]) + np.random.randn(6, 192).astype(
+        np.float32
+    ) * 0.01
+    mock_encoder.encode_batch.side_effect = [
+        torch.tensor(e.reshape(1, -1)) for e in embeddings
+    ]
+
+    diarizer = _make_diarizer(
+        mock_encoder, window_size=1.0, hop_size=0.5, distance_threshold=0.8
+    )
+
+    with patch("transcription.get_speech_timestamps", side_effect=_vad_full_speech_stub), \
+         patch("transcription.librosa") as mock_librosa:
+        # 3.5s @ 16kHz, window=1.0s, hop=0.5s -> exactly 6 windows
+        mock_librosa.load.return_value = (np.zeros(56000, dtype=np.float32), 16000)
+        segments = diarizer.diarize("fake.wav")
+
+    # Sorted by start
+    starts = [s["start"] for s in segments]
+    assert starts == sorted(starts)
+    # Pairwise non-overlap
+    for prev, cur in zip(segments, segments[1:]):
+        assert cur["start"] >= prev["end"] - 1e-6
+
+
+def test_centroid_merge_collapses_split_clusters():
+    """Initial clustering may over-split; centroid-merge should collapse
+    cluster pairs whose centroids are below the merge threshold."""
+    import numpy as np
+
+    from transcription import FastDiarizer
+
+    diarizer = FastDiarizer(
+        encoder=MagicMock(),
+        vad_model=MagicMock(),
+        clustering_method="agglomerative",
+        centroid_merge_threshold=0.5,
+    )
+
+    # 4 embeddings: pairs (0,1) and (2,3) share nearly identical centroids
+    embs = np.array(
+        [
+            [1.0, 0.0, 0.0, 0.0],
+            [0.99, 0.01, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.99, 0.01],
+        ],
+        dtype=np.float32,
+    )
+    embs = embs / np.linalg.norm(embs, axis=1, keepdims=True)
+    # Initial labels: clustering gave 4 distinct labels
+    initial = np.array([0, 1, 2, 3])
+
+    merged = diarizer._centroid_merge(embs, initial, threshold=0.1)
+    # (0,1) collapse to one label; (2,3) collapse to one label -> 2 clusters total
+    assert len(set(merged.tolist())) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -250,6 +373,9 @@ def test_run_transcription_includes_processing_time():
         mock_app_state.diarizer.diarize.return_value = [
             {"start": 0.0, "end": 10.0, "speaker": "cluster_0"},
         ]
+        # Disable punctuation path in the mocked pipeline.
+        mock_app_state.punctuator = None
+        mock_app_state.llm = None
 
         result = run_transcription("job-1", mock_app_state)
 

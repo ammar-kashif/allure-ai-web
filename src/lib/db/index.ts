@@ -31,6 +31,8 @@ function createDatabase(): Database.Database {
     { table: "tasks", column: "assignee", definition: "TEXT" },
     { table: "tasks", column: "tags", definition: "TEXT NOT NULL DEFAULT '[]'" },
     { table: "recordings", column: "transcript_data", definition: "TEXT" },
+    { table: "recordings", column: "description", definition: "TEXT" },
+    { table: "recordings", column: "title_is_auto", definition: "INTEGER NOT NULL DEFAULT 1" },
   ]
 
   for (const m of migrations) {

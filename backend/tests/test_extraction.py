@@ -50,6 +50,9 @@ SAMPLE_SEGMENTS = [
 ]
 
 MOCK_LLM_RESPONSE = {
+    "meeting_title": "Frontend Stack and CI Discussion",
+    "meeting_description": "The team agreed on React for the frontend and discussed CI breakage.",
+    "transcript_corrections": [],
     "outcomes": [
         {
             "type": "decision",
@@ -150,8 +153,11 @@ def mock_app_state():
 
 def test_extraction_produces_outcomes(sample_job, mock_app_state):
     """Given a mocked LLM that returns valid JSON, run_extraction returns outcomes."""
-    outcomes = run_extraction(sample_job, mock_app_state)
+    result = run_extraction(sample_job, mock_app_state)
+    outcomes = result["outcomes"]
 
+    assert result["meeting_title"] == "Frontend Stack and CI Discussion"
+    assert result["meeting_description"].startswith("The team")
     assert len(outcomes) == 4
     for outcome in outcomes:
         assert "id" in outcome
@@ -170,7 +176,7 @@ def test_extraction_produces_outcomes(sample_job, mock_app_state):
 
 def test_outcome_schema_validation(sample_job, mock_app_state):
     """Each outcome has all required fields with valid types."""
-    outcomes = run_extraction(sample_job, mock_app_state)
+    outcomes = run_extraction(sample_job, mock_app_state)["outcomes"]
 
     for outcome in outcomes:
         assert isinstance(outcome["id"], str)
@@ -189,6 +195,9 @@ def test_invalid_segment_indices_filtered(sample_job, mock_app_state):
     """Outcomes with segment_index beyond transcript length are filtered out."""
     # Modify mock response to include out-of-range segment index
     bad_response = {
+        "meeting_title": "Test meeting",
+        "meeting_description": "A test.",
+        "transcript_corrections": [],
         "outcomes": [
             {
                 "type": "decision",
@@ -219,7 +228,7 @@ def test_invalid_segment_indices_filtered(sample_job, mock_app_state):
         "choices": [{"message": {"content": json.dumps(bad_response)}}]
     }
 
-    outcomes = run_extraction(sample_job, mock_app_state)
+    outcomes = run_extraction(sample_job, mock_app_state)["outcomes"]
 
     assert len(outcomes) == 1
     # Only the valid ref (index 0) should remain

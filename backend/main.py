@@ -14,14 +14,24 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
+# Surface app-level INFO logs under uvicorn (it only routes uvicorn.* by default).
+logging.basicConfig(
+    level=os.environ.get("LOG_LEVEL", "INFO"),
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    force=True,
+)
+
 import aiofiles
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from audio_utils import convert_to_wav, detect_no_audio_track, validate_audio_format
 from job_queue import job_queue, process_worker
 from extraction import format_backlink
+from observability import log_event, step_timer
+from meeting_bot import dispatch_store
+from meeting_bot.router import router as meeting_bot_router
 from models import (
     AttachmentResponse,
     AttachmentTextResponse,
@@ -79,12 +89,61 @@ def _migrate_speaker_stats():
         logger.info("Migrated speaker stats for %d old job(s)", migrated)
 
 
+def _backfill_meeting_metadata():
+    """One-time backfill: for completed jobs whose result has empty
+    meeting_title/description (because they were extracted before the
+    fallback shipped, OR because the LLM returned empty on a short
+    recording), synthesize a non-empty title/description from segments
+    using the same fallback helpers run_extraction uses.
+
+    No LLM calls — purely deterministic from existing transcript text.
+    """
+    from extraction import (
+        _fallback_title_from_segments,
+        _fallback_description_from_segments,
+    )
+
+    backfilled = 0
+    for job in list_jobs():
+        if job["status"] != "completed" or not job.get("result"):
+            continue
+        result = job["result"]
+        segments = result.get("segments", [])
+        if not segments:
+            continue
+
+        title = (result.get("meeting_title") or "").strip()
+        desc = (result.get("meeting_description") or "").strip()
+        if title and desc:
+            continue
+
+        updated = False
+        if not title:
+            result["meeting_title"] = _fallback_title_from_segments(segments)
+            updated = True
+        if not desc:
+            result["meeting_description"] = _fallback_description_from_segments(segments)
+            updated = True
+
+        if updated:
+            update_job(job["id"], result=result)
+            backfilled += 1
+
+    if backfilled:
+        logger.info(
+            "Backfilled meeting_title/description for %d job(s) using "
+            "transcript-derived fallback (no LLM call).",
+            backfilled,
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifecycle: load ML models at startup, cleanup on shutdown."""
     # Startup
     os.makedirs(UPLOADS_DIR, exist_ok=True)
     init_db()
+    dispatch_store.init()
 
     # Load Moonshine Voice transcriber
     t0 = time.perf_counter()
@@ -97,9 +156,10 @@ async def lifespan(app: FastAPI):
     )
     logger.info("Moonshine transcriber loaded in %.1fs", time.perf_counter() - t0)
 
-    # Load SpeechBrain ECAPA-TDNN for speaker diarization
+    # Load SpeechBrain ECAPA-TDNN + silero-vad for speaker diarization
     t1 = time.perf_counter()
     from speechbrain.inference.speaker import EncoderClassifier
+    from silero_vad import load_silero_vad
 
     from transcription import FastDiarizer
 
@@ -107,8 +167,54 @@ async def lifespan(app: FastAPI):
         source="speechbrain/spkrec-ecapa-voxceleb",
         run_opts={"device": "cpu"},
     )
-    app.state.diarizer = FastDiarizer(encoder=encoder)
-    logger.info("SpeechBrain ECAPA-TDNN diarizer loaded in %.1fs", time.perf_counter() - t1)
+    vad_model = load_silero_vad(onnx=False)
+    app.state.diarizer = FastDiarizer(
+        encoder=encoder,
+        vad_model=vad_model,
+        window_size=float(os.environ.get("DIARIZER_WINDOW_SECONDS", "2.0")),
+        hop_size=float(os.environ.get("DIARIZER_HOP_SECONDS", "0.75")),
+        clustering_method=os.environ.get("DIARIZER_CLUSTERING_METHOD", "spectral"),
+        distance_threshold=float(
+            os.environ.get("DIARIZER_DISTANCE_THRESHOLD", "0.75")
+        ),
+        linkage=os.environ.get("DIARIZER_LINKAGE", "average"),
+        vad_threshold=float(os.environ.get("DIARIZER_VAD_THRESHOLD", "0.5")),
+        min_speech_duration=float(
+            os.environ.get("DIARIZER_MIN_SPEECH_SECONDS", "0.5")
+        ),
+        centroid_merge_threshold=float(
+            os.environ.get("DIARIZER_CENTROID_MERGE_THRESHOLD", "0.0")
+        ),
+        max_speakers=int(os.environ.get("DIARIZER_MAX_SPEAKERS", "6")),
+        min_windows_for_spectral=int(
+            os.environ.get("DIARIZER_MIN_WINDOWS_FOR_SPECTRAL", "10")
+        ),
+    )
+    logger.info(
+        "silero-vad + SpeechBrain ECAPA-TDNN diarizer loaded in %.1fs",
+        time.perf_counter() - t1,
+    )
+
+    # Load punctuation + capitalization model
+    t_punct = time.perf_counter()
+    from deepmultilingualpunctuation import PunctuationModel
+
+    punct_model_id = os.environ.get(
+        "PUNCTUATION_MODEL", "oliverguhr/fullstop-punctuation-multilang-large"
+    )
+    try:
+        app.state.punctuator = PunctuationModel(model=punct_model_id)
+        logger.info(
+            "Punctuation model '%s' loaded in %.1fs",
+            punct_model_id,
+            time.perf_counter() - t_punct,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Punctuation model failed to load (%s); transcripts will stay unpunctuated",
+            exc,
+        )
+        app.state.punctuator = None
 
     # Load Phi-4-mini LLM for extraction
     t2 = time.perf_counter()
@@ -138,6 +244,10 @@ async def lifespan(app: FastAPI):
     # Migrate old job results: recompute speaker stats for records missing extended fields
     _migrate_speaker_stats()
 
+    # One-time backfill: fill empty meeting_title/description from segments
+    # (handles jobs extracted before the title fallback shipped).
+    _backfill_meeting_metadata()
+
     # Start background worker
     worker_task = asyncio.create_task(process_worker(app.state))
     app.state.worker = worker_task
@@ -149,6 +259,11 @@ async def lifespan(app: FastAPI):
         elif job["extraction_status"] in ("pending", "processing"):
             await job_queue.put((job["id"], "extract"))
 
+    # Start meeting-bot filesystem watcher
+    from meeting_bot.watcher import run_watcher
+
+    app.state.bot_watcher = run_watcher(app.state)
+
     yield
     # Shutdown
     worker_task.cancel()
@@ -156,6 +271,13 @@ async def lifespan(app: FastAPI):
         await worker_task
     except asyncio.CancelledError:
         pass
+    if getattr(app.state, "bot_watcher_stop", None):
+        app.state.bot_watcher_stop.set()
+    if getattr(app.state, "bot_watcher", None):
+        try:
+            await asyncio.wait_for(app.state.bot_watcher, timeout=5.0)
+        except (asyncio.TimeoutError, asyncio.CancelledError):
+            app.state.bot_watcher.cancel()
 
 
 app = FastAPI(title="Allure AI Backend", lifespan=lifespan)
@@ -168,11 +290,35 @@ app.add_middleware(
     allow_credentials=True,
 )
 
+app.include_router(meeting_bot_router)
+
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
     return {"status": "ok"}
+
+
+@app.get("/logs")
+async def list_logs(
+    limit: int = Query(default=200, ge=1, le=1000),
+    category: str | None = None,
+    status: str | None = None,
+    recording_id: str | None = None,
+    job_id: str | None = None,
+    dispatch_id: str | None = None,
+):
+    """Return newest persisted operational events."""
+    from log_store import list_events
+
+    return list_events(
+        limit=limit,
+        category=category,
+        status=status,
+        recording_id=recording_id,
+        job_id=job_id,
+        dispatch_id=dispatch_id,
+    )
 
 
 @app.post("/recordings", status_code=201, response_model=UploadResponse)
@@ -195,6 +341,14 @@ async def upload_recording(file: UploadFile = File(...)):
             status_code=413,
             detail="File too large. Maximum size is 500MB.",
         )
+    log_event(
+        category="upload",
+        event="upload.accepted",
+        status="done",
+        message="Accepted audio upload",
+        job_id=job_id,
+        metadata={"size_bytes": len(file_bytes)},
+    )
 
     # Save uploaded file
     original_path = os.path.join(UPLOADS_DIR, f"{job_id}_{file.filename}")
@@ -203,6 +357,14 @@ async def upload_recording(file: UploadFile = File(...)):
 
     # Check for missing audio track (common with screen recordings / silent videos)
     if detect_no_audio_track(original_path):
+        log_event(
+            category="upload",
+            event="upload.audio_track",
+            status="failed",
+            level="error",
+            message="Uploaded file has no audio track",
+            job_id=job_id,
+        )
         os.remove(original_path)
         raise HTTPException(
             status_code=422,
@@ -212,7 +374,8 @@ async def upload_recording(file: UploadFile = File(...)):
     # Convert to 16kHz mono WAV
     wav_path = os.path.join(UPLOADS_DIR, f"{job_id}.wav")
     try:
-        convert_to_wav(original_path, wav_path)
+        with step_timer("upload.convert", category="upload", job_id=job_id):
+            convert_to_wav(original_path, wav_path)
     except subprocess.CalledProcessError:
         # Clean up original file on conversion failure
         if os.path.exists(original_path):
@@ -229,6 +392,14 @@ async def upload_recording(file: UploadFile = File(...)):
     # Create job and enqueue
     create_job(job_id, wav_path, file.filename)
     await job_queue.put((job_id, "stt"))
+    log_event(
+        category="pipeline",
+        event="job.queued",
+        status="done",
+        message="Queued recording for transcription",
+        job_id=job_id,
+        metadata={"stage": "stt"},
+    )
 
     return UploadResponse(id=job_id)
 
@@ -307,6 +478,30 @@ async def trigger_extraction(job_id: str):
     return {"message": "Extraction enqueued", "job_id": job_id}
 
 
+@app.post("/recordings/{job_id}/reprocess", status_code=202)
+async def reprocess_recording(job_id: str):
+    """Re-run the STT pipeline on an existing recording. Resets transcript,
+    extraction, and outcome state, then re-queues the STT job."""
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if not os.path.exists(job["file_path"]):
+        raise HTTPException(
+            status_code=400, detail="Audio file no longer exists on disk"
+        )
+    update_job(
+        job_id,
+        status="pending",
+        result=None,
+        error=None,
+        extraction_status="none",
+        extraction_error=None,
+        outcomes=[],
+    )
+    await job_queue.put((job_id, "stt"))
+    return {"message": "Reprocess enqueued", "job_id": job_id}
+
+
 @app.post(
     "/recordings/{job_id}/outcomes/{outcome_index}/promote",
     response_model=PromoteResponse,
@@ -380,7 +575,8 @@ async def generate_prd_endpoint(job_id: str):
     from document_generation import build_document_context, generate_prd
 
     doc_context = build_document_context(job_id)
-    content = await asyncio.to_thread(generate_prd, job_id, app.state, doc_context)
+    with step_timer("document.prd", category="document", job_id=job_id):
+        content = await asyncio.to_thread(generate_prd, job_id, app.state, doc_context)
     return {
         "content": content,
         "title": f"PRD - {job.get('original_filename', 'Recording')}",
@@ -406,7 +602,8 @@ async def generate_diagram_endpoint(job_id: str):
     from document_generation import build_document_context, generate_diagram
 
     doc_context = build_document_context(job_id)
-    content, diagram_type = await asyncio.to_thread(generate_diagram, job_id, app.state, doc_context)
+    with step_timer("document.diagram", category="document", job_id=job_id):
+        content, diagram_type = await asyncio.to_thread(generate_diagram, job_id, app.state, doc_context)
     type_label = "User Flow" if diagram_type == "user_flow" else "ERD"
     return {
         "content": content,
