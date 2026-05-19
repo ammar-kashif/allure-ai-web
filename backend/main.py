@@ -112,7 +112,7 @@ async def lifespan(app: FastAPI):
     )
     app.state.diarizer = FastDiarizer(
         encoder=encoder,
-        window_size=float(os.environ.get("DIARIZER_WINDOW_SECONDS", "4.0")),
+        window_size=float(os.environ.get("DIARIZER_WINDOW_SECONDS", "10.0")),
         distance_threshold=float(
             os.environ.get("DIARIZER_DISTANCE_THRESHOLD", "0.7")
         ),

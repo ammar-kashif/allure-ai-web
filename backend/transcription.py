@@ -75,22 +75,26 @@ class FastDiarizer:
 
     Args:
         encoder: SpeechBrain EncoderClassifier instance (ECAPA-TDNN).
-        window_size: Embedding window length in seconds. 4s is tuned for
-            conversational meeting audio where speakers alternate quickly;
-            10s collapsed turns into a single cluster in live testing.
+        window_size: Embedding window length in seconds. 10s is the
+            upstream-tuned default and averages out short-term variation
+            (intonation, mic position, room noise) within a single voice.
+            4s was tried -- it helped split quick conversational turns but
+            also produced false splits on browser-native recordings (one
+            voice splitting into 5+ clusters), so we're back at 10s.
+            Tune via DIARIZER_WINDOW_SECONDS env var if a specific input
+            needs finer turn-resolution.
         hop_size: Step between windows in seconds.
         min_segment_duration: Drop speaker segments shorter than this (seconds).
         distance_threshold: Cosine distance cutoff for AgglomerativeClustering.
             Lower = more sensitive to voice differences -> more clusters.
-            0.7 is the upstream-tuned default and the right baseline on Meet
-            mixed-stream audio. 0.5 was tried but produced too many clusters
-            (false splits). Tune via DIARIZER_DISTANCE_THRESHOLD env var.
+            0.7 is the upstream baseline. Tune via DIARIZER_DISTANCE_
+            THRESHOLD env var.
     """
 
     def __init__(
         self,
         encoder,
-        window_size: float = 4.0,
+        window_size: float = 10.0,
         hop_size: float = 2.0,
         min_segment_duration: float = 1.0,
         distance_threshold: float = 0.7,
