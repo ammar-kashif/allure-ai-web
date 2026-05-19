@@ -100,9 +100,10 @@ async def lifespan(app: FastAPI):
     )
     logger.info("Moonshine transcriber loaded in %.1fs", time.perf_counter() - t0)
 
-    # Load SpeechBrain ECAPA-TDNN for speaker diarization
+    # Load SpeechBrain ECAPA-TDNN + silero-vad for speaker diarization
     t1 = time.perf_counter()
     from speechbrain.inference.speaker import EncoderClassifier
+    from silero_vad import load_silero_vad
 
     from transcription import FastDiarizer
 
@@ -110,14 +111,30 @@ async def lifespan(app: FastAPI):
         source="speechbrain/spkrec-ecapa-voxceleb",
         run_opts={"device": "cpu"},
     )
+    vad_model = load_silero_vad(onnx=False)
     app.state.diarizer = FastDiarizer(
         encoder=encoder,
-        window_size=float(os.environ.get("DIARIZER_WINDOW_SECONDS", "10.0")),
+        vad_model=vad_model,
+        window_size=float(os.environ.get("DIARIZER_WINDOW_SECONDS", "2.0")),
+        hop_size=float(os.environ.get("DIARIZER_HOP_SECONDS", "0.75")),
         distance_threshold=float(
-            os.environ.get("DIARIZER_DISTANCE_THRESHOLD", "0.7")
+            os.environ.get("DIARIZER_DISTANCE_THRESHOLD", "0.5")
         ),
+        linkage=os.environ.get("DIARIZER_LINKAGE", "complete"),
+        vad_threshold=float(os.environ.get("DIARIZER_VAD_THRESHOLD", "0.5")),
+        min_speech_duration=float(
+            os.environ.get("DIARIZER_MIN_SPEECH_SECONDS", "0.5")
+        ),
+        top_p=float(os.environ.get("DIARIZER_TOP_P", "0.10")),
+        centroid_merge_threshold=float(
+            os.environ.get("DIARIZER_CENTROID_MERGE_THRESHOLD", "0.25")
+        ),
+        max_speakers=int(os.environ.get("DIARIZER_MAX_SPEAKERS", "8")),
     )
-    logger.info("SpeechBrain ECAPA-TDNN diarizer loaded in %.1fs", time.perf_counter() - t1)
+    logger.info(
+        "silero-vad + SpeechBrain ECAPA-TDNN diarizer loaded in %.1fs",
+        time.perf_counter() - t1,
+    )
 
     # Load Phi-4-mini LLM for extraction
     t2 = time.perf_counter()

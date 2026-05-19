@@ -16,6 +16,7 @@ import numpy as np
 import torch
 from sklearn.cluster import AgglomerativeClustering
 from scipy.ndimage import median_filter
+from silero_vad import get_speech_timestamps
 
 from storage import get_job
 
@@ -67,136 +68,313 @@ def transcribe_audio(wav_path: str, transcriber) -> list[dict[str, Any]]:
 
 
 class FastDiarizer:
-    """CPU-only speaker diarization using SpeechBrain ECAPA-TDNN embeddings
-    and AgglomerativeClustering.
+    """CPU-only speaker diarization using silero-vad + SpeechBrain ECAPA-TDNN
+    embeddings + AgglomerativeClustering with affinity refinement.
 
-    Designed for clean audio (podcasts, interviews, meetings). Each fixed-size
-    window is assigned one dominant speaker — no overlap handling.
+    Pipeline: VAD -> short windows on speech only -> L2-norm + recording-mean
+    centering -> top-p scrubbed cosine affinity -> complete-linkage clustering
+    -> centroid-merge fragments -> cap speakers -> hop-proportional median
+    smoothing -> non-overlapping time segments.
 
     Args:
         encoder: SpeechBrain EncoderClassifier instance (ECAPA-TDNN).
-        window_size: Embedding window length in seconds. 10s is the
-            upstream-tuned default and averages out short-term variation
-            (intonation, mic position, room noise) within a single voice.
-            4s was tried -- it helped split quick conversational turns but
-            also produced false splits on browser-native recordings (one
-            voice splitting into 5+ clusters), so we're back at 10s.
-            Tune via DIARIZER_WINDOW_SECONDS env var if a specific input
-            needs finer turn-resolution.
-        hop_size: Step between windows in seconds.
-        min_segment_duration: Drop speaker segments shorter than this (seconds).
-        distance_threshold: Cosine distance cutoff for AgglomerativeClustering.
-            Lower = more sensitive to voice differences -> more clusters.
-            0.7 is the upstream baseline. Tune via DIARIZER_DISTANCE_
-            THRESHOLD env var.
+        vad_model: silero-vad model from `load_silero_vad(onnx=False)`.
+        window_size: Embedding window length (s). 2.0 resolves 3-5s turns
+            without averaging across speakers; safe because VAD removes the
+            silence that broke shorter windows in the previous design.
+        hop_size: Step between windows (s).
+        min_segment_duration: Drop output segments shorter than this (s).
+        distance_threshold: Cosine-distance cutoff for AgglomerativeClustering
+            on L2-normed + centered embeddings. 0.5 is the calibrated default;
+            DIARIZER_DISTANCE_THRESHOLD tunes it.
+        linkage: 'complete' (default) merges only when all pairs are close —
+            fewer phantom clusters. 'average' is the legacy setting.
+        vad_threshold: silero-vad speech-probability cutoff (0.0-1.0).
+        min_speech_duration: Drop VAD speech intervals shorter than this (s).
+        top_p: Fraction of strongest similarities to keep per affinity row.
+            0.10 typical. Set 1.0 to disable scrubbing.
+        centroid_merge_threshold: After clustering, merge any two clusters
+            whose centroid cosine distance is below this. Sweeps up fragments
+            that survived the main clustering pass.
+        max_speakers: Hard cap on cluster count. Excess clusters are merged
+            into their nearest neighbor by centroid distance.
     """
 
     def __init__(
         self,
         encoder,
-        window_size: float = 10.0,
-        hop_size: float = 2.0,
+        vad_model,
+        window_size: float = 2.0,
+        hop_size: float = 0.75,
         min_segment_duration: float = 1.0,
-        distance_threshold: float = 0.7,
+        distance_threshold: float = 0.5,
+        linkage: str = "complete",
+        vad_threshold: float = 0.5,
+        min_speech_duration: float = 0.5,
+        top_p: float = 0.10,
+        centroid_merge_threshold: float = 0.25,
+        max_speakers: int = 8,
     ):
         self.encoder = encoder
+        self.vad_model = vad_model
         self.window_size = window_size
         self.hop_size = hop_size
         self.min_segment_duration = min_segment_duration
         self.distance_threshold = distance_threshold
+        self.linkage = linkage
+        self.vad_threshold = vad_threshold
+        self.min_speech_duration = min_speech_duration
+        self.top_p = top_p
+        self.centroid_merge_threshold = centroid_merge_threshold
+        self.max_speakers = max_speakers
 
     def diarize(self, audio_path: str) -> list[dict[str, Any]]:
-        """Run diarization on an audio file.
-
-        Args:
-            audio_path: Path to audio file (any format librosa supports).
-
-        Returns:
-            List of dicts with start, end, speaker keys. Speaker labels are
-            raw cluster IDs like "cluster_0", "cluster_1".
-        """
-        # Load and resample to 16 kHz mono
+        """Run diarization. Returns non-overlapping time-sorted segments
+        of {start, end, speaker} where speaker is 'cluster_<int>'."""
         audio, sr = librosa.load(audio_path, sr=16000, mono=True)
         total_duration = len(audio) / sr
 
-        # Extract fixed-window embeddings
-        window_samples = int(self.window_size * sr)
-        hop_samples = int(self.hop_size * sr)
-
-        embeddings = []
-        window_starts = []
-
-        for start_sample in range(0, len(audio) - window_samples + 1, hop_samples):
-            chunk = audio[start_sample : start_sample + window_samples]
-            waveform = torch.tensor(chunk, dtype=torch.float32).unsqueeze(0)
-            with torch.no_grad():
-                emb = self.encoder.encode_batch(waveform)
-            embeddings.append(emb.squeeze().numpy())
-            window_starts.append(start_sample / sr)
-
-        # Handle final partial window if audio doesn't divide evenly
-        last_start = (len(audio) - window_samples) // hop_samples * hop_samples
-        remaining_start = last_start + hop_samples
-        if remaining_start < len(audio) and remaining_start not in [
-            s * sr for s in window_starts
-        ]:
-            chunk = audio[remaining_start:]
-            if len(chunk) >= sr:  # At least 1 second
-                # Pad to window size
-                padded = np.zeros(window_samples, dtype=np.float32)
-                padded[: len(chunk)] = chunk
-                waveform = torch.tensor(padded, dtype=torch.float32).unsqueeze(0)
-                with torch.no_grad():
-                    emb = self.encoder.encode_batch(waveform)
-                embeddings.append(emb.squeeze().numpy())
-                window_starts.append(remaining_start / sr)
-
-        if len(embeddings) < 2:
-            # Too short for clustering — assign single speaker
+        speech_intervals = self._run_vad(audio, sr)
+        if speech_intervals:
+            speech_ratio = sum(e - s for s, e in speech_intervals) / max(total_duration, 1e-9)
+            logger.info(
+                "VAD: %.1f%% speech across %d interval(s)",
+                speech_ratio * 100.0,
+                len(speech_intervals),
+            )
+        else:
+            logger.info("VAD found no speech; returning single-speaker fallback")
             return [{"start": 0.0, "end": total_duration, "speaker": "cluster_0"}]
 
-        embedding_matrix = np.stack(embeddings)
+        embeddings, window_starts, window_ends = self._extract_windows(
+            audio, sr, speech_intervals
+        )
+        logger.info("Extracted %d embedding window(s)", len(embeddings))
 
-        # AgglomerativeClustering (auto-determines speaker count via distance threshold)
+        if len(embeddings) < 2:
+            return [{"start": 0.0, "end": total_duration, "speaker": "cluster_0"}]
+
+        embeddings = self._normalize_embeddings(embeddings)
+
+        distance_matrix = self._build_affinity(embeddings, self.top_p)
+        labels = self._cluster(distance_matrix)
+        n_initial = len(set(labels.tolist()))
+
+        labels = self._centroid_merge(embeddings, labels, self.centroid_merge_threshold)
+        n_after_merge = len(set(labels.tolist()))
+
+        labels = self._cap_speakers(embeddings, labels, self.max_speakers)
+        n_after_cap = len(set(labels.tolist()))
+
+        logger.info(
+            "Clusters: %d initial -> %d after centroid-merge -> %d after cap",
+            n_initial,
+            n_after_merge,
+            n_after_cap,
+        )
+
+        if len(labels) >= 3:
+            k = max(3, int(round(2.0 / max(self.hop_size, 1e-6))))
+            if k % 2 == 0:
+                k += 1
+            labels = median_filter(labels, size=k).astype(int)
+
+        return self._labels_to_segments(window_starts, window_ends, labels, total_duration)
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _run_vad(self, audio: np.ndarray, sr: int) -> list[tuple[float, float]]:
+        audio_tensor = torch.from_numpy(audio.astype(np.float32))
+        timestamps = get_speech_timestamps(
+            audio_tensor,
+            self.vad_model,
+            threshold=self.vad_threshold,
+            sampling_rate=sr,
+            min_speech_duration_ms=int(self.min_speech_duration * 1000),
+        )
+        return [(t["start"] / sr, t["end"] / sr) for t in timestamps]
+
+    def _encode_chunk(self, chunk: np.ndarray) -> np.ndarray:
+        # RMS-normalize to neutralize browser/recorder AGC drift
+        rms = float(np.sqrt(np.mean(chunk.astype(np.float32) ** 2)))
+        if rms > 1e-6:
+            chunk = (chunk / rms) * 0.1
+        waveform = torch.tensor(chunk, dtype=torch.float32).unsqueeze(0)
+        with torch.no_grad():
+            emb = self.encoder.encode_batch(waveform)
+        return emb.squeeze().cpu().numpy()
+
+    def _extract_windows(
+        self,
+        audio: np.ndarray,
+        sr: int,
+        speech_intervals: list[tuple[float, float]],
+    ) -> tuple[np.ndarray, list[float], list[float]]:
+        window_samples = int(self.window_size * sr)
+        hop_samples = max(1, int(self.hop_size * sr))
+        min_chunk_samples = int(0.75 * sr)  # ECAPA stable down to ~0.75s
+
+        embeddings: list[np.ndarray] = []
+        starts: list[float] = []
+        ends: list[float] = []
+
+        for sp_start, sp_end in speech_intervals:
+            start_sample = int(sp_start * sr)
+            end_sample = min(int(sp_end * sr), len(audio))
+            interval_len = end_sample - start_sample
+
+            if interval_len < window_samples:
+                # Short interval — embed it whole (no padding)
+                if interval_len < min_chunk_samples:
+                    continue
+                chunk = audio[start_sample:end_sample]
+                embeddings.append(self._encode_chunk(chunk))
+                starts.append(start_sample / sr)
+                ends.append(end_sample / sr)
+                continue
+
+            # Slide windows within the speech interval
+            for offset in range(0, interval_len - window_samples + 1, hop_samples):
+                w_start_sample = start_sample + offset
+                chunk = audio[w_start_sample : w_start_sample + window_samples]
+                embeddings.append(self._encode_chunk(chunk))
+                starts.append(w_start_sample / sr)
+                ends.append((w_start_sample + window_samples) / sr)
+
+        if not embeddings:
+            return np.zeros((0, 192), dtype=np.float32), [], []
+        return np.stack(embeddings), starts, ends
+
+    def _normalize_embeddings(self, embs: np.ndarray) -> np.ndarray:
+        # L2 -> mean-center -> L2 again (recording-level channel adaptation)
+        embs = embs / (np.linalg.norm(embs, axis=1, keepdims=True) + 1e-9)
+        embs = embs - embs.mean(axis=0, keepdims=True)
+        embs = embs / (np.linalg.norm(embs, axis=1, keepdims=True) + 1e-9)
+        return embs.astype(np.float32)
+
+    def _build_affinity(self, embs: np.ndarray, top_p: float) -> np.ndarray:
+        sim = embs @ embs.T  # cosine sim since embs are unit-norm
+        if 0.0 < top_p < 1.0:
+            k = max(1, int(round(top_p * sim.shape[1])))
+            scrub = np.zeros_like(sim)
+            for i in range(sim.shape[0]):
+                idx = np.argpartition(sim[i], -k)[-k:]
+                scrub[i, idx] = sim[i, idx]
+            sim = np.maximum(scrub, scrub.T)  # symmetrize
+        dist = 1.0 - sim
+        np.fill_diagonal(dist, 0.0)
+        return np.clip(dist, 0.0, 2.0).astype(np.float64)
+
+    def _cluster(self, distance_matrix: np.ndarray) -> np.ndarray:
         clustering = AgglomerativeClustering(
             n_clusters=None,
             distance_threshold=self.distance_threshold,
-            metric="cosine",
-            linkage="average",
+            metric="precomputed",
+            linkage=self.linkage,
         )
-        labels = clustering.fit_predict(embedding_matrix)
+        return clustering.fit_predict(distance_matrix)
 
-        # Smooth labels with median filter to remove single-window flickers
-        if len(labels) >= 3:
-            labels = median_filter(labels, size=3).astype(int)
+    def _centroid_merge(
+        self, embs: np.ndarray, labels: np.ndarray, threshold: float
+    ) -> np.ndarray:
+        if threshold <= 0.0:
+            return labels
+        labels = labels.copy()
+        while True:
+            unique = sorted(set(labels.tolist()))
+            if len(unique) < 2:
+                break
+            centroids = np.stack([embs[labels == u].mean(axis=0) for u in unique])
+            centroids = centroids / (np.linalg.norm(centroids, axis=1, keepdims=True) + 1e-9)
+            sim = centroids @ centroids.T
+            dist = 1.0 - sim
+            np.fill_diagonal(dist, np.inf)
+            i, j = np.unravel_index(np.argmin(dist), dist.shape)
+            if dist[i, j] >= threshold:
+                break
+            labels[labels == unique[j]] = unique[i]
+        return labels
 
-        # Convert window labels to time segments
-        raw_segments = []
-        for i, (start_time, label) in enumerate(zip(window_starts, labels)):
-            end_time = start_time + self.window_size
-            end_time = min(end_time, total_duration)
-            raw_segments.append(
-                {
-                    "start": round(start_time, 3),
-                    "end": round(end_time, 3),
-                    "speaker": f"cluster_{label}",
-                }
+    def _cap_speakers(
+        self, embs: np.ndarray, labels: np.ndarray, max_speakers: int
+    ) -> np.ndarray:
+        labels = labels.copy()
+        while True:
+            unique, counts = np.unique(labels, return_counts=True)
+            if len(unique) <= max_speakers:
+                break
+            smallest_label = unique[int(np.argmin(counts))]
+            small_centroid = embs[labels == smallest_label].mean(axis=0)
+            small_centroid = small_centroid / (np.linalg.norm(small_centroid) + 1e-9)
+
+            best_label = None
+            best_dist = np.inf
+            for u in unique:
+                if u == smallest_label:
+                    continue
+                c = embs[labels == u].mean(axis=0)
+                c = c / (np.linalg.norm(c) + 1e-9)
+                d = float(1.0 - small_centroid @ c)
+                if d < best_dist:
+                    best_dist = d
+                    best_label = u
+            if best_label is None:
+                break
+            labels[labels == smallest_label] = best_label
+        return labels
+
+    def _labels_to_segments(
+        self,
+        starts: list[float],
+        ends: list[float],
+        labels: np.ndarray,
+        total_duration: float,
+    ) -> list[dict[str, Any]]:
+        if not starts:
+            return [{"start": 0.0, "end": total_duration, "speaker": "cluster_0"}]
+
+        order = np.argsort(starts)
+        starts_s = [starts[i] for i in order]
+        ends_s = [ends[i] for i in order]
+        labels_s = [int(labels[i]) for i in order]
+
+        # Build per-window segments with midpoint boundaries where windows overlap
+        raw = []
+        n = len(starts_s)
+        for i in range(n):
+            s, e, lab = starts_s[i], ends_s[i], labels_s[i]
+            seg_start = s if i == 0 else (
+                (ends_s[i - 1] + s) / 2.0 if ends_s[i - 1] > s else s
             )
+            seg_end = (
+                min(e, total_duration) if i == n - 1
+                else ((e + starts_s[i + 1]) / 2.0 if e > starts_s[i + 1] else e)
+            )
+            raw.append({"start": seg_start, "end": seg_end, "speaker": f"cluster_{lab}"})
 
-        # Merge consecutive segments with the same speaker
-        merged = []
-        for seg in raw_segments:
-            if merged and merged[-1]["speaker"] == seg["speaker"]:
+        # Merge consecutive same-speaker segments separated by tiny gaps (<0.5s)
+        merged: list[dict[str, Any]] = []
+        for seg in raw:
+            if merged and merged[-1]["speaker"] == seg["speaker"] and (
+                seg["start"] - merged[-1]["end"]
+            ) < 0.5:
                 merged[-1]["end"] = seg["end"]
             else:
                 merged.append(dict(seg))
 
-        # Filter out very short segments
-        merged = [
-            s for s in merged if (s["end"] - s["start"]) >= self.min_segment_duration
-        ]
+        # Drop too-short segments
+        merged = [s for s in merged if (s["end"] - s["start"]) >= self.min_segment_duration]
 
-        return merged if merged else [{"start": 0.0, "end": total_duration, "speaker": "cluster_0"}]
+        # Round to 3 decimals for output stability
+        for s in merged:
+            s["start"] = round(s["start"], 3)
+            s["end"] = round(s["end"], 3)
+
+        return merged if merged else [
+            {"start": 0.0, "end": round(total_duration, 3), "speaker": "cluster_0"}
+        ]
 
 
 # ---------------------------------------------------------------------------
