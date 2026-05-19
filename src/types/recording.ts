@@ -3,6 +3,8 @@ export type RecordingStatus = 'unassigned' | 'processing' | 'ready' | 'error';
 export interface Recording {
   id: string;
   title: string;
+  description?: string | null;
+  titleIsAuto?: boolean;
   durationMs: number;
   filePath: string | null;
   status: RecordingStatus;

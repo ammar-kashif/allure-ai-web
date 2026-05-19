@@ -31,6 +31,12 @@ export async function PATCH(
     return NextResponse.json({ error: "Recording not found" }, { status: 404 })
   }
 
+  // If the user is manually changing the title, lock it from auto-overwrite
+  // by the post-extraction sync.
+  if (typeof body.title === "string" && body.titleIsAuto === undefined) {
+    body.titleIsAuto = false
+  }
+
   const updated = updateRecording(id, body)
   return NextResponse.json(updated)
 }

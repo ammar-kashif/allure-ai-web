@@ -4,6 +4,8 @@ import type { Recording, RecordingStatus } from "@/types/recording"
 interface RecordingRow {
   id: string
   title: string
+  description: string | null
+  title_is_auto: number
   duration_ms: number
   file_path: string | null
   status: string
@@ -18,6 +20,8 @@ function rowToRecording(row: RecordingRow): Recording {
   return {
     id: row.id,
     title: row.title,
+    description: row.description ?? null,
+    titleIsAuto: row.title_is_auto !== 0,
     durationMs: row.duration_ms,
     filePath: row.file_path,
     status: row.status as RecordingStatus,
@@ -68,7 +72,7 @@ export function createRecording(data: {
 
 export function updateRecording(
   id: string,
-  data: Partial<Pick<Recording, "title" | "status" | "projectId" | "backendId" | "errorMessage" | "durationMs">>
+  data: Partial<Pick<Recording, "title" | "description" | "titleIsAuto" | "status" | "projectId" | "backendId" | "errorMessage" | "durationMs">>
 ): Recording {
   const db = getDb()
   const sets: string[] = []
@@ -77,6 +81,14 @@ export function updateRecording(
   if (data.title !== undefined) {
     sets.push("title = ?")
     values.push(data.title)
+  }
+  if (data.description !== undefined) {
+    sets.push("description = ?")
+    values.push(data.description)
+  }
+  if (data.titleIsAuto !== undefined) {
+    sets.push("title_is_auto = ?")
+    values.push(data.titleIsAuto ? 1 : 0)
   }
   if (data.status !== undefined) {
     sets.push("status = ?")

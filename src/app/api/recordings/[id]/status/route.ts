@@ -1,13 +1,25 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { getRecording, updateRecording, getCachedTranscript, cacheTranscript } from "@/lib/db/recordings"
+import {
+  getRecording,
+  updateRecording,
+  getCachedTranscript,
+  cacheTranscript,
+  clearCachedTranscript,
+} from "@/lib/db/recordings"
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000"
 
-/** Pre-fetch and cache transcript when a recording becomes ready. */
-async function prefetchTranscript(recordingId: string, backendId: string) {
-  // Skip if already cached
-  if (getCachedTranscript(recordingId)) return
+/** Pre-fetch and cache transcript when a recording becomes ready.
+ *  `forceRefresh=true` bypasses the existing cache (used when extraction
+ *  completes after the initial cache was populated). */
+async function prefetchTranscript(
+  recordingId: string,
+  backendId: string,
+  forceRefresh = false
+) {
+  if (!forceRefresh && getCachedTranscript(recordingId)) return
+  if (forceRefresh) clearCachedTranscript(recordingId)
 
   try {
     const res = await fetch(`${BACKEND_URL}/recordings/${backendId}/transcript`)
@@ -53,6 +65,26 @@ async function prefetchTranscript(recordingId: string, backendId: string) {
     // Sync duration from backend (fixes duration showing 0 for uploaded files)
     if (transcript.duration && transcript.duration > 0) {
       updateRecording(recordingId, { durationMs: Math.round(transcript.duration * 1000) })
+    }
+
+    // Sync auto-generated meeting title + description from backend.
+    // Title is only overwritten if the user hasn't manually renamed (titleIsAuto !== false).
+    const localRec = getRecording(recordingId)
+    const meetingTitle =
+      typeof data.meeting_title === "string" ? data.meeting_title.trim() : ""
+    const meetingDescription =
+      typeof data.meeting_description === "string"
+        ? data.meeting_description.trim()
+        : ""
+    const updates: Parameters<typeof updateRecording>[1] = {}
+    if (meetingTitle && localRec?.titleIsAuto !== false) {
+      updates.title = meetingTitle
+    }
+    if (meetingDescription) {
+      updates.description = meetingDescription
+    }
+    if (Object.keys(updates).length > 0) {
+      updateRecording(recordingId, updates)
     }
   } catch {
     // Non-critical — transcript will be fetched on demand
@@ -108,6 +140,24 @@ export async function GET(
       // Pre-fetch transcript when transitioning to ready
       if (mappedStatus === "ready") {
         prefetchTranscript(id, recording.backendId).catch(() => {})
+      }
+    }
+
+    // Race fix: status flips to "ready" before extraction completes, so the
+    // first prefetch caches a transcript WITHOUT meeting_title/description.
+    // When extraction later completes, force-refresh the cache so title/desc
+    // sync into the local recordings row. AWAIT this — the client invalidates
+    // ["recording", id] right after this response returns, so the DB write
+    // must be committed before we return or the refetch reads stale title.
+    if (
+      mappedStatus === "ready" &&
+      data.extraction_status === "completed" &&
+      !recording.description
+    ) {
+      try {
+        await prefetchTranscript(id, recording.backendId, true)
+      } catch {
+        // best-effort
       }
     }
 

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { getRecording, getCachedTranscript, cacheTranscript } from "@/lib/db/recordings"
+import {
+  getRecording,
+  getCachedTranscript,
+  cacheTranscript,
+  updateRecording,
+} from "@/lib/db/recordings"
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000"
 
@@ -88,7 +93,30 @@ export async function GET(
     const data = await response.json()
     const transcript = transformBackendData(data, id)
 
-    // 3. Cache locally for instant access next time
+    // 3. Sync auto-generated title/description from backend, if user hasn't
+    // manually renamed (titleIsAuto stays true until they do).
+    const meetingTitle =
+      typeof data.meeting_title === "string" ? data.meeting_title.trim() : ""
+    const meetingDescription =
+      typeof data.meeting_description === "string"
+        ? data.meeting_description.trim()
+        : ""
+    const updates: Parameters<typeof updateRecording>[1] = {}
+    if (meetingTitle && recording.titleIsAuto !== false) {
+      updates.title = meetingTitle
+    }
+    if (meetingDescription) {
+      updates.description = meetingDescription
+    }
+    if (Object.keys(updates).length > 0) {
+      try {
+        updateRecording(id, updates)
+      } catch {
+        // ignore — purely best-effort sync
+      }
+    }
+
+    // 4. Cache locally for instant access next time
     cacheTranscript(id, JSON.stringify(transcript))
 
     return NextResponse.json(transcript)
