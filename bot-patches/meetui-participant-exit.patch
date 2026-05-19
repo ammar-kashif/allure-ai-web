@@ -1,8 +1,45 @@
+diff --git a/src/simple/GoogleMeetSimpleBot.ts b/src/simple/GoogleMeetSimpleBot.ts
+index 154eb16..47b06e3 100644
+--- a/src/simple/GoogleMeetSimpleBot.ts
++++ b/src/simple/GoogleMeetSimpleBot.ts
+@@ -167,12 +167,30 @@ export class GoogleMeetSimpleBot {
+       const endReason = await waitUntilMeetingEnds(page, this.logger, maxMs);
+       this.logger.info('Stopping recording', { endReason });
+ 
++      // The stop() calls do a page.evaluate; if Meet already navigated away
++      // we hit "Attempted to use detached Frame". The MediaRecorder data is
++      // already flushed to disk by this point, so swallow the error and let
++      // finalizeAudioRecording run on the .tmp.webm we already have.
+       if (audioCapture) {
+-        await audioCapture.stop();
++        try {
++          await audioCapture.stop();
++        } catch (stopErr) {
++          this.logger.warn(
++            'audioCapture.stop() failed (likely detached frame) — continuing to finalize from .tmp.webm',
++            { stopErr: (stopErr as Error)?.message }
++          );
++        }
+         audioCapture = null;
+       }
+       if (screenRecorder) {
+-        await screenRecorder.stop();
++        try {
++          await screenRecorder.stop();
++        } catch (stopErr) {
++          this.logger.warn(
++            'screenRecorder.stop() failed (likely detached frame) — continuing',
++            { stopErr: (stopErr as Error)?.message }
++          );
++        }
+         screenRecorder = null;
+       }
+ 
 diff --git a/src/simple/meetUi.ts b/src/simple/meetUi.ts
-index 0d5a277..9065298 100644
+index 0d5a277..8091dcf 100644
 --- a/src/simple/meetUi.ts
 +++ b/src/simple/meetUi.ts
-@@ -131,7 +131,10 @@ export async function waitUntilMeetingEnds(
+@@ -131,7 +131,13 @@ export async function waitUntilMeetingEnds(
  ): Promise<'ended' | 'max_duration'> {
    const deadline = Date.now() + maxMs;
    let absentLeaveButtonChecks = 0;
@@ -10,10 +47,13 @@ index 0d5a277..9065298 100644
    const absentChecksRequired = 2;
 +  // 3 polls * 3s = 9s of zero remote audio streams = all participants left.
 +  const noRemoteAudioChecksRequired = 3;
++  // Debug: log audio-element count each time it changes so we can see if
++  // Meet leaves stale <audio> nodes after participants leave.
++  let lastAudioElements = -1;
  
    while (Date.now() < deadline) {
      if (page.isClosed()) {
-@@ -145,20 +148,29 @@ export async function waitUntilMeetingEnds(
+@@ -145,20 +151,37 @@ export async function waitUntilMeetingEnds(
          const leaveBtn = document.querySelector('button[aria-label="Leave call"]');
          const inCall =
            !!leaveBtn && (leaveBtn as HTMLElement).offsetParent !== null;
@@ -43,10 +83,18 @@ index 0d5a277..9065298 100644
 +        onMeet: false,
 +        audioElements: 0,
 +      }));
++
++    if (state.audioElements !== lastAudioElements) {
++      logger.info('Remote audio element count changed', {
++        from: lastAudioElements,
++        to: state.audioElements,
++      });
++      lastAudioElements = state.audioElements;
++    }
  
      if (state.endedByText || !state.onMeet) {
        logger.info('Meeting ended (message or left Meet URL)');
-@@ -175,6 +187,18 @@ export async function waitUntilMeetingEnds(
+@@ -175,6 +198,18 @@ export async function waitUntilMeetingEnds(
        absentLeaveButtonChecks = 0;
      }
  
