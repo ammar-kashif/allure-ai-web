@@ -152,6 +152,11 @@ async def lifespan(app: FastAPI):
         elif job["extraction_status"] in ("pending", "processing"):
             await job_queue.put((job["id"], "extract"))
 
+    # Start meeting-bot filesystem watcher
+    from meeting_bot.watcher import run_watcher
+
+    app.state.bot_watcher = run_watcher(app.state)
+
     yield
     # Shutdown
     worker_task.cancel()
@@ -159,6 +164,13 @@ async def lifespan(app: FastAPI):
         await worker_task
     except asyncio.CancelledError:
         pass
+    if getattr(app.state, "bot_watcher_stop", None):
+        app.state.bot_watcher_stop.set()
+    if getattr(app.state, "bot_watcher", None):
+        try:
+            await asyncio.wait_for(app.state.bot_watcher, timeout=5.0)
+        except (asyncio.TimeoutError, asyncio.CancelledError):
+            app.state.bot_watcher.cancel()
 
 
 app = FastAPI(title="Allure AI Backend", lifespan=lifespan)
