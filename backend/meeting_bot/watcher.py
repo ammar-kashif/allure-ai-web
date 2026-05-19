@@ -37,6 +37,7 @@ from meeting_bot.config import (
     WATCHER_POLL_SECONDS,
 )
 from meeting_bot.forwarder import ForwardError, forward_to_frontend
+from observability import log_event
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +124,16 @@ async def _handle_dispatch(
             error=f"bot timeout after {int(age_minutes)} min",
             finalized_at=dt.datetime.utcnow().isoformat(timespec="seconds"),
         )
+        log_event(
+            category="bot",
+            event="bot.timeout",
+            status="failed",
+            level="error",
+            message="Bot dispatch timed out",
+            dispatch_id=rec_id,
+            recording_id=rec_id,
+            metadata={"age_minutes": round(age_minutes, 1)},
+        )
         last_snapshots.pop(rec_id, None)
         return
 
@@ -135,6 +146,14 @@ async def _handle_dispatch(
     # stable -- this is purely a status-visibility improvement.
     if row["status"] == "dispatched" and _has_tmp_sibling(rec_dir):
         dispatch_store.update(rec_id, status="recording")
+        log_event(
+            category="bot",
+            event="bot.joined",
+            status="done",
+            message="Bot joined and started recording",
+            dispatch_id=rec_id,
+            recording_id=rec_id,
+        )
 
     if candidate is None:
         return  # bot hasn't finalized anything yet
@@ -142,6 +161,14 @@ async def _handle_dispatch(
     # Capture the finalized audio path on first sighting.
     if row["status"] in ("dispatched", "recording") and not row.get("audio_path"):
         dispatch_store.update(rec_id, status="recording", audio_path=candidate)
+        log_event(
+            category="bot",
+            event="bot.recording_detected",
+            status="done",
+            message="Bot recording file detected",
+            dispatch_id=rec_id,
+            recording_id=rec_id,
+        )
 
     snap = _snapshot(candidate)
     if snap is None:
@@ -164,7 +191,23 @@ async def _handle_dispatch(
         return
 
     # All conditions met -> forward to the frontend.
+    log_event(
+        category="bot",
+        event="bot.left",
+        status="done",
+        message="Bot left meeting; finalizing recording",
+        dispatch_id=rec_id,
+        recording_id=rec_id,
+    )
     dispatch_store.update(rec_id, status="forwarding", audio_path=snap.path)
+    log_event(
+        category="bot",
+        event="bot.forwarding",
+        status="start",
+        message="Forwarding bot recording to pipeline",
+        dispatch_id=rec_id,
+        recording_id=rec_id,
+    )
     title = row.get("title") or f"Meeting {rec_id[:8]}"
     project_id = row.get("project_id")
 
@@ -183,6 +226,16 @@ async def _handle_dispatch(
             error=str(exc),
             finalized_at=dt.datetime.utcnow().isoformat(timespec="seconds"),
         )
+        log_event(
+            category="bot",
+            event="bot.forwarding",
+            status="failed",
+            level="error",
+            message="Bot recording forward failed",
+            dispatch_id=rec_id,
+            recording_id=rec_id,
+            metadata={"error": str(exc)},
+        )
         last_snapshots.pop(rec_id, None)
         return
 
@@ -190,6 +243,22 @@ async def _handle_dispatch(
         rec_id,
         status="ingested",
         finalized_at=dt.datetime.utcnow().isoformat(timespec="seconds"),
+    )
+    log_event(
+        category="bot",
+        event="bot.forwarding",
+        status="done",
+        message="Bot recording forwarded to pipeline",
+        dispatch_id=rec_id,
+        recording_id=rec_id,
+    )
+    log_event(
+        category="bot",
+        event="bot.ingested",
+        status="done",
+        message="Bot recording ingested",
+        dispatch_id=rec_id,
+        recording_id=rec_id,
     )
     last_snapshots.pop(rec_id, None)
     logger.info("Recording %s ingested into Allure", rec_id)

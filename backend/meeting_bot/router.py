@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from meeting_bot import dispatch_store
 from meeting_bot.bot_client import BotClient, BotDispatchError
+from observability import log_event
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +83,15 @@ async def dispatch_meeting(
         project_id=body.project_id,
         title=body.title,
     )
+    log_event(
+        category="bot",
+        event="bot.waiting",
+        status="start",
+        message="Bot dispatch recorded, waiting to join",
+        dispatch_id=recording_id,
+        recording_id=recording_id,
+        metadata={"platform": platform},
+    )
 
     try:
         bot_response = await bot.dispatch(
@@ -92,6 +102,16 @@ async def dispatch_meeting(
         )
     except BotDispatchError as exc:
         dispatch_store.update(recording_id, status="failed", error=str(exc))
+        log_event(
+            category="bot",
+            event="bot.dispatch",
+            status="failed",
+            level="error",
+            message="Bot dispatch failed",
+            dispatch_id=recording_id,
+            recording_id=recording_id,
+            metadata={"platform": platform, "error": str(exc)},
+        )
         # 502: we accepted the request but the upstream bot refused.
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -100,6 +120,15 @@ async def dispatch_meeting(
         recording_id,
         platform,
         body.meeting_url,
+    )
+    log_event(
+        category="bot",
+        event="bot.dispatched",
+        status="done",
+        message="Bot dispatched to meeting",
+        dispatch_id=recording_id,
+        recording_id=recording_id,
+        metadata={"platform": platform},
     )
     return DispatchResponse(
         recording_id=recording_id,
@@ -150,8 +179,26 @@ async def stop_meeting(
     except BotDispatchError as exc:
         # Mark failed so the watcher times it out cleanly
         dispatch_store.update(recording_id, status="failed", error=str(exc))
+        log_event(
+            category="bot",
+            event="bot.stop",
+            status="failed",
+            level="error",
+            message="Bot stop request failed",
+            dispatch_id=recording_id,
+            recording_id=recording_id,
+            metadata={"error": str(exc)},
+        )
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     dispatch_store.update(recording_id, status="stop_requested")
+    log_event(
+        category="bot",
+        event="bot.stop_requested",
+        status="start",
+        message="Stop requested for active bot",
+        dispatch_id=recording_id,
+        recording_id=recording_id,
+    )
     logger.info("Stop requested for recording_id=%s", recording_id)
     return {"recording_id": recording_id, "bot_response": bot_response}
