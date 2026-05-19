@@ -89,6 +89,54 @@ def _migrate_speaker_stats():
         logger.info("Migrated speaker stats for %d old job(s)", migrated)
 
 
+def _backfill_meeting_metadata():
+    """One-time backfill: for completed jobs whose result has empty
+    meeting_title/description (because they were extracted before the
+    fallback shipped, OR because the LLM returned empty on a short
+    recording), synthesize a non-empty title/description from segments
+    using the same fallback helpers run_extraction uses.
+
+    No LLM calls — purely deterministic from existing transcript text.
+    """
+    from extraction import (
+        _fallback_title_from_segments,
+        _fallback_description_from_segments,
+    )
+
+    backfilled = 0
+    for job in list_jobs():
+        if job["status"] != "completed" or not job.get("result"):
+            continue
+        result = job["result"]
+        segments = result.get("segments", [])
+        if not segments:
+            continue
+
+        title = (result.get("meeting_title") or "").strip()
+        desc = (result.get("meeting_description") or "").strip()
+        if title and desc:
+            continue
+
+        updated = False
+        if not title:
+            result["meeting_title"] = _fallback_title_from_segments(segments)
+            updated = True
+        if not desc:
+            result["meeting_description"] = _fallback_description_from_segments(segments)
+            updated = True
+
+        if updated:
+            update_job(job["id"], result=result)
+            backfilled += 1
+
+    if backfilled:
+        logger.info(
+            "Backfilled meeting_title/description for %d job(s) using "
+            "transcript-derived fallback (no LLM call).",
+            backfilled,
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifecycle: load ML models at startup, cleanup on shutdown."""
@@ -195,6 +243,10 @@ async def lifespan(app: FastAPI):
 
     # Migrate old job results: recompute speaker stats for records missing extended fields
     _migrate_speaker_stats()
+
+    # One-time backfill: fill empty meeting_title/description from segments
+    # (handles jobs extracted before the title fallback shipped).
+    _backfill_meeting_metadata()
 
     # Start background worker
     worker_task = asyncio.create_task(process_worker(app.state))
