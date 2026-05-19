@@ -127,11 +127,20 @@ async def _handle_dispatch(
         return
 
     candidate = _find_candidate_audio(rec_dir)
-    if candidate is None:
-        return  # bot hasn't produced anything yet
 
-    # Move row to 'recording' the first time we see a file.
-    if row["status"] == "dispatched":
+    # As soon as a .tmp.webm sibling appears, the bot has been admitted and
+    # is actively recording -- flip the row to 'recording' so the UI banner
+    # stops saying "Waiting to join..." and the Stop button is contextually
+    # accurate. We still don't forward until the final non-tmp file is
+    # stable -- this is purely a status-visibility improvement.
+    if row["status"] == "dispatched" and _has_tmp_sibling(rec_dir):
+        dispatch_store.update(rec_id, status="recording")
+
+    if candidate is None:
+        return  # bot hasn't finalized anything yet
+
+    # Capture the finalized audio path on first sighting.
+    if row["status"] in ("dispatched", "recording") and not row.get("audio_path"):
         dispatch_store.update(rec_id, status="recording", audio_path=candidate)
 
     snap = _snapshot(candidate)
