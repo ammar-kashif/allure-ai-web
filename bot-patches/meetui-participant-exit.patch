@@ -1,0 +1,67 @@
+diff --git a/src/simple/meetUi.ts b/src/simple/meetUi.ts
+index 0d5a277..9065298 100644
+--- a/src/simple/meetUi.ts
++++ b/src/simple/meetUi.ts
+@@ -131,7 +131,10 @@ export async function waitUntilMeetingEnds(
+ ): Promise<'ended' | 'max_duration'> {
+   const deadline = Date.now() + maxMs;
+   let absentLeaveButtonChecks = 0;
++  let noRemoteAudioChecks = 0;
+   const absentChecksRequired = 2;
++  // 3 polls * 3s = 9s of zero remote audio streams = all participants left.
++  const noRemoteAudioChecksRequired = 3;
+ 
+   while (Date.now() < deadline) {
+     if (page.isClosed()) {
+@@ -145,20 +148,29 @@ export async function waitUntilMeetingEnds(
+         const leaveBtn = document.querySelector('button[aria-label="Leave call"]');
+         const inCall =
+           !!leaveBtn && (leaveBtn as HTMLElement).offsetParent !== null;
++        // 'no one else is here' removed -- Meet shows it transiently and the
++        // audioElements==0 check below is the reliable signal.
+         const endedPhrases = [
+           'you left the meeting',
+           "you've been removed from the meeting",
+           'the meeting has ended',
+           'return to home screen',
+           'meeting ended',
+-          'no one else is here',
+           'you are no longer in the meeting',
+         ];
+         const endedByText = endedPhrases.some((p) => body.includes(p));
+         const onMeet = window.location.href.includes('meet.google.com');
+-        return { inCall, endedByText, onMeet };
++        // Bot is muted and doesn't appear as a remote audio element. Counts
++        // only remote participants' streams.
++        const audioElements = document.querySelectorAll('audio').length;
++        return { inCall, endedByText, onMeet, audioElements };
+       })
+-      .catch(() => ({ inCall: false, endedByText: true, onMeet: false }));
++      .catch(() => ({
++        inCall: false,
++        endedByText: true,
++        onMeet: false,
++        audioElements: 0,
++      }));
+ 
+     if (state.endedByText || !state.onMeet) {
+       logger.info('Meeting ended (message or left Meet URL)');
+@@ -175,6 +187,18 @@ export async function waitUntilMeetingEnds(
+       absentLeaveButtonChecks = 0;
+     }
+ 
++    if (state.audioElements === 0) {
++      noRemoteAudioChecks += 1;
++      if (noRemoteAudioChecks >= noRemoteAudioChecksRequired) {
++        logger.info(
++          'No remote audio streams for 9s — all participants left'
++        );
++        return 'ended';
++      }
++    } else {
++      noRemoteAudioChecks = 0;
++    }
++
+     await sleep(3000);
+   }
+ 
