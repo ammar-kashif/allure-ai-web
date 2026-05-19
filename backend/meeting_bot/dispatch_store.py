@@ -10,12 +10,20 @@ from typing import Any, Optional
 import storage
 
 # Lifecycle of a dispatch row:
-#   dispatched  -> bot was told to join; no audio yet
-#   recording   -> watcher saw a file appear (size may still be growing)
-#   forwarding  -> file stable; POSTing to the frontend
-#   ingested    -> frontend accepted the upload; pipeline owns it now
-#   failed      -> any terminal error (bot timeout, forward failure, etc.)
-VALID_STATUSES = {"dispatched", "recording", "forwarding", "ingested", "failed"}
+#   dispatched     -> bot was told to join; no audio yet
+#   recording      -> watcher saw a file appear (size may still be growing)
+#   stop_requested -> user asked the bot to leave; waiting for finalize
+#   forwarding     -> file stable; POSTing to the frontend
+#   ingested       -> frontend accepted the upload; pipeline owns it now
+#   failed         -> any terminal error (bot timeout, forward failure, etc.)
+VALID_STATUSES = {
+    "dispatched",
+    "recording",
+    "stop_requested",
+    "forwarding",
+    "ingested",
+    "failed",
+}
 
 # Platforms the bot supports.
 VALID_PLATFORMS = {"google", "microsoft", "zoom"}
@@ -106,7 +114,7 @@ def list_pending() -> list[dict[str, Any]]:
     rows = conn.execute(
         """
         SELECT * FROM dispatches
-        WHERE status IN ('dispatched', 'recording', 'forwarding')
+        WHERE status IN ('dispatched', 'recording', 'stop_requested', 'forwarding')
         ORDER BY dispatched_at ASC
         """
     ).fetchall()

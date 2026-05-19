@@ -115,3 +115,37 @@ async def get_meeting_status(recording_id: str):
     if row is None:
         raise HTTPException(status_code=404, detail="Dispatch not found")
     return DispatchStatusResponse(**row)
+
+
+@router.post("/{recording_id}/stop", status_code=202)
+async def stop_meeting(
+    recording_id: str,
+    bot: BotClient = Depends(get_bot_client),
+):
+    """User-initiated stop: tell the bot to leave the meeting now.
+
+    The bot's patched POST /jobs/stop accepts the request, the wait loop
+    exits on its next poll, finalize runs, and the watcher carries the
+    recording forward as usual. This endpoint just relays the request and
+    marks the row 'stop_requested' for UI visibility.
+    """
+    row = dispatch_store.get(recording_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Dispatch not found")
+    if row["status"] not in ("dispatched", "recording"):
+        # Already finalizing / ingested / failed -- stop is a no-op
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot stop dispatch in status {row['status']!r}",
+        )
+
+    try:
+        bot_response = await bot.stop_current_job()
+    except BotDispatchError as exc:
+        # Mark failed so the watcher times it out cleanly
+        dispatch_store.update(recording_id, status="failed", error=str(exc))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    dispatch_store.update(recording_id, status="stop_requested")
+    logger.info("Stop requested for recording_id=%s", recording_id)
+    return {"recording_id": recording_id, "bot_response": bot_response}

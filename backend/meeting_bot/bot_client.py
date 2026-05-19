@@ -98,6 +98,24 @@ class BotClient:
             # 202 with empty/non-JSON body is fine.
             return {"status": response.status_code, "text": response.text}
 
+    async def stop_current_job(self) -> dict[str, Any]:
+        """Ask the bot to gracefully exit the current meeting job.
+
+        Hits the patched POST /jobs/stop endpoint on the bot. The bot's
+        waitUntilMeetingEnds loop picks up the flag within ~3s, exits the
+        meeting, finalizes the recording, and becomes idle (ready for the
+        next dispatch -- no process restart needed).
+        """
+        try:
+            async with self._client() as client:
+                response = await client.post(f"{self._base}/jobs/stop")
+                response.raise_for_status()
+                return response.json()
+        except httpx.HTTPError as exc:
+            raise BotDispatchError(
+                f"Bot stop request failed: {exc}"
+            ) from exc
+
     async def is_busy(self) -> bool:
         """Return True if the bot reports an in-flight job, False otherwise.
 

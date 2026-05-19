@@ -165,3 +165,91 @@ async def test_get_meeting_status_returns_row(client):
 async def test_get_meeting_status_404_for_unknown(client):
     response = await client.get("/meetings/does-not-exist")
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_stop_meeting_relays_to_bot_and_marks_dispatch(client):
+    """POST /meetings/{id}/stop -> bot /jobs/stop -> dispatch flipped to stop_requested."""
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/jobs/stop":
+            captured["stop_hit"] = True
+            return httpx.Response(202, json={"ok": True, "wasBusy": True})
+        return httpx.Response(202, json={})
+
+    app.dependency_overrides[get_bot_client] = lambda: _bot_with(handler)
+    try:
+        post = await client.post(
+            "/meetings/dispatch",
+            json={"meeting_url": "https://meet.google.com/x"},
+        )
+        rec_id = post.json()["recording_id"]
+        stop = await client.post(f"/meetings/{rec_id}/stop")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert stop.status_code == 202
+    assert captured.get("stop_hit") is True
+    body = stop.json()
+    assert body["recording_id"] == rec_id
+    assert body["bot_response"]["wasBusy"] is True
+
+    # Dispatch row reflects the request
+    row = dispatch_store.get(rec_id)
+    assert row["status"] == "stop_requested"
+
+
+@pytest.mark.asyncio
+async def test_stop_meeting_404_for_unknown(client):
+    response = await client.post("/meetings/does-not-exist/stop")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_stop_meeting_409_when_already_finalized(client):
+    """Stop is a no-op once the row left the active states."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(202, json={})
+
+    app.dependency_overrides[get_bot_client] = lambda: _bot_with(handler)
+    try:
+        post = await client.post(
+            "/meetings/dispatch",
+            json={"meeting_url": "https://meet.google.com/x"},
+        )
+        rec_id = post.json()["recording_id"]
+        # Simulate the watcher having moved past it.
+        dispatch_store.update(rec_id, status="ingested")
+        stop = await client.post(f"/meetings/{rec_id}/stop")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert stop.status_code == 409
+    assert "ingested" in stop.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_stop_meeting_502_when_bot_unreachable(client):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/jobs/stop":
+            raise httpx.ConnectError("bot down")
+        return httpx.Response(202, json={})
+
+    app.dependency_overrides[get_bot_client] = lambda: _bot_with(handler)
+    try:
+        post = await client.post(
+            "/meetings/dispatch",
+            json={"meeting_url": "https://meet.google.com/x"},
+        )
+        rec_id = post.json()["recording_id"]
+        stop = await client.post(f"/meetings/{rec_id}/stop")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert stop.status_code == 502
+    # Failure is recorded on the dispatch row so the watcher won't keep polling.
+    row = dispatch_store.get(rec_id)
+    assert row["status"] == "failed"
+    assert "bot down" in row["error"]
