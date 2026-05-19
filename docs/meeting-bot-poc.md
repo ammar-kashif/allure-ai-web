@@ -49,9 +49,8 @@ HOST=127.0.0.1
 SIMPLE_BOT=true
 HEADLESS=false          # required for reliable tab audio
 UPLOADER_TYPE=local
-RECORDING_MODE=audio    # 'both' also works -- watcher prefers .wav, falls
-                        # back to -with-audio.mp4 if no .wav appears
-AUDIO_FORMAT=wav
+RECORDING_MODE=audio    # audio-only; 'both' also works but adds a video file
+AUDIO_FORMAT=mp3        # ~8x smaller than WAV. See "Size budget" below.
 LOCAL_RECORDINGS_DIR=/Users/<you>/meeting-bot/recordings
 GOOGLE_GUEST_MODE=true  # or false if you've run `npm run google:login`
 DISABLE_CAMERA=true
@@ -124,6 +123,18 @@ The CLI prints `{recording_id, status, platform, bot_response}`. Save that `reco
 | Transcript exists | `curl localhost:8000/recordings/<rec_id>/transcript` returns segments |
 | Outcomes extracted | `curl localhost:8000/recordings/<rec_id>/outcomes` returns a list |
 | UI surfaces it | Open `http://localhost:3000/recordings` — the title appears |
+
+## Size budget
+
+A 3-minute Google Meet recording costs roughly:
+
+| Stage | `AUDIO_FORMAT=wav` (default) | `AUDIO_FORMAT=mp3` (recommended) |
+|---|---|---|
+| Bot writes to disk | ~25 MB (44.1 kHz stereo PCM) | ~3 MB (libmp3lame VBR q=2) |
+| Network bot → frontend → backend | 25 MB × 2 hops | 3 MB × 2 hops |
+| Backend canonical WAV (`backend/uploads/<id>.wav`) | 4.6 MB (16 kHz mono PCM) | 4.6 MB (unchanged — backend always normalizes) |
+
+The watcher (`backend/meeting_bot/watcher.py:_AUDIO_EXTENSIONS`) prefers `.mp3` first, then `.wav`, then `-with-audio.mp4`, so flipping the bot's `AUDIO_FORMAT` is a pure operator change — no Allure code touches needed. Moonshine STT and the speaker stats pipeline are unaffected (the backend downsamples to 16 kHz mono regardless of input format).
 
 ## Known POC limitations
 

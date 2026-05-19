@@ -40,8 +40,11 @@ from meeting_bot.forwarder import ForwardError, forward_to_frontend
 
 logger = logging.getLogger(__name__)
 
-# Order matters: prefer the muxed audio file the bot finalizes last.
-_AUDIO_EXTENSIONS = (".wav", "-with-audio.mp4", ".mp3")
+# Order matters: prefer compact audio over the (much larger) WAV when both
+# are present. The bot's AUDIO_FORMAT=mp3 setting is recommended -- see
+# docs/meeting-bot-poc.md "Size budget". -with-audio.mp4 is the last-resort
+# fallback for older RECORDING_MODE=both setups.
+_AUDIO_EXTENSIONS = (".mp3", ".wav", "-with-audio.mp4")
 
 
 @dataclass
