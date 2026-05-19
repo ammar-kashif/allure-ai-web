@@ -137,6 +137,32 @@ def _backfill_meeting_metadata():
         )
 
 
+def _sync_all_metadata_to_frontend():
+    """Push meeting_title + meeting_description for every completed job
+    into the frontend's SQLite recordings row. Idempotent — running it on
+    every startup is safe; rows that already match get a no-op write that
+    just clears the cached transcript blob."""
+    from frontend_sync import push_metadata_to_frontend
+
+    synced = 0
+    for job in list_jobs():
+        if job["status"] != "completed" or not job.get("result"):
+            continue
+        result = job["result"]
+        title = (result.get("meeting_title") or "").strip()
+        desc = (result.get("meeting_description") or "").strip()
+        if not (title or desc):
+            continue
+        out = push_metadata_to_frontend(job["id"], title=title, description=desc)
+        if out.get("title_updated") or out.get("description_updated"):
+            synced += 1
+    if synced:
+        logger.info(
+            "Synced title/description to frontend DB for %d recording(s).",
+            synced,
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifecycle: load ML models at startup, cleanup on shutdown."""
@@ -247,6 +273,10 @@ async def lifespan(app: FastAPI):
     # One-time backfill: fill empty meeting_title/description from segments
     # (handles jobs extracted before the title fallback shipped).
     _backfill_meeting_metadata()
+
+    # Push all known titles/descriptions from backend → frontend SQLite.
+    # Catches anything the polling-based sync missed.
+    _sync_all_metadata_to_frontend()
 
     # Start background worker
     worker_task = asyncio.create_task(process_worker(app.state))

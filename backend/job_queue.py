@@ -3,6 +3,7 @@
 import asyncio
 import logging
 
+from frontend_sync import push_metadata_to_frontend, rename_audio_files
 from observability import log_event, step_timer
 from storage import get_job, update_job
 from transcription import run_transcription
@@ -86,6 +87,54 @@ async def process_worker(app_state: object) -> None:
                 update_job(
                     job_id, extraction_status="completed", outcomes=outcomes
                 )
+
+                # PUSH to the frontend SQLite directly — don't wait for the
+                # polling-based sync. The frontend's recordings row gets
+                # title/description and its cached transcript blob is cleared
+                # so the next page visit re-fetches the new content.
+                try:
+                    sync_result = await asyncio.to_thread(
+                        push_metadata_to_frontend,
+                        job_id,
+                        meeting_title,
+                        meeting_description,
+                    )
+                    logger.info(
+                        "frontend sync for %s: %s", job_id, sync_result
+                    )
+                except Exception as sync_exc:  # noqa: BLE001
+                    logger.warning(
+                        "frontend metadata push failed for %s: %s",
+                        job_id,
+                        sync_exc,
+                    )
+
+                # Rename the audio files to use a slugified title. Updates
+                # backend's jobs.file_path and frontend's recordings.file_path
+                # so subsequent /audio reads still resolve.
+                if meeting_title:
+                    try:
+                        latest_job = get_job(job_id) or {}
+                        backend_wav = latest_job.get("file_path")
+                        renamed = await asyncio.to_thread(
+                            rename_audio_files,
+                            job_id,
+                            meeting_title,
+                            backend_wav,
+                        )
+                        new_backend_wav = renamed.get("backend_wav")
+                        if new_backend_wav and new_backend_wav != backend_wav:
+                            update_job(job_id, file_path=new_backend_wav)
+                            logger.info(
+                                "Updated backend file_path for %s -> %s",
+                                job_id,
+                                new_backend_wav,
+                            )
+                    except Exception as rn_exc:  # noqa: BLE001
+                        logger.warning(
+                            "Audio rename failed for %s: %s", job_id, rn_exc
+                        )
+
                 log_event(
                     category="extraction",
                     event="extraction.completed",
