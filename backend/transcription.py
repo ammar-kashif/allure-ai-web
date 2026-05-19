@@ -75,22 +75,31 @@ class FastDiarizer:
 
     Args:
         encoder: SpeechBrain EncoderClassifier instance (ECAPA-TDNN).
-        window_size: Embedding window length in seconds.
+        window_size: Embedding window length in seconds. 4s is tuned for
+            conversational meeting audio where speakers alternate quickly;
+            10s collapsed turns into a single cluster in live testing.
         hop_size: Step between windows in seconds.
         min_segment_duration: Drop speaker segments shorter than this (seconds).
+        distance_threshold: Cosine distance cutoff for AgglomerativeClustering.
+            Lower = more sensitive to voice differences -> more clusters.
+            0.5 reliably separated 2 distinct voices on Meet's mixed-stream
+            mono audio in live testing; 0.7 (previous hardcoded value)
+            collapsed them into one.
     """
 
     def __init__(
         self,
         encoder,
-        window_size: float = 10.0,
+        window_size: float = 4.0,
         hop_size: float = 2.0,
         min_segment_duration: float = 1.0,
+        distance_threshold: float = 0.5,
     ):
         self.encoder = encoder
         self.window_size = window_size
         self.hop_size = hop_size
         self.min_segment_duration = min_segment_duration
+        self.distance_threshold = distance_threshold
 
     def diarize(self, audio_path: str) -> list[dict[str, Any]]:
         """Run diarization on an audio file.
@@ -147,7 +156,7 @@ class FastDiarizer:
         # AgglomerativeClustering (auto-determines speaker count via distance threshold)
         clustering = AgglomerativeClustering(
             n_clusters=None,
-            distance_threshold=0.7,  # Cosine distance threshold for ECAPA-TDNN embeddings; tune on real recordings
+            distance_threshold=self.distance_threshold,
             metric="cosine",
             linkage="average",
         )

@@ -110,7 +110,13 @@ async def lifespan(app: FastAPI):
         source="speechbrain/spkrec-ecapa-voxceleb",
         run_opts={"device": "cpu"},
     )
-    app.state.diarizer = FastDiarizer(encoder=encoder)
+    app.state.diarizer = FastDiarizer(
+        encoder=encoder,
+        window_size=float(os.environ.get("DIARIZER_WINDOW_SECONDS", "4.0")),
+        distance_threshold=float(
+            os.environ.get("DIARIZER_DISTANCE_THRESHOLD", "0.5")
+        ),
+    )
     logger.info("SpeechBrain ECAPA-TDNN diarizer loaded in %.1fs", time.perf_counter() - t1)
 
     # Load Phi-4-mini LLM for extraction
