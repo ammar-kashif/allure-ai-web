@@ -36,29 +36,29 @@ index 154eb16..47b06e3 100644
        }
  
 diff --git a/src/simple/meetUi.ts b/src/simple/meetUi.ts
-index 0d5a277..8091dcf 100644
+index 0d5a277..c7fa422 100644
 --- a/src/simple/meetUi.ts
 +++ b/src/simple/meetUi.ts
 @@ -131,7 +131,13 @@ export async function waitUntilMeetingEnds(
  ): Promise<'ended' | 'max_duration'> {
    const deadline = Date.now() + maxMs;
    let absentLeaveButtonChecks = 0;
-+  let noRemoteAudioChecks = 0;
++  let aloneChecks = 0;
    const absentChecksRequired = 2;
-+  // 3 polls * 3s = 9s of zero remote audio streams = all participants left.
-+  const noRemoteAudioChecksRequired = 3;
-+  // Debug: log audio-element count each time it changes so we can see if
-+  // Meet leaves stale <audio> nodes after participants leave.
-+  let lastAudioElements = -1;
++  // 3 polls * 3s = 9s of "only the bot remains" before we exit.
++  const aloneChecksRequired = 3;
++  // Track previous signal snapshot so we can log only on change. Avoids
++  // flooding the log every 3s while everything is steady.
++  let prevSnapshot = '';
  
    while (Date.now() < deadline) {
      if (page.isClosed()) {
-@@ -145,20 +151,37 @@ export async function waitUntilMeetingEnds(
+@@ -145,20 +151,80 @@ export async function waitUntilMeetingEnds(
          const leaveBtn = document.querySelector('button[aria-label="Leave call"]');
          const inCall =
            !!leaveBtn && (leaveBtn as HTMLElement).offsetParent !== null;
-+        // 'no one else is here' removed -- Meet shows it transiently and the
-+        // audioElements==0 check below is the reliable signal.
++        // 'no one else is here' removed -- Meet shows it transiently. We
++        // rely on participant counting instead, which is unambiguous.
          const endedPhrases = [
            'you left the meeting',
            "you've been removed from the meeting",
@@ -71,43 +71,90 @@ index 0d5a277..8091dcf 100644
          const endedByText = endedPhrases.some((p) => body.includes(p));
          const onMeet = window.location.href.includes('meet.google.com');
 -        return { inCall, endedByText, onMeet };
-+        // Bot is muted and doesn't appear as a remote audio element. Counts
-+        // only remote participants' streams.
-+        const audioElements = document.querySelectorAll('audio').length;
-+        return { inCall, endedByText, onMeet, audioElements };
++
++        // --- multi-signal participant detection ---
++        // Meet renders each participant (including the bot) with a
++        // [data-participant-id] node somewhere in the tree. This is the
++        // primary signal.
++        const participantTiles = document.querySelectorAll(
++          '[data-participant-id]'
++        ).length;
++
++        // Audio elements -- left for diagnostic purposes only. Meet keeps
++        // stale <audio> nodes in the DOM after participants leave, so this
++        // count is sticky. NOT used for exit.
++        const audios = Array.from(document.querySelectorAll('audio'));
++        const audioTotal = audios.length;
++
++        // Audio elements with at least one LIVE MediaStreamTrack. This DOES
++        // drop when a participant's stream ends, even if the <audio> node
++        // lingers. Useful fallback if participantTiles selector breaks
++        // someday.
++        let audioLive = 0;
++        for (const el of audios) {
++          const mediaEl = el as HTMLMediaElement;
++          const stream = mediaEl.srcObject as MediaStream | null;
++          if (!stream) continue;
++          if (stream.getAudioTracks().some((t) => t.readyState === 'live')) {
++            audioLive += 1;
++          }
++        }
++
++        // Video tiles in the call grid -- another corroborating signal.
++        const videoTiles = document.querySelectorAll(
++          '[data-allocation-index]'
++        ).length;
++
++        return {
++          inCall,
++          endedByText,
++          onMeet,
++          participantTiles,
++          audioTotal,
++          audioLive,
++          videoTiles,
++        };
        })
 -      .catch(() => ({ inCall: false, endedByText: true, onMeet: false }));
 +      .catch(() => ({
 +        inCall: false,
 +        endedByText: true,
 +        onMeet: false,
-+        audioElements: 0,
++        participantTiles: 0,
++        audioTotal: 0,
++        audioLive: 0,
++        videoTiles: 0,
 +      }));
 +
-+    if (state.audioElements !== lastAudioElements) {
-+      logger.info('Remote audio element count changed', {
-+        from: lastAudioElements,
-+        to: state.audioElements,
-+      });
-+      lastAudioElements = state.audioElements;
++    // One-line snapshot so we can spot which signal moves when in the log.
++    const snapshot =
++      `p=${state.participantTiles} v=${state.videoTiles} ` +
++      `a=${state.audioTotal} aLive=${state.audioLive} call=${state.inCall}`;
++    if (snapshot !== prevSnapshot) {
++      logger.info(`Meet signal change: ${snapshot}`);
++      prevSnapshot = snapshot;
 +    }
  
      if (state.endedByText || !state.onMeet) {
        logger.info('Meeting ended (message or left Meet URL)');
-@@ -175,6 +198,18 @@ export async function waitUntilMeetingEnds(
+@@ -175,6 +241,22 @@ export async function waitUntilMeetingEnds(
        absentLeaveButtonChecks = 0;
      }
  
-+    if (state.audioElements === 0) {
-+      noRemoteAudioChecks += 1;
-+      if (noRemoteAudioChecks >= noRemoteAudioChecksRequired) {
++    // Primary exit signal: only the bot is left in the participant list.
++    // participantTiles == 1 means just the bot's own tile remains.
++    // We require the selector to have returned > 0 at some prior point
++    // (we'd never see 1 if the selector is wrong -- it'd be 0 from start).
++    if (state.participantTiles === 1) {
++      aloneChecks += 1;
++      if (aloneChecks >= aloneChecksRequired) {
 +        logger.info(
-+          'No remote audio streams for 9s — all participants left'
++          'Only the bot remains in the participant list for 9s — exiting'
 +        );
 +        return 'ended';
 +      }
 +    } else {
-+      noRemoteAudioChecks = 0;
++      aloneChecks = 0;
 +    }
 +
      await sleep(3000);
