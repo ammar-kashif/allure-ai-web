@@ -79,7 +79,7 @@ index 154eb16..47b06e3 100644
        }
  
 diff --git a/src/simple/meetUi.ts b/src/simple/meetUi.ts
-index 0d5a277..2042854 100644
+index 0d5a277..0cc6f9d 100644
 --- a/src/simple/meetUi.ts
 +++ b/src/simple/meetUi.ts
 @@ -7,6 +7,21 @@ export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -104,8 +104,16 @@ index 0d5a277..2042854 100644
  export async function clickByTexts(
    page: Page,
    texts: string[],
-@@ -131,9 +146,20 @@ export async function waitUntilMeetingEnds(
+@@ -129,11 +144,28 @@ export async function waitUntilMeetingEnds(
+   logger: Logger,
+   maxMs: number
  ): Promise<'ended' | 'max_duration'> {
++  // Clear any stop flag left over from before this job (e.g. an operator
++  // /jobs/stop that fired while the bot was between jobs). Without this,
++  // the very first poll of a new job would consume the stale flag and exit
++  // instantly -- which is exactly what bit us once.
++  stopRequested = false;
++
    const deadline = Date.now() + maxMs;
    let absentLeaveButtonChecks = 0;
 +  let aloneChecks = 0;
@@ -125,7 +133,7 @@ index 0d5a277..2042854 100644
      if (page.isClosed()) {
        logger.info('Browser closed — treating meeting as ended');
        return 'ended';
-@@ -145,20 +171,80 @@ export async function waitUntilMeetingEnds(
+@@ -145,20 +177,80 @@ export async function waitUntilMeetingEnds(
          const leaveBtn = document.querySelector('button[aria-label="Leave call"]');
          const inCall =
            !!leaveBtn && (leaveBtn as HTMLElement).offsetParent !== null;
@@ -209,7 +217,7 @@ index 0d5a277..2042854 100644
  
      if (state.endedByText || !state.onMeet) {
        logger.info('Meeting ended (message or left Meet URL)');
-@@ -175,6 +261,22 @@ export async function waitUntilMeetingEnds(
+@@ -175,6 +267,22 @@ export async function waitUntilMeetingEnds(
        absentLeaveButtonChecks = 0;
      }
  
