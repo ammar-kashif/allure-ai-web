@@ -107,6 +107,18 @@ def update(recording_id: str, **fields: Any) -> dict[str, Any]:
     return get(recording_id)  # type: ignore[return-value]
 
 
+def list_all(limit: int = 200) -> list[dict[str, Any]]:
+    """Return every dispatch row, newest first. Used by the UI Meetings tab."""
+    conn = storage._get_conn()
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        "SELECT * FROM dispatches ORDER BY dispatched_at DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    conn.row_factory = None
+    return [dict(r) for r in rows]
+
+
 def list_pending() -> list[dict[str, Any]]:
     """Return dispatches still waiting on a recording or upload, oldest first."""
     conn = storage._get_conn()

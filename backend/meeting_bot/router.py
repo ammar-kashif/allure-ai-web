@@ -109,6 +109,12 @@ async def dispatch_meeting(
     )
 
 
+@router.get("", response_model=list[DispatchStatusResponse])
+async def list_meetings():
+    """Every meeting dispatch, newest first. Powers the UI Meetings tab."""
+    return [DispatchStatusResponse(**row) for row in dispatch_store.list_all()]
+
+
 @router.get("/{recording_id}", response_model=DispatchStatusResponse)
 async def get_meeting_status(recording_id: str):
     row = dispatch_store.get(recording_id)
