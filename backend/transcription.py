@@ -14,11 +14,14 @@ from typing import Any
 import librosa
 import numpy as np
 import torch
-from sklearn.cluster import AgglomerativeClustering
+from sklearn.cluster import AgglomerativeClustering, SpectralClustering
 from scipy.ndimage import median_filter
+from scipy.sparse.linalg import eigsh
 from silero_vad import get_speech_timestamps
 
+from observability import step_timer
 from storage import get_job
+from text_post import punctuate_segments
 
 logger = logging.getLogger(__name__)
 
@@ -69,35 +72,40 @@ def transcribe_audio(wav_path: str, transcriber) -> list[dict[str, Any]]:
 
 class FastDiarizer:
     """CPU-only speaker diarization using silero-vad + SpeechBrain ECAPA-TDNN
-    embeddings + AgglomerativeClustering with affinity refinement.
+    embeddings + NME-SC spectral clustering (or agglomerative fallback).
 
-    Pipeline: VAD -> short windows on speech only -> L2-norm + recording-mean
-    centering -> top-p scrubbed cosine affinity -> complete-linkage clustering
-    -> centroid-merge fragments -> cap speakers -> hop-proportional median
-    smoothing -> non-overlapping time segments.
+    Pipeline: VAD -> short windows on speech only -> L2-norm -> NME-SC
+    (auto-K via eigengap on top-p sparsified affinity) -> centroid-merge
+    safety net -> cap speakers -> hop-proportional median smoothing
+    -> non-overlapping time segments.
+
+    NOTE on history: an earlier revision did L2 -> mean-center -> L2 to
+    remove channel/recording bias. Empirically this destroyed speaker
+    separability for low-speaker recordings (the mean *is* the midpoint
+    between speakers when K is small). Centering removed; spectral
+    clustering with affinity sparsification + eigengap handles channel
+    variation by aggregating evidence over many neighbor connections.
 
     Args:
         encoder: SpeechBrain EncoderClassifier instance (ECAPA-TDNN).
         vad_model: silero-vad model from `load_silero_vad(onnx=False)`.
-        window_size: Embedding window length (s). 2.0 resolves 3-5s turns
-            without averaging across speakers; safe because VAD removes the
-            silence that broke shorter windows in the previous design.
+        window_size: Embedding window length (s).
         hop_size: Step between windows (s).
         min_segment_duration: Drop output segments shorter than this (s).
-        distance_threshold: Cosine-distance cutoff for AgglomerativeClustering
-            on L2-normed + centered embeddings. 0.5 is the calibrated default;
-            DIARIZER_DISTANCE_THRESHOLD tunes it.
-        linkage: 'complete' (default) merges only when all pairs are close —
-            fewer phantom clusters. 'average' is the legacy setting.
+        clustering_method: 'spectral' (NME-SC, auto-K) or 'agglomerative'
+            (linkage + distance_threshold, no auto-K).
+        distance_threshold: Cosine-distance cutoff for agglomerative
+            fallback. 0.75 works well for L2-only ECAPA.
+        linkage: 'average' or 'complete' for agglomerative fallback.
         vad_threshold: silero-vad speech-probability cutoff (0.0-1.0).
         min_speech_duration: Drop VAD speech intervals shorter than this (s).
-        top_p: Fraction of strongest similarities to keep per affinity row.
-            0.10 typical. Set 1.0 to disable scrubbing.
         centroid_merge_threshold: After clustering, merge any two clusters
-            whose centroid cosine distance is below this. Sweeps up fragments
-            that survived the main clustering pass.
-        max_speakers: Hard cap on cluster count. Excess clusters are merged
-            into their nearest neighbor by centroid distance.
+            whose centroid cosine distance is below this. Safety net.
+            Set 0.0 to disable.
+        max_speakers: Hard cap on cluster count. Constrains NME-SC's K
+            search and trims extras by centroid-distance merging.
+        min_windows_for_spectral: Below this many embeddings, fall back to
+            agglomerative regardless of clustering_method.
     """
 
     def __init__(
@@ -107,26 +115,28 @@ class FastDiarizer:
         window_size: float = 2.0,
         hop_size: float = 0.75,
         min_segment_duration: float = 1.0,
-        distance_threshold: float = 0.5,
-        linkage: str = "complete",
+        clustering_method: str = "spectral",
+        distance_threshold: float = 0.75,
+        linkage: str = "average",
         vad_threshold: float = 0.5,
         min_speech_duration: float = 0.5,
-        top_p: float = 0.10,
-        centroid_merge_threshold: float = 0.25,
-        max_speakers: int = 8,
+        centroid_merge_threshold: float = 0.0,
+        max_speakers: int = 6,
+        min_windows_for_spectral: int = 10,
     ):
         self.encoder = encoder
         self.vad_model = vad_model
         self.window_size = window_size
         self.hop_size = hop_size
         self.min_segment_duration = min_segment_duration
+        self.clustering_method = clustering_method
         self.distance_threshold = distance_threshold
         self.linkage = linkage
         self.vad_threshold = vad_threshold
         self.min_speech_duration = min_speech_duration
-        self.top_p = top_p
         self.centroid_merge_threshold = centroid_merge_threshold
         self.max_speakers = max_speakers
+        self.min_windows_for_spectral = min_windows_for_spectral
 
     def diarize(self, audio_path: str) -> list[dict[str, Any]]:
         """Run diarization. Returns non-overlapping time-sorted segments
@@ -154,10 +164,11 @@ class FastDiarizer:
         if len(embeddings) < 2:
             return [{"start": 0.0, "end": total_duration, "speaker": "cluster_0"}]
 
+        # L2-normalize only — no mean-centering (it collapses speaker
+        # separability when K is small).
         embeddings = self._normalize_embeddings(embeddings)
 
-        distance_matrix = self._build_affinity(embeddings, self.top_p)
-        labels = self._cluster(distance_matrix)
+        labels = self._cluster_embeddings(embeddings)
         n_initial = len(set(labels.tolist()))
 
         labels = self._centroid_merge(embeddings, labels, self.centroid_merge_threshold)
@@ -248,33 +259,109 @@ class FastDiarizer:
         return np.stack(embeddings), starts, ends
 
     def _normalize_embeddings(self, embs: np.ndarray) -> np.ndarray:
-        # L2 -> mean-center -> L2 again (recording-level channel adaptation)
-        embs = embs / (np.linalg.norm(embs, axis=1, keepdims=True) + 1e-9)
-        embs = embs - embs.mean(axis=0, keepdims=True)
+        # L2-normalize only (no mean centering — see class docstring).
         embs = embs / (np.linalg.norm(embs, axis=1, keepdims=True) + 1e-9)
         return embs.astype(np.float32)
 
-    def _build_affinity(self, embs: np.ndarray, top_p: float) -> np.ndarray:
-        sim = embs @ embs.T  # cosine sim since embs are unit-norm
-        if 0.0 < top_p < 1.0:
-            k = max(1, int(round(top_p * sim.shape[1])))
-            scrub = np.zeros_like(sim)
-            for i in range(sim.shape[0]):
-                idx = np.argpartition(sim[i], -k)[-k:]
-                scrub[i, idx] = sim[i, idx]
-            sim = np.maximum(scrub, scrub.T)  # symmetrize
+    def _cluster_embeddings(self, embs: np.ndarray) -> np.ndarray:
+        """Dispatch to spectral (NME-SC) or agglomerative based on config
+        and dataset size."""
+        N = len(embs)
+        if (
+            self.clustering_method == "spectral"
+            and N >= self.min_windows_for_spectral
+        ):
+            try:
+                return self._nme_sc_cluster(embs)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "NME-SC spectral clustering failed (%s); falling back to "
+                    "agglomerative",
+                    exc,
+                )
+        return self._agglomerative_cluster(embs)
+
+    def _nme_sc_cluster(self, embs: np.ndarray) -> np.ndarray:
+        """NME-SC: sweep affinity sparsification p, pick (K, p) that
+        maximizes the eigengap-ratio of the normalized Laplacian."""
+        N = embs.shape[0]
+        sim = embs @ embs.T  # cosine sim, embs are unit-norm
+        sim_pos = np.clip(sim, 0.0, None).astype(np.float64)
+
+        max_eig = min(self.max_speakers + 2, N - 1)
+        best_K = 1
+        best_ratio = -1.0
+        best_A: np.ndarray | None = None
+
+        for p in np.linspace(0.05, 0.5, 8):
+            k = max(1, int(round(float(p) * N)))
+            scrub = np.zeros_like(sim_pos)
+            for i in range(N):
+                idx = np.argpartition(sim_pos[i], -k)[-k:]
+                scrub[i, idx] = sim_pos[i, idx]
+            A = np.maximum(scrub, scrub.T)  # symmetric, non-negative
+
+            # Normalized affinity: D^-1/2 A D^-1/2 (Laplacian eigvals = 1 - this)
+            d = A.sum(axis=1) + 1e-9
+            d_inv_sqrt = 1.0 / np.sqrt(d)
+            A_norm = (d_inv_sqrt[:, None] * A) * d_inv_sqrt[None, :]
+
+            try:
+                # Largest eigenvalues of A_norm == smallest of Laplacian
+                aff_eigs = eigsh(
+                    A_norm, k=max_eig, which="LA", return_eigenvectors=False
+                )
+            except Exception:
+                continue
+            lap_eigs = np.sort(1.0 - aff_eigs)  # ascending
+            gaps = np.diff(lap_eigs)
+            # Skip gap[0] (Fiedler value, trivially ~0 for any connected
+            # graph — always the largest gap so dominates K selection).
+            # Search from gap[1] onward; K candidates start at 2.
+            # K=1 is reachable later via centroid-merge collapsing K=2->1.
+            search_gaps = gaps[1 : self.max_speakers + 1]
+            if search_gaps.size < 1:
+                continue
+            K_candidate = int(np.argmax(search_gaps)) + 2
+            sorted_gaps = np.sort(search_gaps)[::-1]
+            ratio = float(
+                sorted_gaps[0] / (sorted_gaps[1] + 1e-9)
+                if sorted_gaps.size > 1
+                else sorted_gaps[0]
+            )
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_K = K_candidate
+                best_A = A
+
+        logger.info(
+            "NME-SC: K=%d (eigengap-ratio=%.3f)", best_K, best_ratio
+        )
+
+        if best_K <= 1 or best_A is None:
+            return np.zeros(N, dtype=int)
+
+        sc = SpectralClustering(
+            n_clusters=best_K,
+            affinity="precomputed",
+            random_state=0,
+            assign_labels="kmeans",
+        )
+        return sc.fit_predict(best_A)
+
+    def _agglomerative_cluster(self, embs: np.ndarray) -> np.ndarray:
+        """Fallback clustering for small N or when spectral fails."""
+        sim = embs @ embs.T
         dist = 1.0 - sim
         np.fill_diagonal(dist, 0.0)
-        return np.clip(dist, 0.0, 2.0).astype(np.float64)
-
-    def _cluster(self, distance_matrix: np.ndarray) -> np.ndarray:
+        dist = np.clip(dist, 0.0, 2.0).astype(np.float64)
         clustering = AgglomerativeClustering(
             n_clusters=None,
             distance_threshold=self.distance_threshold,
             metric="precomputed",
             linkage=self.linkage,
         )
-        return clustering.fit_predict(distance_matrix)
+        return clustering.fit_predict(dist)
 
     def _centroid_merge(
         self, embs: np.ndarray, labels: np.ndarray, threshold: float
@@ -388,13 +475,17 @@ def align_transcript_with_speakers(
 ) -> list[dict[str, Any]]:
     """Assign speaker labels to transcript segments by maximum time overlap.
 
-    For each transcript segment, find the diarization segment with the greatest
-    temporal overlap and assign its speaker label. If no overlap is found,
-    the speaker is set to "Unknown".
+    If a transcript segment doesn't overlap any diarization segment (Moonshine
+    sometimes detects speech that VAD missed), fall back to the nearest
+    diarization segment by midpoint distance. This avoids leaking an
+    "Unknown" label that would inflate the apparent speaker count.
     """
+    if not diarization_segments:
+        return [{**seg, "speaker": "Unknown"} for seg in transcript_segments]
+
     result = []
     for seg in transcript_segments:
-        best_speaker = "Unknown"
+        best_speaker: str | None = None
         best_overlap = 0.0
         for diar in diarization_segments:
             overlap_start = max(seg["start"], diar["start"])
@@ -403,6 +494,13 @@ def align_transcript_with_speakers(
             if overlap > best_overlap:
                 best_overlap = overlap
                 best_speaker = diar["speaker"]
+        if best_speaker is None:
+            seg_mid = (seg["start"] + seg["end"]) / 2.0
+            nearest = min(
+                diarization_segments,
+                key=lambda d: abs(((d["start"] + d["end"]) / 2.0) - seg_mid),
+            )
+            best_speaker = nearest["speaker"]
         result.append({**seg, "speaker": best_speaker})
     return result
 
@@ -707,15 +805,23 @@ def run_transcription(job_id: str, app_state: object) -> dict[str, Any]:
     logger.info("Starting transcription for job %s (%.1fs audio)", job_id, total_duration)
 
     # STT
-    transcript_segments = transcribe_audio(wav_path, app_state.transcriber)
+    with step_timer("stt.moonshine", job_id=job_id, duration_s=round(total_duration, 1)):
+        transcript_segments = transcribe_audio(wav_path, app_state.transcriber)
     logger.info("Moonshine STT produced %d segments", len(transcript_segments))
 
     # Diarization
-    diarization_segments = app_state.diarizer.diarize(wav_path)
+    with step_timer("diarization", job_id=job_id):
+        diarization_segments = app_state.diarizer.diarize(wav_path)
     logger.info("FastDiarizer produced %d diarization segments", len(diarization_segments))
 
     # Align
-    aligned = align_transcript_with_speakers(transcript_segments, diarization_segments)
+    with step_timer("align", job_id=job_id):
+        aligned = align_transcript_with_speakers(transcript_segments, diarization_segments)
+
+    # Restore punctuation + capitalization on each segment's text
+    punctuator = getattr(app_state, "punctuator", None)
+    if punctuator is not None:
+        aligned = punctuate_segments(aligned, punctuator)
 
     # Snap to sentence boundaries
     snapped = snap_boundaries_to_sentences(aligned)
@@ -724,10 +830,12 @@ def run_transcription(job_id: str, app_state: object) -> dict[str, Any]:
     remapped = remap_speaker_labels(snapped)
 
     # Merge consecutive
-    merged = merge_consecutive_segments(remapped)
+    with step_timer("merge", job_id=job_id):
+        merged = merge_consecutive_segments(remapped)
 
     # Stats (before filtering so we can identify <1% speakers)
-    stats = calculate_speaker_stats(merged, total_duration)
+    with step_timer("stats", job_id=job_id):
+        stats = calculate_speaker_stats(merged, total_duration)
 
     # Filter segments from speakers below 1% threshold
     valid_speakers = {s["label"] for s in stats}
@@ -735,7 +843,8 @@ def run_transcription(job_id: str, app_state: object) -> dict[str, Any]:
 
     # Identify speaker names and roles via LLM
     if hasattr(app_state, "llm") and app_state.llm:
-        stats = identify_speakers_with_llm(filtered_segments, stats, app_state.llm)
+        with step_timer("speaker_id.llm", job_id=job_id, n_speakers=len(stats)):
+            stats = identify_speakers_with_llm(filtered_segments, stats, app_state.llm)
     else:
         stats = _assign_default_roles(stats)
 

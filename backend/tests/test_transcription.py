@@ -138,7 +138,8 @@ def _vad_full_speech_stub(audio_tensor, _model, sampling_rate, **_kwargs):
 
 
 def _make_diarizer(encoder, **overrides):
-    """Build a FastDiarizer with sensible test defaults."""
+    """Build a FastDiarizer with sensible test defaults (agglomerative
+    clustering by default so tests stay deterministic and small)."""
     from transcription import FastDiarizer
 
     kwargs = dict(
@@ -147,21 +148,22 @@ def _make_diarizer(encoder, **overrides):
         window_size=1.0,
         hop_size=0.5,
         min_segment_duration=0.0,
+        clustering_method="agglomerative",
         distance_threshold=0.5,
         linkage="complete",
         vad_threshold=0.5,
         min_speech_duration=0.0,
-        top_p=1.0,  # disable scrubbing for deterministic tests
         centroid_merge_threshold=0.0,
         max_speakers=8,
+        min_windows_for_spectral=10,
     )
     kwargs.update(overrides)
     return FastDiarizer(**kwargs)
 
 
-def test_diarizer_uses_agglomerative_clustering():
-    """FastDiarizer.diarize() uses AgglomerativeClustering on a precomputed
-    cosine-distance matrix with complete linkage and the configured threshold."""
+def test_diarizer_agglomerative_uses_precomputed_cosine_complete():
+    """When configured for agglomerative, FastDiarizer uses
+    AgglomerativeClustering on a precomputed cosine-distance matrix."""
     import numpy as np
     import torch
 
@@ -262,6 +264,7 @@ def test_centroid_merge_collapses_split_clusters():
     diarizer = FastDiarizer(
         encoder=MagicMock(),
         vad_model=MagicMock(),
+        clustering_method="agglomerative",
         centroid_merge_threshold=0.5,
     )
 
@@ -370,6 +373,9 @@ def test_run_transcription_includes_processing_time():
         mock_app_state.diarizer.diarize.return_value = [
             {"start": 0.0, "end": 10.0, "speaker": "cluster_0"},
         ]
+        # Disable punctuation path in the mocked pipeline.
+        mock_app_state.punctuator = None
+        mock_app_state.llm = None
 
         result = run_transcription("job-1", mock_app_state)
 

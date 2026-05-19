@@ -7,6 +7,7 @@ python-dotenv>=1.0
 moonshine-voice==0.0.49
 speechbrain>=1.0
 silero-vad>=5.1
+deepmultilingualpunctuation>=1.0
 scikit-learn>=1.5
 librosa>=0.10
 scipy>=1.12
