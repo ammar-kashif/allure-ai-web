@@ -1,5 +1,6 @@
 "use client"
 
+import { GhostActivity, persistedToolCallsToRows } from "./ghost-activity"
 import { GhostCitationPill } from "./ghost-citation"
 import type { GhostMessage } from "./types"
 
@@ -11,8 +12,16 @@ export function GhostMessageRow({ message }: { message: GhostMessage }) {
       </div>
     )
   }
+  const activityRows =
+    message.tool_calls && message.tool_calls.length > 0
+      ? persistedToolCallsToRows(message.tool_calls)
+      : []
+
   return (
     <div className="max-w-[90%] space-y-2">
+      {activityRows.length > 0 && (
+        <GhostActivity rows={activityRows} done defaultCollapsed />
+      )}
       <div className="whitespace-pre-wrap text-sm leading-relaxed">
         {message.content}
       </div>

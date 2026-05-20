@@ -11,6 +11,7 @@ from typing import Any, Optional
 
 from .fts import FTSRetriever
 from .scope import Scope
+from .structured import StructuredRetriever
 from .vector import VectorRetriever
 
 logger = logging.getLogger(__name__)
@@ -90,10 +91,22 @@ class HybridRetriever:
     ) -> list[dict[str, Any]]:
         scope = scope or Scope()
         if not query:
-            # No semantic query -> FTS only (in structured mode).
-            return self.fts.search_outcomes(None, scope=scope, outcome_type=outcome_type, limit=k)
+            # No semantic query -> structured read directly from
+            # jobs.outcomes JSON (source of truth). Works for legacy
+            # recordings whose outcomes_fts was never populated.
+            return StructuredRetriever().list_outcomes(
+                scope=scope, outcome_type=outcome_type, limit=k,
+            )
         fts_hits = self.fts.search_outcomes(query, scope=scope, outcome_type=outcome_type, limit=max(k, 8))
         vec_hits = self.vector.search_outcomes(query, scope=scope, k=max(k, 8))
         if outcome_type:
             vec_hits = [v for v in vec_hits if v.get("type") in (None, outcome_type)]
-        return reciprocal_rank_fusion(fts_hits, vec_hits, top_k=k)
+        merged = reciprocal_rank_fusion(fts_hits, vec_hits, top_k=k)
+        # If both FTS and vector came back empty (legacy data with no
+        # populated indexes), fall back to structured so a type filter
+        # still returns something useful.
+        if not merged and outcome_type:
+            return StructuredRetriever().list_outcomes(
+                scope=scope, outcome_type=outcome_type, limit=k,
+            )
+        return merged

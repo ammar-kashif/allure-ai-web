@@ -215,13 +215,82 @@ def test_hybrid_falls_back_to_fts_when_vector_unsupported():
 
 
 def test_hybrid_outcomes_no_query_returns_structured():
+    # Pre-populate outcomes both in jobs.outcomes (source of truth) AND
+    # outcomes_fts (for parity); the structured path is what we're
+    # verifying.
+    storage.create_job("rec-1", "/tmp/a.wav", "a.wav")
+    storage.update_job(
+        "rec-1", status="completed",
+        result={"segments": []},
+        outcomes=[
+            {"id": "o1", "type": "decision", "title": "Buy Acme", "detail": ""},
+            {"id": "o2", "type": "blocker", "title": "Block X", "detail": ""},
+        ],
+    )
     entities_store.index_outcomes("rec-1", [
         {"id": "o1", "type": "decision", "title": "Buy Acme", "detail": ""},
         {"id": "o2", "type": "blocker", "title": "Block X", "detail": ""},
     ])
     h = HybridRetriever()
     hits = h.search_outcomes(None, outcome_type="decision")
+    assert hits
     assert all(x["type"] == "decision" for x in hits)
+
+
+def test_hybrid_outcomes_no_query_works_with_empty_fts():
+    """Bug 1+2 regression: legacy recordings whose outcomes_fts was never
+    populated must still return outcomes for structured queries (read
+    directly from jobs.outcomes JSON)."""
+    storage.create_job("rec-legacy", "/tmp/a.wav", "a.wav")
+    storage.update_job(
+        "rec-legacy", status="completed",
+        result={"segments": []},
+        outcomes=[
+            {"id": "o1", "type": "decision", "title": "Stay in Business", "detail": ""},
+            {"id": "o2", "type": "action_item", "title": "Hire CFO", "detail": ""},
+        ],
+    )
+    # Intentionally skip index_outcomes -- outcomes_fts stays empty.
+    h = HybridRetriever()
+    hits = h.search_outcomes(None, outcome_type="decision")
+    assert any(x["outcome_id"] == "o1" for x in hits)
+
+
+def test_hybrid_outcomes_keyword_falls_back_to_structured_when_indexes_empty():
+    """If FTS + vector both return empty, an outcome_type filter still
+    finds rows via the structured fallback."""
+    storage.create_job("rec-fallback", "/tmp/a.wav", "a.wav")
+    storage.update_job(
+        "rec-fallback", status="completed",
+        result={"segments": []},
+        outcomes=[
+            {"id": "o9", "type": "blocker", "title": "Vendor risk", "detail": ""},
+        ],
+    )
+    # FTS empty (no index_outcomes call). Vector also empty for outcomes.
+    h = HybridRetriever()
+    hits = h.search_outcomes("vendor", outcome_type="blocker")
+    assert any(x["outcome_id"] == "o9" for x in hits)
+
+
+def test_backfill_outcomes_fts_all_idempotent():
+    """The startup backfill should populate outcomes_fts from jobs.outcomes
+    for legacy recordings, and re-running it is a no-op semantically."""
+    storage.create_job("rec-bf1", "/tmp/a.wav", "a.wav")
+    storage.update_job(
+        "rec-bf1", status="completed",
+        result={"segments": []},
+        outcomes=[{"id": "ox", "type": "decision", "title": "Adopt Postgres", "detail": ""}],
+    )
+    n1 = entities_store.backfill_outcomes_fts_all()
+    assert n1 >= 1
+    conn = storage._get_conn()
+    rows = conn.execute("SELECT outcome_id FROM outcomes_fts WHERE recording_id = ?", ("rec-bf1",)).fetchall()
+    assert len(rows) == 1
+    # Run again; row count must stay at 1 (idempotent replace).
+    entities_store.backfill_outcomes_fts_all()
+    rows = conn.execute("SELECT outcome_id FROM outcomes_fts WHERE recording_id = ?", ("rec-bf1",)).fetchall()
+    assert len(rows) == 1
 
 
 # ---------------------------------------------------------------------------

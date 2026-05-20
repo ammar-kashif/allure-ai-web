@@ -14,13 +14,22 @@ export type GhostCitation = {
   detail?: string
 }
 
+export type GhostPersistedToolCall = {
+  name: string
+  arguments: Record<string, unknown>
+  arguments_summary?: Record<string, unknown>
+  summary?: string
+  result_preview?: unknown
+  error?: string | null
+}
+
 export type GhostMessage = {
   id: string
   conv_id: string
   role: "user" | "assistant" | "tool"
   content: string
   citations?: GhostCitation[]
-  tool_calls?: Array<{ name: string; arguments: Record<string, unknown> }>
+  tool_calls?: GhostPersistedToolCall[]
   tokens_in?: number
   tokens_out?: number
   cost_usd?: number

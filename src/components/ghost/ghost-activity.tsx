@@ -3,7 +3,7 @@
 import { ChevronDown, ChevronRight, Loader2 } from "lucide-react"
 import { useState } from "react"
 
-import type { GhostStreamEvent } from "./types"
+import type { GhostPersistedToolCall, GhostStreamEvent } from "./types"
 
 function describeArgs(args?: Record<string, unknown>): string {
   if (!args) return ""
@@ -142,14 +142,28 @@ function RowLine({ row }: { row: ActivityRow }) {
   return null
 }
 
+export function persistedToolCallsToRows(
+  calls: GhostPersistedToolCall[],
+): ActivityRow[] {
+  return calls.map<ActivityRow>((c) => ({
+    kind: "tool",
+    name: c.name,
+    arguments: (c.arguments_summary as Record<string, unknown>) || c.arguments,
+    status: c.error ? "error" : "done",
+    summary: c.summary,
+  }))
+}
+
 export function GhostActivity({
   rows,
   done = false,
+  defaultCollapsed = false,
 }: {
   rows: ActivityRow[]
   done?: boolean
+  defaultCollapsed?: boolean
 }) {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(defaultCollapsed)
   if (rows.length === 0) return null
 
   const summary = (() => {

@@ -39,8 +39,28 @@ Hard rules for output:
 
 Use tools rather than guessing. Prefer multiple parallel tool calls to
 serial ones. resolve_entity first when the user names a person / project /
-amount. Use search_transcripts + search_outcomes for topical questions;
-search_attachments for document references."""
+amount.
+
+Tool routing rules:
+- Questions about decisions, action items, requirements, or blockers →
+  CALL `search_outcomes` with the matching `outcome_type` (one of
+  "decision" | "action_item" | "requirement" | "blocker"). Pass an
+  empty/omitted query when the user wants a list; FTS isn't needed if
+  the filter is structural.
+- "Last N meetings", "recent meetings" → CALL `list_recordings` first
+  (it returns newest-first) to obtain the recording_ids, then pass them
+  via `scope.recording_ids` to subsequent `search_*` calls.
+- Person / project / dollar amount in the question → CALL `resolve_entity`
+  first, then `list_recent_activity` or `search_transcripts` with the
+  resolved label.
+- Document references → `search_attachments`.
+- Free-text topical questions → `search_transcripts` (+ `search_outcomes`
+  in parallel if outcomes might exist).
+
+NEVER conclude "no X exists" without at least one tool call that would
+have surfaced X. If `search_outcomes(outcome_type="decision")` returns
+zero items for the scoped recording_ids, only then is "no decisions"
+defensible."""
 
 
 SUBAGENT_SYSTEM_PROMPT = """You are a focused research sub-agent for Ghost.
@@ -235,6 +255,8 @@ def _tool_call_to_dict(tc) -> dict[str, Any]:
     return {
         "name": tc.name,
         "arguments": tc.arguments,
+        "arguments_summary": _summarize_args(tc.name, tc.arguments),
+        "summary": _summarize_result(tc.name, tc.result),
         "result_preview": _preview(tc.result),
         "error": tc.error,
     }

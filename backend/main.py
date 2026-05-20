@@ -298,6 +298,28 @@ async def lifespan(app: FastAPI):
     except Exception:
         logger.exception("segments backfill failed")
 
+    # Phase 3 backfill: populate outcomes_fts for legacy recordings whose
+    # extract ran before the entitize chain existed. Without this,
+    # search_outcomes silently returns [] for older data. Idempotent
+    # (deletes + re-inserts per recording).
+    try:
+        n = entities_store.backfill_outcomes_fts_all()
+        if n:
+            logger.info("Backfilled outcomes_fts for %d recording(s)", n)
+    except Exception:
+        logger.exception("outcomes_fts backfill failed")
+
+    # Phase 1+3 interaction: when segments are mirrored before the FTS
+    # triggers exist (first deploy after upgrade), segments_fts is empty.
+    # The triggers now exist; re-run the segments mirror so trigger-based
+    # FTS inserts fire. Idempotent.
+    try:
+        n2 = segments_store.backfill_all_from_jobs()
+        if n2:
+            logger.info("Re-mirrored segments to fire FTS triggers for %d recording(s)", n2)
+    except Exception:
+        logger.exception("post-FTS segments re-mirror failed")
+
     # Migrate old job results: recompute speaker stats for records missing extended fields
     _migrate_speaker_stats()
 

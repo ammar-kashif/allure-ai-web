@@ -518,3 +518,24 @@ def index_outcomes(recording_id: str, outcomes: list[dict[str, Any]]) -> None:
             (oid, recording_id, o.get("type", ""), o.get("title", ""), o.get("detail", "")),
         )
     conn.commit()
+
+
+def backfill_outcomes_fts_all() -> int:
+    """One-time idempotent backfill: walk every completed job with non-
+    empty outcomes JSON and re-index it. Catches recordings extracted
+    before the Phase 3 entitize chain was wired in.
+
+    Returns the number of recordings (re-)indexed.
+    """
+    from storage import list_jobs
+
+    n = 0
+    for job in list_jobs():
+        if job.get("status") != "completed":
+            continue
+        outcomes = job.get("outcomes") or []
+        if not outcomes:
+            continue
+        index_outcomes(job["id"], outcomes)
+        n += 1
+    return n
