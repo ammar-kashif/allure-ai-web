@@ -36,7 +36,11 @@ from meeting_bot.router import router as meeting_bot_router
 import projects_store
 import segments_store
 from entities import store as entities_store
-from ghost import embeddings as ghost_embeddings
+from ghost import (
+    conversations as ghost_convos,
+    embeddings as ghost_embeddings,
+    settings as ghost_settings,
+)
 from streaming import progress_store as streaming_progress_store
 from models import (
     AttachmentResponse,
@@ -183,6 +187,8 @@ async def lifespan(app: FastAPI):
     segments_store.init()
     entities_store.init()
     ghost_embeddings.init()
+    ghost_settings.init()
+    ghost_convos.init()
     streaming_progress_store.init()
 
     # Load Moonshine Voice transcriber
@@ -564,6 +570,84 @@ async def ghost_search(request: Request):
     if "outcomes" in kinds:
         out["outcomes"] = h.search_outcomes(query, scope=scope, k=k)
     return out
+
+
+# --- Ghost agent + settings ---
+
+
+@app.get("/ghost/settings")
+async def get_ghost_settings():
+    return ghost_settings.get()
+
+
+@app.patch("/ghost/settings")
+async def update_ghost_settings(request: Request):
+    body = await request.json()
+    try:
+        return ghost_settings.update(
+            mode=body.get("mode"),
+            provider=body.get("provider"),
+            api_key=body.get("api_key"),
+            model=body.get("model"),
+            monthly_cap_usd=body.get("monthly_cap_usd"),
+            base_url=body.get("base_url"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/ghost/ask")
+async def ghost_ask(request: Request):
+    """Ask Ghost a question. Body: { question, conv_id?, project_id?,
+    scope_hint?: 'single_recording' | 'single_project' | 'cross_project' }.
+    """
+    from ghost.agent import ask as ghost_ask_fn
+
+    body = await request.json()
+    question = (body.get("question") or "").strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="question is required")
+    try:
+        return await asyncio.to_thread(
+            ghost_ask_fn,
+            question,
+            conv_id=body.get("conv_id"),
+            project_id=body.get("project_id"),
+            scope_hint=body.get("scope_hint") or "cross_project",
+        )
+    except RuntimeError as exc:
+        # Settings issues, monthly cap, etc.
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/ghost/conversations")
+async def list_ghost_conversations(limit: int = Query(default=50, ge=1, le=200)):
+    return ghost_convos.list_conversations(limit=limit)
+
+
+@app.get("/ghost/conversations/{conv_id}")
+async def get_ghost_conversation(conv_id: str):
+    conv = ghost_convos.get_conversation(conv_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    conv["messages"] = ghost_convos.list_messages(conv_id)
+    return conv
+
+
+@app.delete("/ghost/conversations/{conv_id}", status_code=204)
+async def delete_ghost_conversation(conv_id: str):
+    if not ghost_convos.delete_conversation(conv_id):
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+
+@app.get("/ghost/cost")
+async def ghost_cost():
+    """Month-to-date Ghost spend + the configured monthly cap."""
+    settings = ghost_settings.get()
+    return {
+        "month_to_date_usd": ghost_convos.month_to_date_cost_usd(),
+        "monthly_cap_usd": settings.get("monthly_cap_usd") or 0.0,
+    }
 
 
 @app.post("/recordings", status_code=201, response_model=UploadResponse)
