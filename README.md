@@ -65,6 +65,47 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000
 
 The frontend expects the backend at `http://localhost:8000`.
 
+### Meeting bot (required for `/meetings/dispatch`)
+
+The FastAPI backend is a thin client — the actual bot that joins Google Meet / Teams / Zoom is a **separate Node service**. If it isn't running, every `POST /meetings/dispatch` returns **502 Bad Gateway** with `Bot unreachable at http://localhost:3001`.
+
+One-time setup (see [`docs/meeting-bot-poc.md`](docs/meeting-bot-poc.md) for the full env + Chrome path config):
+
+```bash
+git clone https://github.com/moawizbinyamin/meeting-bot ~/meeting-bot
+cd ~/meeting-bot
+npm install
+# create ~/meeting-bot/.env (PORT=3001, CHROME_PATH=..., GOOGLE_GUEST_MODE=...)
+```
+
+Run it alongside the FastAPI backend (separate terminal):
+
+```bash
+cd ~/meeting-bot && npm start
+# → http://localhost:3001
+```
+
+Sanity check: `curl http://localhost:3001/isbusy` → `{"success":true,"data":0}`.
+
+If `MEETING_BOT_URL` differs, override it for the FastAPI process: `MEETING_BOT_URL=http://host:port python -m uvicorn main:app ...`.
+
+### Exposing the backend over ngrok
+
+To let a remote frontend engineer hit your local backend:
+
+```bash
+brew install ngrok
+ngrok config add-authtoken <your-token>   # one-time, from dashboard.ngrok.com
+ngrok http 8000
+```
+
+Share the `https://<subdomain>.ngrok-free.dev` URL. Two caveats for the caller:
+
+- ngrok's free tier injects an HTML interstitial on the first browser hit. Send header `ngrok-skip-browser-warning: 1` on every request to bypass.
+- The URL is ephemeral — it changes every time `ngrok` restarts.
+
+The backend has **no auth**; treat the URL as sensitive.
+
 ## Running with Docker
 
 ```bash
@@ -84,6 +125,7 @@ This starts both services:
 | `LLM_GPU` | GPU device ID (`0` = CPU) | `0` |
 | `CORS_ORIGINS` | Allowed CORS origins | `http://localhost:3000` |
 | `BACKEND_URL` | Backend URL (used by frontend in Docker) | `http://backend:8000` |
+| `MEETING_BOT_URL` | URL of the Node meeting-bot service | `http://localhost:3001` |
 
 ### Volumes
 
