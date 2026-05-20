@@ -27,7 +27,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from audio_utils import convert_to_wav, detect_no_audio_track, validate_audio_format
-from job_queue import job_queue, process_worker
+from job_queue import job_queue, process_worker, start_chunk_worker_pool
 from extraction import format_backlink
 from observability import log_event, step_timer
 from meeting_bot import dispatch_store
@@ -300,12 +300,40 @@ async def lifespan(app: FastAPI):
     worker_task = asyncio.create_task(process_worker(app.state))
     app.state.worker = worker_task
 
+    # Start chunk worker pool (streaming pipeline)
+    app.state.chunk_workers = start_chunk_worker_pool(app.state)
+    logger.info("Started %d chunk worker(s)", len(app.state.chunk_workers))
+
     # Re-queue incomplete jobs from previous run
     for job in list_jobs():
         if job["status"] in ("pending", "processing"):
             await job_queue.put((job["id"], "stt"))
         elif job["extraction_status"] in ("pending", "processing"):
             await job_queue.put((job["id"], "extract"))
+
+    # Resume streaming pipeline: re-enqueue any chunks that were mid-flight
+    # or unprocessed at shutdown, and trigger finalize for recordings that
+    # had completed all chunks but not yet finalized.
+    try:
+        from streaming.resume import resume_unfinished
+        from meeting_bot.config import MEETING_BOT_RECORDINGS_DIR
+        from job_queue import chunk_queue
+
+        actions = resume_unfinished(MEETING_BOT_RECORDINGS_DIR)
+        for action in actions:
+            if action["action"] == "enqueue_chunk":
+                offset = float((action["chunk_seq"] - 1) * 30)
+                await chunk_queue.put((
+                    action["recording_id"],
+                    action["chunk_seq"],
+                    action["chunk_path"],
+                    action["pipeline_version"],
+                    offset,
+                ))
+            elif action["action"] == "enqueue_finalize":
+                await job_queue.put((action["recording_id"], "finalize"))
+    except Exception:
+        logger.exception("streaming resume on startup failed")
 
     # Start meeting-bot filesystem watcher
     from meeting_bot.watcher import run_watcher
@@ -319,6 +347,12 @@ async def lifespan(app: FastAPI):
         await worker_task
     except asyncio.CancelledError:
         pass
+    for w in getattr(app.state, "chunk_workers", []) or []:
+        w.cancel()
+        try:
+            await w
+        except asyncio.CancelledError:
+            pass
     if getattr(app.state, "bot_watcher_stop", None):
         app.state.bot_watcher_stop.set()
     if getattr(app.state, "bot_watcher", None):
@@ -543,6 +577,84 @@ async def get_recording_transcript(job_id: str):
     if job["status"] != "completed":
         raise HTTPException(status_code=400, detail="Transcript not ready")
     return job["result"]
+
+
+@app.get("/recordings/{job_id}/transcript/stream")
+async def stream_recording_transcript(job_id: str):
+    """Server-sent events stream of chunk transcripts as they finish.
+
+    Each event payload is JSON with shape:
+        { "kind": "chunk", "seq": N, "start": s, "end": s, "segments": [...] }
+        { "kind": "finalized", "duration": s, "n_segments": N }
+        { "kind": "heartbeat" }
+    Speakers are not assigned until finalize; chunk segments carry no
+    speaker field (or "pending").
+    """
+    import json as _json
+
+    from fastapi.responses import StreamingResponse
+
+    from streaming import progress_store
+
+    async def _gen():
+        sent_seqs: set[int] = set()
+        idle_ticks = 0
+        # Cap total runtime so a stale connection can't hold a worker
+        # forever; the frontend reconnects automatically.
+        max_seconds = 60 * 60 * 4  # 4h
+        elapsed = 0
+        while elapsed < max_seconds:
+            state = progress_store.get_state(job_id)
+            if state is None:
+                yield f"data: {_json.dumps({'kind': 'unknown'})}\n\n"
+                return
+            rows = progress_store.list_chunks_for_recording(
+                job_id, pipeline_version=state["pipeline_version"]
+            )
+            new_done = [r for r in rows if r["state"] == "done" and r["chunk_seq"] not in sent_seqs]
+            for r in new_done:
+                stt = _json.loads(r.get("stt_segments_json") or "[]")
+                offset = float(r.get("seconds_start") or 0.0)
+                segments = [
+                    {
+                        "start": offset + float(s.get("start", 0.0)),
+                        "end": offset + float(s.get("end", 0.0)),
+                        "text": s.get("text", ""),
+                        "speaker": "pending",
+                    }
+                    for s in stt
+                ]
+                payload = {
+                    "kind": "chunk",
+                    "seq": r["chunk_seq"],
+                    "start": offset,
+                    "end": offset + (float(r.get("seconds_end") or 0.0) - offset),
+                    "segments": segments,
+                }
+                yield f"data: {_json.dumps(payload)}\n\n"
+                sent_seqs.add(r["chunk_seq"])
+                idle_ticks = 0
+
+            if state["stage"] in ("finalized", "completed"):
+                job = get_job(job_id)
+                final_payload = {
+                    "kind": "finalized",
+                    "duration": (job or {}).get("result", {}).get("duration", 0)
+                    if job else 0,
+                    "n_segments": len((job or {}).get("result", {}).get("segments", []))
+                    if job else 0,
+                }
+                yield f"data: {_json.dumps(final_payload)}\n\n"
+                return
+
+            idle_ticks += 1
+            if idle_ticks % 5 == 0:
+                yield f"data: {_json.dumps({'kind': 'heartbeat'})}\n\n"
+
+            await asyncio.sleep(2)
+            elapsed += 2
+
+    return StreamingResponse(_gen(), media_type="text/event-stream")
 
 
 @app.get("/recordings/{job_id}/audio")

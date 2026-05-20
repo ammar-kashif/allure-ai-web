@@ -271,8 +271,15 @@ async def _watch_loop(
     poll_seconds: float,
     forward_fn,
     stop_event: asyncio.Event,
+    chunk_discovery_fn=None,
 ) -> None:
-    """Single pass over pending dispatches, repeated until stop_event is set."""
+    """Single pass over pending dispatches, repeated until stop_event is set.
+
+    On each pass we also run `chunk_discovery_fn` (if provided) for any
+    in-flight recording that has a `chunks/` directory. The streaming
+    pipeline lives there; the existing whole-file finalize logic still
+    runs unchanged in parallel.
+    """
     snapshots: dict[str, _FileSnapshot] = {}
     while not stop_event.is_set():
         try:
@@ -294,6 +301,17 @@ async def _watch_loop(
                 logger.exception(
                     "Watcher tick failed for %s: %s", row.get("recording_id"), exc
                 )
+            # Streaming-pipeline chunk discovery: independent of dispatch
+            # status, fires whenever a chunks/ directory exists.
+            if chunk_discovery_fn is not None:
+                rec_id = row.get("recording_id")
+                if rec_id:
+                    try:
+                        await chunk_discovery_fn(rec_id)
+                    except Exception as exc:  # noqa: BLE001
+                        logger.exception(
+                            "chunk discovery tick failed for %s: %s", rec_id, exc
+                        )
 
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=poll_seconds)
@@ -313,6 +331,57 @@ def run_watcher(app_state) -> asyncio.Task:
     stop_event = asyncio.Event()
     app_state.bot_watcher_stop = stop_event
 
+    # Chunk-discovery hook: watches for streaming chunks alongside the
+    # existing whole-file finalize logic. Imported here to avoid a
+    # circular import (job_queue depends on streaming, which doesn't need
+    # to depend on the watcher).
+    from job_queue import chunk_queue
+    from streaming import progress_store
+    from streaming.resume import chunks_dir_for, discover_new_chunks
+
+    async def _chunk_discovery_tick(recording_id: str) -> None:
+        chunks_dir = chunks_dir_for(MEETING_BOT_RECORDINGS_DIR, recording_id)
+        if not os.path.isdir(chunks_dir):
+            return
+        state = progress_store.ensure_recording(recording_id, stage="streaming")
+        pv = state["pipeline_version"]
+        # Skip highest-numbered file -- ffmpeg's segmenter is likely still
+        # writing it. (Watcher runs every WATCHER_POLL_SECONDS so we'll
+        # pick it up next tick.)
+        new_chunks = discover_new_chunks(recording_id, chunks_dir, pv, skip_highest_seq=True)
+        for nc in new_chunks:
+            # Each new chunk needs an upsert before enqueue so the resume
+            # logic can find it. sha256 is computed by the chunk worker
+            # itself; use a placeholder here.
+            try:
+                progress_store.upsert_chunk(
+                    recording_id,
+                    nc["chunk_seq"],
+                    nc["chunk_path"],
+                    sha256=f"pending-{nc['chunk_seq']}",
+                    pipeline_version=pv,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "upsert_chunk failed for %s seq=%d: %s",
+                    recording_id, nc["chunk_seq"], exc,
+                )
+                continue
+            # Compute the chunk's offset from its sequence number assuming
+            # 30s segments. The chunk worker recomputes the actual duration
+            # from the audio so a wrong offset here only affects metadata
+            # ordering, not correctness.
+            offset = float((nc["chunk_seq"] - 1) * 30)
+            await chunk_queue.put((recording_id, nc["chunk_seq"], nc["chunk_path"], pv, offset))
+            log_event(
+                category="streaming",
+                event="chunk.enqueued",
+                status="done",
+                message=f"Enqueued chunk {nc['chunk_seq']}",
+                recording_id=recording_id,
+                metadata={"chunk_path": nc["chunk_path"]},
+            )
+
     async def _runner():
         os.makedirs(MEETING_BOT_RECORDINGS_DIR, exist_ok=True)
         logger.info(
@@ -326,6 +395,7 @@ def run_watcher(app_state) -> asyncio.Task:
             poll_seconds=WATCHER_POLL_SECONDS,
             forward_fn=forward_to_frontend,
             stop_event=stop_event,
+            chunk_discovery_fn=_chunk_discovery_tick,
         )
         logger.info("meeting-bot watcher stopped")
 

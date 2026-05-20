@@ -1,7 +1,19 @@
-"""Async job queue with sequential worker supporting STT and extraction chaining."""
+"""Async job queues + workers.
+
+Two queues:
+    job_queue   -- sequential worker(s) for "stt", "extract", "finalize"
+                   (LLM-bound; serializes behind the local Llama lock).
+    chunk_queue -- multiple concurrent workers for "stt_chunk" (CPU,
+                   shares the singleton Moonshine + ECAPA + VAD models).
+
+`STT_CHUNK_CONCURRENCY` env var controls the chunk worker pool size
+(default 2). The legacy `stt` job type still runs through `job_queue` for
+whole-file uploads; the streaming pipeline uses `stt_chunk` + `finalize`.
+"""
 
 import asyncio
 import logging
+import os
 
 from frontend_sync import push_metadata_to_frontend, rename_audio_files
 from observability import log_event, step_timer
@@ -12,6 +24,14 @@ logger = logging.getLogger(__name__)
 
 # Global async job queue -- tuple of (job_id, job_type)
 job_queue: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
+
+# Chunk queue carries (recording_id, chunk_seq, chunk_path, pipeline_version,
+# chunk_offset_seconds) tuples. Multiple workers can drain it concurrently
+# because the underlying STT + embedding extraction is CPU and the shared
+# model singletons are inference-only.
+chunk_queue: asyncio.Queue[tuple[str, int, str, int, float]] = asyncio.Queue()
+
+STT_CHUNK_CONCURRENCY = int(os.environ.get("STT_CHUNK_CONCURRENCY", "2"))
 
 
 async def process_worker(app_state: object) -> None:
@@ -36,7 +56,16 @@ async def process_worker(app_state: object) -> None:
                     result = await asyncio.to_thread(
                         run_transcription, job_id, app_state
                     )
-                update_job(job_id, status="completed", result=result)
+                # Atomic flip: status=completed AND extraction_status=pending in
+                # a single update. Otherwise a frontend poll landing between the
+                # two writes sees status=ready + extraction=none, treats it as
+                # "settled", and STOPS polling — title never gets a refresh trigger.
+                update_job(
+                    job_id,
+                    status="completed",
+                    result=result,
+                    extraction_status="pending",
+                )
                 log_event(
                     category="transcription",
                     event="stt.completed",
@@ -46,7 +75,39 @@ async def process_worker(app_state: object) -> None:
                 )
 
                 # Auto-chain extraction after STT
-                update_job(job_id, extraction_status="pending")
+                await job_queue.put((job_id, "extract"))
+                log_event(
+                    category="extraction",
+                    event="extraction.queued",
+                    status="done",
+                    message="Queued recording for outcome extraction",
+                    job_id=job_id,
+                )
+
+            elif job_type == "finalize":
+                # Streaming-pipeline counterpart to "stt": pools per-chunk
+                # embeddings + STT, runs global diarization clustering,
+                # writes the canonical transcript result, then chains into
+                # extract just like "stt" does.
+                from streaming.finalizer import finalize_recording
+
+                with step_timer("job.finalize", job_id=job_id):
+                    result = await asyncio.to_thread(
+                        finalize_recording, job_id, app_state
+                    )
+                update_job(
+                    job_id,
+                    status="completed",
+                    result=result,
+                    extraction_status="pending",
+                )
+                log_event(
+                    category="streaming",
+                    event="finalize.completed",
+                    status="done",
+                    message="Streaming finalize completed",
+                    job_id=job_id,
+                )
                 await job_queue.put((job_id, "extract"))
                 log_event(
                     category="extraction",
@@ -84,14 +145,12 @@ async def process_worker(app_state: object) -> None:
                     stored_result["corrections_applied"] = corrections_applied
                 update_job(job_id, result=stored_result)
 
-                update_job(
-                    job_id, extraction_status="completed", outcomes=outcomes
-                )
-
-                # PUSH to the frontend SQLite directly — don't wait for the
-                # polling-based sync. The frontend's recordings row gets
-                # title/description and its cached transcript blob is cleared
-                # so the next page visit re-fetches the new content.
+                # IMPORTANT ORDER: push title/description to the frontend DB
+                # *before* flipping extraction_status to "completed". The
+                # frontend's polling hook stops polling the moment it sees
+                # extraction_status=completed, so the local DB must already
+                # hold the new title by then — otherwise the page never gets
+                # a refetch trigger and the placeholder lingers.
                 try:
                     sync_result = await asyncio.to_thread(
                         push_metadata_to_frontend,
@@ -109,9 +168,9 @@ async def process_worker(app_state: object) -> None:
                         sync_exc,
                     )
 
-                # Rename the audio files to use a slugified title. Updates
-                # backend's jobs.file_path and frontend's recordings.file_path
-                # so subsequent /audio reads still resolve.
+                # Rename the audio files to use a slugified title — also before
+                # the status flip so any audio fetches triggered by the refresh
+                # resolve to the new paths.
                 if meeting_title:
                     try:
                         latest_job = get_job(job_id) or {}
@@ -134,6 +193,14 @@ async def process_worker(app_state: object) -> None:
                         logger.warning(
                             "Audio rename failed for %s: %s", job_id, rn_exc
                         )
+
+                # Frontend DB is now fully up to date — safe to flip the
+                # extraction status. The next /status poll will see "completed"
+                # and the hook will invalidate ["recording", id] / ["transcript", id]
+                # which re-fetches with the title already in place.
+                update_job(
+                    job_id, extraction_status="completed", outcomes=outcomes
+                )
 
                 log_event(
                     category="extraction",
@@ -177,3 +244,56 @@ async def process_worker(app_state: object) -> None:
                 pass
         finally:
             job_queue.task_done()
+
+
+async def chunk_worker_loop(app_state: object, worker_id: int = 0) -> None:
+    """Pull stt_chunk jobs off the chunk_queue and process them.
+
+    Concurrency-safe: each chunk row is keyed by (recording_id, chunk_seq,
+    pipeline_version) in chunk_progress, and processing is idempotent
+    (sha256 check, state machine). Multiple instances of this loop can run
+    against the same app_state because the Moonshine + ECAPA + VAD models
+    are inference-only singletons.
+    """
+    from streaming.chunk_worker import process_chunk
+
+    logger.info("chunk worker %d started", worker_id)
+    while True:
+        item = await chunk_queue.get()
+        recording_id, chunk_seq, chunk_path, pipeline_version, chunk_offset = item
+        try:
+            with step_timer(
+                "job.stt_chunk",
+                category="streaming",
+                recording_id=recording_id,
+                chunk_seq=chunk_seq,
+                worker=worker_id,
+            ):
+                await asyncio.to_thread(
+                    process_chunk,
+                    recording_id,
+                    chunk_seq,
+                    chunk_path,
+                    app_state,
+                    pipeline_version=pipeline_version,
+                    chunk_offset_seconds=chunk_offset,
+                )
+        except Exception as exc:
+            logger.error(
+                "chunk job failed: recording=%s seq=%d: %s",
+                recording_id, chunk_seq, exc, exc_info=True,
+            )
+        finally:
+            chunk_queue.task_done()
+
+
+def start_chunk_worker_pool(app_state: object) -> list[asyncio.Task]:
+    """Spawn STT_CHUNK_CONCURRENCY chunk workers. Stored on app_state for shutdown."""
+    tasks: list[asyncio.Task] = []
+    for i in range(max(1, STT_CHUNK_CONCURRENCY)):
+        t = asyncio.create_task(
+            chunk_worker_loop(app_state, worker_id=i),
+            name=f"chunk-worker-{i}",
+        )
+        tasks.append(t)
+    return tasks

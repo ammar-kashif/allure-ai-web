@@ -193,6 +193,78 @@ class FastDiarizer:
         return self._labels_to_segments(window_starts, window_ends, labels, total_duration)
 
     # ------------------------------------------------------------------
+    # Streaming-pipeline split: per-chunk embedding extraction + global
+    # clustering at finalize. Diarization clusters cannot be aligned across
+    # chunks (cluster_0 in chunk A ≠ cluster_0 in chunk B), so embeddings
+    # are pooled and clustered once over the full meeting.
+    # ------------------------------------------------------------------
+
+    def extract_chunk_embeddings(
+        self, audio_path: str
+    ) -> dict[str, Any]:
+        """Process one chunk's audio file. Returns embeddings + window
+        timings in CHUNK-LOCAL seconds. Callers add the chunk's offset to
+        translate to meeting-global seconds at finalize.
+
+        Returns:
+            {
+                "embeddings": np.ndarray (n_windows, 192),   # L2-normalized
+                "starts": list[float] (chunk-local seconds),
+                "ends": list[float] (chunk-local seconds),
+                "duration": float (chunk audio duration in seconds),
+            }
+        """
+        audio, sr = librosa.load(audio_path, sr=16000, mono=True)
+        duration = len(audio) / sr
+        speech_intervals = self._run_vad(audio, sr)
+        if not speech_intervals:
+            return {
+                "embeddings": np.zeros((0, 192), dtype=np.float32),
+                "starts": [],
+                "ends": [],
+                "duration": duration,
+            }
+        embs, starts, ends = self._extract_windows(audio, sr, speech_intervals)
+        if len(embs) > 0:
+            embs = self._normalize_embeddings(embs)
+        return {
+            "embeddings": embs,
+            "starts": starts,
+            "ends": ends,
+            "duration": duration,
+        }
+
+    def cluster_pooled_embeddings(
+        self,
+        embeddings: np.ndarray,
+        starts: list[float],
+        ends: list[float],
+        total_duration: float,
+    ) -> list[dict[str, Any]]:
+        """Global clustering over pre-pooled embeddings from all chunks.
+
+        `embeddings` must already be L2-normalized (which extract_chunk_embeddings
+        does). `starts` and `ends` are meeting-global seconds.
+
+        Returns non-overlapping time-sorted diarization segments, same shape
+        as `diarize()`.
+        """
+        if len(embeddings) < 2:
+            return [{"start": 0.0, "end": round(total_duration, 3), "speaker": "cluster_0"}]
+
+        labels = self._cluster_embeddings(embeddings)
+        labels = self._centroid_merge(embeddings, labels, self.centroid_merge_threshold)
+        labels = self._cap_speakers(embeddings, labels, self.max_speakers)
+
+        if len(labels) >= 3:
+            k = max(3, int(round(2.0 / max(self.hop_size, 1e-6))))
+            if k % 2 == 0:
+                k += 1
+            labels = median_filter(labels, size=k).astype(int)
+
+        return self._labels_to_segments(starts, ends, labels, total_duration)
+
+    # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 
