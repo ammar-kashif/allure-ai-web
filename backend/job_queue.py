@@ -211,6 +211,28 @@ async def process_worker(app_state: object) -> None:
                     metadata={"outcome_count": len(outcomes)},
                 )
 
+                # Chain entity extraction: populates entity_mentions used by
+                # Ghost retrieval. Decoupled into its own queue item so a
+                # failure here can't roll back the user-visible extraction
+                # status.
+                await job_queue.put((job_id, "entitize"))
+
+            elif job_type == "entitize":
+                from entities.extractor import run_entitize
+
+                with step_timer("job.entitize", job_id=job_id):
+                    stats = await asyncio.to_thread(
+                        run_entitize, job_id, app_state
+                    )
+                log_event(
+                    category="entitize",
+                    event="entitize.completed",
+                    status="done",
+                    message="Entity extraction completed",
+                    job_id=job_id,
+                    metadata=stats,
+                )
+
         except Exception as exc:
             logger.error("Job %s (%s) failed: %s", job_id, job_type, exc, exc_info=True)
             try:

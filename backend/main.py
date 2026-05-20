@@ -34,6 +34,7 @@ from meeting_bot import dispatch_store
 from meeting_bot.router import router as meeting_bot_router
 import projects_store
 import segments_store
+from entities import store as entities_store
 from streaming import progress_store as streaming_progress_store
 from models import (
     AttachmentResponse,
@@ -178,6 +179,7 @@ async def lifespan(app: FastAPI):
     # must be initialised first.
     projects_store.init()
     segments_store.init()
+    entities_store.init()
     streaming_progress_store.init()
 
     # Load Moonshine Voice transcriber
@@ -471,6 +473,56 @@ async def archive_project(project_id: str):
         return projects_store.archive(project_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
+
+
+# --- Entities (Ghost retrieval substrate) ---
+
+
+@app.get("/entities")
+async def list_entities_endpoint(kind: str | None = None, limit: int = Query(default=100, ge=1, le=500)):
+    return entities_store.list_entities(kind=kind, limit=limit)
+
+
+@app.get("/entities/{entity_id}")
+async def get_entity_endpoint(entity_id: str):
+    entity = entities_store.get_entity(entity_id)
+    if entity is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    return entity
+
+
+@app.get("/entities/{entity_id}/mentions")
+async def list_entity_mentions(
+    entity_id: str,
+    limit: int = Query(default=50, ge=1, le=500),
+    source_types: str | None = None,
+):
+    if entities_store.get_entity(entity_id) is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    sts = [s.strip() for s in source_types.split(",")] if source_types else None
+    return entities_store.list_mentions(entity_id, source_types=sts, limit=limit)
+
+
+@app.get("/entities/{entity_id}/activity")
+async def entity_recent_activity(
+    entity_id: str,
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    if entities_store.get_entity(entity_id) is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    return entities_store.list_recent_activity_by_entity(entity_id, limit=limit)
+
+
+@app.post("/recordings/{job_id}/entitize", status_code=202)
+async def trigger_entitize(job_id: str):
+    """Manually re-run entity extraction for a recording. Idempotent."""
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job["status"] != "completed":
+        raise HTTPException(status_code=400, detail="Transcript not ready")
+    await job_queue.put((job_id, "entitize"))
+    return {"job_id": job_id, "queued": True}
 
 
 @app.post("/recordings", status_code=201, response_model=UploadResponse)

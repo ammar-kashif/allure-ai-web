@@ -130,7 +130,10 @@ def init() -> None:
 
 
 def _now_iso() -> str:
-    return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    """Match SQLite strftime('%Y-%m-%dT%H:%M:%fZ', 'now') format (ms precision)
+    so string-ordered comparisons against default-populated rows are correct."""
+    now = dt.datetime.now(dt.timezone.utc)
+    return now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
 
 
 # ---------------------------------------------------------------------------
