@@ -32,6 +32,9 @@ from extraction import format_backlink
 from observability import log_event, step_timer
 from meeting_bot import dispatch_store
 from meeting_bot.router import router as meeting_bot_router
+import projects_store
+import segments_store
+from streaming import progress_store as streaming_progress_store
 from models import (
     AttachmentResponse,
     AttachmentTextResponse,
@@ -170,6 +173,12 @@ async def lifespan(app: FastAPI):
     os.makedirs(UPLOADS_DIR, exist_ok=True)
     init_db()
     dispatch_store.init()
+    # Phase 1 foundation: project model, segments mirror, streaming progress.
+    # Order matters: projects_store backfills from dispatches, so dispatch_store
+    # must be initialised first.
+    projects_store.init()
+    segments_store.init()
+    streaming_progress_store.init()
 
     # Load Moonshine Voice transcriber
     t0 = time.perf_counter()
@@ -267,6 +276,15 @@ async def lifespan(app: FastAPI):
     )
     logger.info("Phi-4-mini LLM loaded in %.1fs", time.perf_counter() - t2)
 
+    # Phase 1: mirror existing jobs.result.segments into the segments
+    # table. Idempotent -- safe to run on every startup.
+    try:
+        n = segments_store.backfill_all_from_jobs()
+        if n:
+            logger.info("Backfilled segments table for %d recording(s)", n)
+    except Exception:
+        logger.exception("segments backfill failed")
+
     # Migrate old job results: recompute speaker stats for records missing extended fields
     _migrate_speaker_stats()
 
@@ -349,6 +367,76 @@ async def list_logs(
         job_id=job_id,
         dispatch_id=dispatch_id,
     )
+
+
+@app.get("/metrics")
+async def get_metrics(
+    window_hours: int = Query(default=24, ge=1, le=720),
+    category: str | None = None,
+):
+    """Per-step latency rollup from the logs table.
+
+    Window is anchored to "now"; default is the trailing 24h. CI / Phase 7
+    eval jobs hit this endpoint to enforce p95 thresholds.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from metrics import pipeline_summary
+
+    since = (datetime.now(timezone.utc) - timedelta(hours=window_hours)).strftime(
+        "%Y-%m-%dT%H:%M:%S.%fZ"
+    )
+    return pipeline_summary(since_iso=since) | {"window_hours": window_hours}
+
+
+# --- Projects ---
+
+
+@app.get("/projects")
+async def list_projects(include_archived: bool = False):
+    """List active projects (or all, if include_archived=true)."""
+    if include_archived:
+        return projects_store.list_all()
+    return projects_store.list_active()
+
+
+@app.post("/projects", status_code=201)
+async def create_project(request: Request):
+    body = await request.json()
+    name = (body.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Project name is required")
+    description = body.get("description") or ""
+    return projects_store.create(name=name, description=description)
+
+
+@app.get("/projects/{project_id}")
+async def get_project(project_id: str):
+    project = projects_store.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project
+
+
+@app.patch("/projects/{project_id}")
+async def update_project(project_id: str, request: Request):
+    body = await request.json()
+    allowed = {"name", "description"}
+    fields = {k: v for k, v in body.items() if k in allowed}
+    if not fields:
+        raise HTTPException(status_code=400, detail="No updatable fields provided")
+    try:
+        return projects_store.update(project_id, **fields)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+
+@app.post("/projects/{project_id}/archive", status_code=200)
+async def archive_project(project_id: str):
+    try:
+        return projects_store.archive(project_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
 
 
 @app.post("/recordings", status_code=201, response_model=UploadResponse)

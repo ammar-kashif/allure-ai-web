@@ -111,6 +111,10 @@ def create_job(job_id: str, file_path: str, original_filename: str) -> dict[str,
 def update_job(job_id: str, **kwargs: Any) -> dict[str, Any]:
     """Update job fields."""
     conn = _get_conn()
+    # Capture the raw `result` payload before JSON-serializing so we can
+    # mirror its `segments` into the first-class segments table.
+    result_to_mirror = kwargs.get("result") if "result" in kwargs else None
+
     # Serialize JSON fields
     for key in ("result", "outcomes"):
         if key in kwargs:
@@ -122,6 +126,19 @@ def update_job(job_id: str, **kwargs: Any) -> dict[str, Any]:
     if cursor.rowcount == 0:
         raise KeyError(f"Job {job_id} not found")
     conn.commit()
+
+    # Mirror to segments table when result is being updated. Import lazily
+    # to avoid circular imports at module load; segments_store depends on
+    # storage._get_conn().
+    if result_to_mirror is not None:
+        try:
+            from segments_store import mirror_from_job_result
+
+            mirror_from_job_result(job_id, result_to_mirror)
+        except Exception:
+            # Mirror failure should never break the primary write.
+            logger = __import__("logging").getLogger(__name__)
+            logger.exception("segments mirror failed for job %s", job_id)
     return get_job(job_id)  # type: ignore[return-value]
 
 
