@@ -246,10 +246,29 @@ def run_entitize(
     if outcomes:
         store.index_outcomes(recording_id, outcomes)
 
+    # Embed segments + outcomes for vector retrieval. Opt-in via env var
+    # (sentence-transformers download is heavy; tests + cold boots skip
+    # unless GHOST_EMBED_ON_ENTITIZE=1). Production sets this in the
+    # backend's environment.
+    segments_embedded = 0
+    outcomes_embedded = 0
+    import os as _os
+    if _os.environ.get("GHOST_EMBED_ON_ENTITIZE", "0") in ("1", "true", "yes", "on"):
+        try:
+            from ghost import embeddings as ghost_embeddings
+
+            with step_timer("entitize.embed", recording_id=recording_id):
+                segments_embedded = ghost_embeddings.embed_and_index_recording(recording_id)
+                outcomes_embedded = ghost_embeddings.embed_outcomes(recording_id, outcomes)
+        except Exception:
+            logger.exception("ghost embedding pass failed for %s", recording_id)
+
     return {
         "mentions_written": mentions_written,
         "entities_created": entities_created,
         "entities_reused": entities_reused,
+        "segments_embedded": segments_embedded,
+        "outcomes_embedded": outcomes_embedded,
     }
 
 

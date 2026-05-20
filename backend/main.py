@@ -8,6 +8,7 @@ import time
 import urllib.parse
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from dotenv import load_dotenv
@@ -35,6 +36,7 @@ from meeting_bot.router import router as meeting_bot_router
 import projects_store
 import segments_store
 from entities import store as entities_store
+from ghost import embeddings as ghost_embeddings
 from streaming import progress_store as streaming_progress_store
 from models import (
     AttachmentResponse,
@@ -180,6 +182,7 @@ async def lifespan(app: FastAPI):
     projects_store.init()
     segments_store.init()
     entities_store.init()
+    ghost_embeddings.init()
     streaming_progress_store.init()
 
     # Load Moonshine Voice transcriber
@@ -523,6 +526,44 @@ async def trigger_entitize(job_id: str):
         raise HTTPException(status_code=400, detail="Transcript not ready")
     await job_queue.put((job_id, "entitize"))
     return {"job_id": job_id, "queued": True}
+
+
+# --- Ghost retrieval (raw search, no agent yet) ---
+
+
+@app.post("/ghost/search")
+async def ghost_search(request: Request):
+    """Hybrid retrieval. Body: { query, scope?: {recording_ids?, project_ids?,
+    since_iso?, until_iso?}, kinds?: ["transcripts","attachments","outcomes"],
+    k?: 8 }.
+
+    Returns results per kind. Used by the agent's tools; also useful as a
+    direct API for debugging and the eventual frontend.
+    """
+    from ghost.retrieval import HybridRetriever, Scope
+
+    body = await request.json()
+    query = (body.get("query") or "").strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="query is required")
+    scope_dict = body.get("scope") or {}
+    scope = Scope(
+        recording_ids=scope_dict.get("recording_ids"),
+        project_ids=scope_dict.get("project_ids"),
+        since_iso=scope_dict.get("since_iso"),
+        until_iso=scope_dict.get("until_iso"),
+    )
+    kinds = set(body.get("kinds") or ["transcripts", "attachments", "outcomes"])
+    k = int(body.get("k") or 8)
+    h = HybridRetriever()
+    out: dict[str, Any] = {}
+    if "transcripts" in kinds:
+        out["transcripts"] = h.search_transcripts(query, scope=scope, k=k)
+    if "attachments" in kinds:
+        out["attachments"] = h.search_attachments(query, scope=scope, k=k)
+    if "outcomes" in kinds:
+        out["outcomes"] = h.search_outcomes(query, scope=scope, k=k)
+    return out
 
 
 @app.post("/recordings", status_code=201, response_model=UploadResponse)
