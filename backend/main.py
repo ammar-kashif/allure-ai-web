@@ -41,6 +41,7 @@ from ghost import (
     embeddings as ghost_embeddings,
     settings as ghost_settings,
 )
+from ghost.eval import store as ghost_eval_store
 from streaming import progress_store as streaming_progress_store
 from models import (
     AttachmentResponse,
@@ -189,6 +190,7 @@ async def lifespan(app: FastAPI):
     ghost_embeddings.init()
     ghost_settings.init()
     ghost_convos.init()
+    ghost_eval_store.init()
     streaming_progress_store.init()
 
     # Load Moonshine Voice transcriber
@@ -648,6 +650,39 @@ async def ghost_cost():
         "month_to_date_usd": ghost_convos.month_to_date_cost_usd(),
         "monthly_cap_usd": settings.get("monthly_cap_usd") or 0.0,
     }
+
+
+# --- Ghost eval (synthetic queries + nightly runner stats) ---
+
+
+@app.post("/ghost/eval/generate")
+async def ghost_eval_generate(n_target: int = Query(default=50, ge=1, le=500)):
+    from ghost.eval.generator import generate
+    return await asyncio.to_thread(generate, n_target)
+
+
+@app.get("/ghost/eval/queries")
+async def ghost_eval_queries(limit: int = Query(default=200, ge=1, le=1000)):
+    return ghost_eval_store.list_queries(limit=limit)
+
+
+@app.post("/ghost/eval/run", status_code=202)
+async def ghost_eval_run(limit: int = Query(default=100, ge=1, le=500)):
+    from ghost.eval.runner import run_all
+    return await asyncio.to_thread(run_all, limit)
+
+
+@app.get("/ghost/eval/stats")
+async def ghost_eval_stats(window_hours: int = Query(default=24 * 7, ge=1, le=24 * 90)):
+    return ghost_eval_store.stats(window_hours=window_hours)
+
+
+@app.get("/ghost/eval/runs")
+async def ghost_eval_runs(
+    query_id: str | None = None,
+    limit: int = Query(default=200, ge=1, le=1000),
+):
+    return ghost_eval_store.list_runs(query_id=query_id, limit=limit)
 
 
 @app.post("/recordings", status_code=201, response_model=UploadResponse)
