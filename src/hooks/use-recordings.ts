@@ -50,9 +50,12 @@ export function useRecordingStatus(
         queryClient.invalidateQueries({ queryKey: ["recordings"] })
         queryClient.invalidateQueries({ queryKey: ["recording", id] })
       }
-      // Also invalidate the recording row when extraction completes —
-      // the status route may have just synced meeting_title/description.
+      // When extraction completes, the backend has just pushed the new
+      // title/description into the local DB. Re-pull both single-recording
+      // and list queries so the page header AND the meetings list update
+      // without a manual refresh.
       if (result.extraction_status === "completed") {
+        queryClient.invalidateQueries({ queryKey: ["recordings"] })
         queryClient.invalidateQueries({ queryKey: ["recording", id] })
         queryClient.invalidateQueries({ queryKey: ["transcript", id] })
       }
@@ -62,12 +65,13 @@ export function useRecordingStatus(
     enabled,
     refetchInterval: (query) => {
       const data = query.state.data
-      // Stop polling once status is ready/error AND extraction is settled.
+      // Only stop polling once extraction has truly settled. Treating
+      // "none" as settled was a bug — the backend has a brief window
+      // where status="ready" + extraction_status="none" before extract
+      // is queued, and stopping there meant the title never refreshed.
       const extractionSettled =
         data?.extraction_status === "completed" ||
-        data?.extraction_status === "failed" ||
-        data?.extraction_status === "none" ||
-        data?.extraction_status === undefined
+        data?.extraction_status === "failed"
       if (
         (data?.status === "ready" || data?.status === "error") &&
         extractionSettled
