@@ -50,11 +50,25 @@ Each correction must include: segment_index (0-based), original_text (verbatim f
 Be very conservative. An empty array is the right answer for clean transcripts.
 """
 
+SYSTEM_PROMPT_FOLLOWUP = """
+5. is_follow_up (boolean): true if the meeting references prior commitments, decisions, or in-flight work that was clearly started in an earlier session. False for fresh-start meetings.
+6. is_retro (boolean): true if the meeting is a retrospective / review of past work (post-mortem, sprint retro, quarterly review). Retros legitimately reference many prior items, so downstream autonomy treats them differently.
+7. referenced_prior_topics (array of short strings, may be empty): topic names being continued from past work (e.g., "Q2 hiring plan", "Acme onboarding"). Each entry should be ≤ 6 words and recognizable as a thread, not a fresh idea.
+8. unresolved_commitments (array, may be empty): explicit promises made IN THIS MEETING that should become trackable tasks. ONLY include items with:
+   - title (≤ 12 words): the work that was promised.
+   - owner_name (string): the person who took it on. If no clear owner, OMIT the entry entirely — do not invent.
+   - urgency (string): one of "today" | "this_week" | "this_month" | "unspecified".
+   - segment_index (integer, 0-based): where the commitment was made.
+   - verb_phrase (≤ 8 words): the actual phrasing ("will draft the deck", "is going to follow up", "owns the rollout").
+Do NOT include hypotheticals ("we could maybe..."), aspirations ("ideally..."), or duplicates of items already in `outcomes`.
+"""
+
 SYSTEM_PROMPT_FOOTER = "\nReturn valid JSON matching the provided schema."
 
 SYSTEM_PROMPT = (
     SYSTEM_PROMPT_BASE
     + (SYSTEM_PROMPT_CORRECTIONS if WORD_CORRECTIONS_ENABLED else "")
+    + SYSTEM_PROMPT_FOLLOWUP
     + SYSTEM_PROMPT_FOOTER
 )
 
@@ -109,6 +123,41 @@ EXTRACTION_SCHEMA: dict[str, Any] = {
         },
     },
     "required": ["meeting_title", "meeting_description", "outcomes"],
+}
+
+# Phase-8 autonomy signal fields — not required so old fixtures and old
+# Phi-4 outputs without them still validate. The autonomy stage reads
+# these straight from jobs.result.
+EXTRACTION_SCHEMA["properties"]["is_follow_up"] = {"type": "boolean"}
+EXTRACTION_SCHEMA["properties"]["is_retro"] = {"type": "boolean"}
+EXTRACTION_SCHEMA["properties"]["referenced_prior_topics"] = {
+    "type": "array",
+    "items": {"type": "string"},
+    "maxItems": 20,
+}
+EXTRACTION_SCHEMA["properties"]["unresolved_commitments"] = {
+    "type": "array",
+    "maxItems": 15,
+    "items": {
+        "type": "object",
+        "properties": {
+            "title": {"type": "string"},
+            "owner_name": {"type": "string"},
+            "urgency": {
+                "type": "string",
+                "enum": ["today", "this_week", "this_month", "unspecified"],
+            },
+            "segment_index": {"type": "integer"},
+            "verb_phrase": {"type": "string"},
+        },
+        "required": [
+            "title",
+            "owner_name",
+            "urgency",
+            "segment_index",
+            "verb_phrase",
+        ],
+    },
 }
 
 if WORD_CORRECTIONS_ENABLED:
@@ -290,11 +339,47 @@ def run_extraction(job_id: str, app_state: object) -> dict[str, Any]:
     if not meeting_description:
         meeting_description = _fallback_description_from_segments(segments)
 
+    # Phase-8 autonomy signals (best-effort; the schema fields are
+    # optional, so older models / fixtures may omit them).
+    is_follow_up = bool(parsed.get("is_follow_up", False))
+    is_retro = bool(parsed.get("is_retro", False))
+    referenced_prior_topics = [
+        str(t).strip()
+        for t in (parsed.get("referenced_prior_topics") or [])
+        if isinstance(t, str) and t.strip()
+    ]
+    raw_commitments = parsed.get("unresolved_commitments") or []
+    unresolved_commitments: list[dict[str, Any]] = []
+    for c in raw_commitments:
+        if not isinstance(c, dict):
+            continue
+        title = (c.get("title") or "").strip()
+        owner = (c.get("owner_name") or "").strip()
+        verb = (c.get("verb_phrase") or "").strip()
+        idx = c.get("segment_index")
+        if not (title and owner and verb):
+            continue
+        if not isinstance(idx, int) or not (0 <= idx < num_segments):
+            continue
+        unresolved_commitments.append(
+            {
+                "title": title,
+                "owner_name": owner,
+                "urgency": c.get("urgency") or "unspecified",
+                "segment_index": idx,
+                "verb_phrase": verb,
+            }
+        )
+
     return {
         "outcomes": outcomes,
         "meeting_title": meeting_title,
         "meeting_description": meeting_description,
         "corrections_applied": corrections_applied,
+        "is_follow_up": is_follow_up,
+        "is_retro": is_retro,
+        "referenced_prior_topics": referenced_prior_topics,
+        "unresolved_commitments": unresolved_commitments,
     }
 
 

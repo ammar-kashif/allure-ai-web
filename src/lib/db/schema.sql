@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   due_date TEXT,
   assignee TEXT,
   tags TEXT NOT NULL DEFAULT '[]',
+  autonomy_action_id TEXT,
+  autonomy_run_id TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (source_outcome_id) REFERENCES outcomes(id),

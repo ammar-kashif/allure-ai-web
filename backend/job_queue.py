@@ -132,9 +132,9 @@ async def process_worker(app_state: object) -> None:
                 meeting_description = extraction_result.get("meeting_description", "")
                 corrections_applied = extraction_result.get("corrections_applied", [])
 
-                # Merge title/description/corrections back into the stored
-                # transcript result. run_extraction already mutated segments
-                # in place for any applied corrections.
+                # Merge title/description/corrections + autonomy signal
+                # fields back into the stored transcript result. The
+                # autonomy stage reads these straight from jobs.result.
                 stored = get_job(job_id) or {}
                 stored_result = stored.get("result") or {}
                 if meeting_title:
@@ -143,6 +143,20 @@ async def process_worker(app_state: object) -> None:
                     stored_result["meeting_description"] = meeting_description
                 if corrections_applied:
                     stored_result["corrections_applied"] = corrections_applied
+                # Always merge the autonomy signals so the downstream
+                # autonomy job has them, even when they're false/empty.
+                stored_result["is_follow_up"] = extraction_result.get(
+                    "is_follow_up", False
+                )
+                stored_result["is_retro"] = extraction_result.get(
+                    "is_retro", False
+                )
+                stored_result["referenced_prior_topics"] = (
+                    extraction_result.get("referenced_prior_topics") or []
+                )
+                stored_result["unresolved_commitments"] = (
+                    extraction_result.get("unresolved_commitments") or []
+                )
                 update_job(job_id, result=stored_result)
 
                 # IMPORTANT ORDER: push title/description to the frontend DB
@@ -231,6 +245,28 @@ async def process_worker(app_state: object) -> None:
                     message="Entity extraction completed",
                     job_id=job_id,
                     metadata=stats,
+                )
+
+                # Chain the autonomous follow-up pass. Decoupled so an
+                # autonomy failure (LLM unavailable, etc.) can't roll
+                # back the entitize state.
+                await job_queue.put((job_id, "autonomy"))
+
+            elif job_type == "autonomy":
+                from autonomy.runner import run_autonomy
+
+                with step_timer("job.autonomy", job_id=job_id):
+                    summary = await asyncio.to_thread(
+                        run_autonomy, job_id, app_state
+                    )
+                log_event(
+                    category="autonomy",
+                    event="autonomy.done",
+                    status="done" if summary.get("status") != "failed" else "failed",
+                    level="error" if summary.get("status") == "failed" else "info",
+                    message=f"Autonomy {summary.get('status', '?')}",
+                    job_id=job_id,
+                    metadata=summary,
                 )
 
         except Exception as exc:

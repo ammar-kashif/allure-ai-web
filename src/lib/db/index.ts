@@ -30,6 +30,8 @@ function createDatabase(): Database.Database {
     { table: "tasks", column: "due_date", definition: "TEXT" },
     { table: "tasks", column: "assignee", definition: "TEXT" },
     { table: "tasks", column: "tags", definition: "TEXT NOT NULL DEFAULT '[]'" },
+    { table: "tasks", column: "autonomy_action_id", definition: "TEXT" },
+    { table: "tasks", column: "autonomy_run_id", definition: "TEXT" },
     { table: "recordings", column: "transcript_data", definition: "TEXT" },
     { table: "recordings", column: "description", definition: "TEXT" },
     { table: "recordings", column: "title_is_auto", definition: "INTEGER NOT NULL DEFAULT 1" },

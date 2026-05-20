@@ -35,6 +35,7 @@ from meeting_bot import dispatch_store
 from meeting_bot.router import router as meeting_bot_router
 import projects_store
 import segments_store
+from autonomy import store as autonomy_store
 from entities import store as entities_store
 from ghost import (
     conversations as ghost_convos,
@@ -191,6 +192,7 @@ async def lifespan(app: FastAPI):
     ghost_settings.init()
     ghost_convos.init()
     ghost_eval_store.init()
+    autonomy_store.init()
     streaming_progress_store.init()
 
     # Load Moonshine Voice transcriber
@@ -745,6 +747,87 @@ async def ghost_cost():
         "month_to_date_usd": ghost_convos.month_to_date_cost_usd(),
         "monthly_cap_usd": settings.get("monthly_cap_usd") or 0.0,
     }
+
+
+# --- Autonomy ---
+
+
+@app.get("/recordings/{job_id}/autonomy")
+async def get_autonomy_for_recording(job_id: str):
+    """Latest autonomy run + its actions for a recording."""
+    run = autonomy_store.get_latest_run_for_recording(job_id)
+    if run is None:
+        return {"run": None, "actions": []}
+    actions = autonomy_store.list_actions(run["id"])
+    return {"run": run, "actions": actions}
+
+
+@app.post("/autonomy/actions/{action_id}/undo", status_code=200)
+async def undo_autonomy_action(action_id: str):
+    action = autonomy_store.get_action(action_id)
+    if action is None:
+        raise HTTPException(status_code=404, detail="Action not found")
+    if action.get("reversed_at"):
+        return {"action_id": action_id, "already_reversed": True}
+    if action["kind"] == "task_created":
+        from frontend_sync import delete_task_by_autonomy_action_id
+
+        await asyncio.to_thread(delete_task_by_autonomy_action_id, action_id)
+    autonomy_store.mark_action_reversed(action_id)
+    return {"action_id": action_id, "reversed": True}
+
+
+@app.post("/autonomy/runs/{run_id}/undo", status_code=200)
+async def undo_autonomy_run(run_id: str):
+    run = autonomy_store.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+    from frontend_sync import delete_task_by_autonomy_action_id
+
+    reversed_count = 0
+    for action in autonomy_store.list_actions(run_id):
+        if action.get("reversed_at"):
+            continue
+        if action["kind"] == "task_created":
+            await asyncio.to_thread(delete_task_by_autonomy_action_id, action["id"])
+        autonomy_store.mark_action_reversed(action["id"])
+        reversed_count += 1
+    return {"run_id": run_id, "reversed_count": reversed_count}
+
+
+@app.get("/autonomy/cost")
+async def autonomy_cost():
+    settings = autonomy_store.get_settings()
+    return {
+        "month_to_date_usd": autonomy_store.month_to_date_cost_usd(),
+        "monthly_cap_usd": settings.get("monthly_cap_usd") or 0.0,
+    }
+
+
+@app.get("/autonomy/settings")
+async def get_autonomy_settings():
+    return autonomy_store.get_settings()
+
+
+@app.patch("/autonomy/settings")
+async def update_autonomy_settings(request: Request):
+    body = await request.json()
+    enabled = body.get("enabled")
+    cap = body.get("monthly_cap_usd")
+    disabled = body.get("disabled_project_ids")
+    try:
+        return autonomy_store.update_settings(
+            enabled=enabled if isinstance(enabled, bool) else None,
+            monthly_cap_usd=float(cap) if cap is not None else None,
+            disabled_project_ids=disabled if isinstance(disabled, list) else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/autonomy/runs")
+async def list_autonomy_runs(limit: int = Query(default=50, ge=1, le=200)):
+    return autonomy_store.list_runs(limit=limit)
 
 
 # --- Ghost eval (synthetic queries + nightly runner stats) ---

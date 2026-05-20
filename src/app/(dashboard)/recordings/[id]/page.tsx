@@ -25,6 +25,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { StatusBadge } from "@/components/recording/status-badge"
+import { AutonomyBanner } from "@/components/autonomy/autonomy-banner"
 import { MeetingStatCards } from "@/components/recording/meeting-stat-cards"
 import { TranscriptView } from "@/components/transcript/transcript-view"
 import { SpeakerStatsPanel } from "@/components/transcript/speaker-stats-panel"
@@ -339,6 +340,8 @@ export default function RecordingDetailPage({
           speakerCount={transcript?.speakers?.length}
           docCount={attachments?.length}
         />
+
+        <AutonomyBanner recordingId={id} />
 
         <Tabs
           value={activeTab}

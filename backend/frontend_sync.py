@@ -268,3 +268,173 @@ def rename_audio_files(
                 pass
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Autonomy-pass helpers (Stage 1+2 of the autonomous follow-up plan).
+#
+# These manipulate the frontend SQLite `tasks` table directly. The backend
+# is the source of truth for the autonomy audit (autonomy_runs +
+# autonomy_actions in the backend DB); these helpers carry the FK
+# (autonomy_action_id) into the frontend tasks row so undo can find the
+# task again from the audit row.
+# ---------------------------------------------------------------------------
+
+
+def list_project_tasks(
+    project_id: str,
+    *,
+    since_days: int = 60,
+) -> list[dict[str, Any]]:
+    """Return open + recent-by-creation tasks scoped to one project.
+
+    Tasks live in the frontend DB and have no direct project_id column;
+    the project link goes through `recordings.project_id`. Joins via
+    `tasks.source_recording_id`.
+
+    Returns rows as plain dicts. Empty list if the frontend DB isn't
+    initialized yet.
+    """
+    conn = _open_frontend_db()
+    if conn is None:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT
+                t.id, t.title, t.detail, t.status, t.priority,
+                t.assignee, t.source_outcome_id, t.source_recording_id,
+                t.backlink, t.created_at
+            FROM tasks t
+            JOIN recordings r ON r.id = t.source_recording_id
+            WHERE r.project_id = ?
+              AND (
+                t.status != 'done'
+                OR t.created_at >= date('now', ?)
+              )
+            ORDER BY t.created_at DESC
+            """,
+            (project_id, f"-{int(since_days)} days"),
+        )
+        cols = [c[0] for c in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
+    except Exception as exc:
+        logger.warning("list_project_tasks failed for %s: %s", project_id, exc)
+        return []
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def create_task_with_audit_link(
+    *,
+    recording_id: str,
+    title: str,
+    assignee: str,
+    detail: str = "",
+    backlink: str = "",
+    autonomy_action_id: str,
+    autonomy_run_id: str,
+    priority: str = "medium",
+) -> dict[str, Any] | None:
+    """Insert a row into the frontend `tasks` table on behalf of the
+    autonomy pass. Status defaults to 'todo'. The `autonomy_action_id`
+    and `autonomy_run_id` columns are added by the Stage-2 frontend
+    migration (`src/lib/db/index.ts`).
+
+    `recording_id` is the BACKEND job id. The frontend tasks table
+    references the FRONTEND recording row id, so we resolve via
+    `recordings.backend_id` first.
+
+    Returns the inserted row or None on failure / missing DB.
+    """
+    conn = _open_frontend_db()
+    if conn is None:
+        return None
+    import uuid as _uuid
+
+    task_id = str(_uuid.uuid4())
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id FROM recordings WHERE backend_id = ?",
+            (recording_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            logger.info(
+                "create_task_with_audit_link: no frontend recording for backend_id=%s",
+                recording_id,
+            )
+            return None
+        local_recording_id = row[0]
+
+        cur.execute(
+            """
+            INSERT INTO tasks (
+                id, title, detail, source_recording_id,
+                backlink, status, priority, assignee,
+                autonomy_action_id, autonomy_run_id
+            ) VALUES (?, ?, ?, ?, ?, 'todo', ?, ?, ?, ?)
+            """,
+            (
+                task_id, title, detail, local_recording_id,
+                backlink, priority, assignee,
+                autonomy_action_id, autonomy_run_id,
+            ),
+        )
+        conn.commit()
+        return {
+            "id": task_id,
+            "title": title,
+            "detail": detail,
+            "source_recording_id": local_recording_id,
+            "assignee": assignee,
+            "status": "todo",
+            "priority": priority,
+            "backlink": backlink,
+            "autonomy_action_id": autonomy_action_id,
+            "autonomy_run_id": autonomy_run_id,
+        }
+    except Exception as exc:
+        logger.warning(
+            "create_task_with_audit_link failed for %s: %s",
+            autonomy_action_id, exc,
+        )
+        return None
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def delete_task_by_autonomy_action_id(action_id: str) -> int:
+    """Delete the autonomy-created task linked to this audit action.
+    Returns rowcount (0 if not found / DB unavailable).
+    """
+    conn = _open_frontend_db()
+    if conn is None:
+        return 0
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "DELETE FROM tasks WHERE autonomy_action_id = ?",
+            (action_id,),
+        )
+        conn.commit()
+        return cur.rowcount
+    except Exception as exc:
+        logger.warning(
+            "delete_task_by_autonomy_action_id failed for %s: %s",
+            action_id, exc,
+        )
+        return 0
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass

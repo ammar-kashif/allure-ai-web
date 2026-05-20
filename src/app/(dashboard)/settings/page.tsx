@@ -1,5 +1,6 @@
 "use client"
 
+import { AutonomySettingsForm } from "@/components/autonomy/autonomy-settings-form"
 import { GhostSettingsForm } from "@/components/ghost/ghost-settings-form"
 
 export default function SettingsPage() {
@@ -8,10 +9,11 @@ export default function SettingsPage() {
       <div>
         <h1 className="font-heading text-2xl font-bold tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground">
-          Ghost provider, API key, and monthly spending cap.
+          Ghost provider, autonomous follow-up, API key, monthly caps.
         </p>
       </div>
       <GhostSettingsForm />
+      <AutonomySettingsForm />
     </div>
   )
 }

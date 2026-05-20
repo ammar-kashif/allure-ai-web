@@ -40,6 +40,7 @@ const CATEGORIES = [
   "streaming",
   "entitize",
   "ghost",
+  "autonomy",
 ]
 
 const ACTIVE_BOT_EVENTS = new Set([
