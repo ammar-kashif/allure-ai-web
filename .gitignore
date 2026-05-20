@@ -14,6 +14,8 @@ public/recordings/
 # backend data
 backend/data/
 backend/uploads/
+backend/**/__pycache__/
+**/*.pyc
 
 # misc
 .DS_Store
@@ -30,5 +32,9 @@ npm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local notes
-DIARIZATION.md
+# local agent / planning state (not part of the app)
+.agents/
+.claude/
+.impeccable/
+.planning/
+skills-lock.json

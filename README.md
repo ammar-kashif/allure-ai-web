@@ -214,10 +214,11 @@ allure-ai/
 │   ├── meeting_bot/                # bot_client, router, watcher, dispatch_store
 │   ├── data/  uploads/             # SQLite DB + uploaded files (volume-backed)
 │   └── tests/                      # pytest suite
-├── docs/meeting-bot-poc.md
+├── docs/                           # design.md, diarization.md,
+│                                   # pipeline-blueprint.md, product.md,
+│                                   # meeting-bot-poc.md, references/
 ├── bot-patches/                    # Patches applied to upstream meeting bot
 ├── ARCHITECTURE.md                 # System diagram + flow overview
-├── DESIGN.md  DIARIZATION.md  PIPELINE-BLUEPRINT.md  PRODUCT.md
 ├── docker-compose.yml
 ├── Dockerfile                      # Frontend (Next.js standalone)
 └── backend/Dockerfile              # Backend (Python 3.11 + ffmpeg)
