@@ -4,6 +4,8 @@ Allure AI is a two-tier app: a **Next.js 16 frontend** that owns UI + a thin pro
 
 ## Component diagram
 
+![Architecture](docs/assets/architecture.png)
+
 ```mermaid
 graph TB
     subgraph Browser["Browser"]
