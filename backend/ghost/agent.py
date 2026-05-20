@@ -12,6 +12,7 @@ further escalation -- depth-1).
 
 import logging
 import time
+import uuid
 from typing import Any, Optional
 
 from ghost import conversations as ghost_convos
@@ -19,6 +20,7 @@ from ghost import llm as ghost_llm
 from ghost import settings as ghost_settings
 from ghost.tools import CORE_TOOLS, TOOL_HANDLERS, tools_for_intent
 from ghost.triage import triage as triage_question
+from observability import log_event
 
 logger = logging.getLogger(__name__)
 
@@ -114,14 +116,39 @@ def ask(
             raise ValueError(f"Conversation {conv_id} not found")
 
     ghost_convos.append_message(conv_id, "user", question)
+    # Correlate every event from this question under one trace id so the
+    # /logs UI can filter `?metadata.trace_id=<id>` and see the multi-agent
+    # behavior in order.
+    trace_id = str(uuid.uuid4())
 
     def _emit(kind: str, **data: Any) -> None:
-        if on_event is None:
-            return
+        # Surface to the UI's live activity panel via the SSE callback.
+        if on_event is not None:
+            try:
+                on_event({"kind": kind, **data})
+            except Exception:
+                logger.exception("on_event callback raised; ignoring")
+        # Mirror into the central logs table so it shows up on /logs alongside
+        # transcription/extraction/bot events. Best-effort.
         try:
-            on_event({"kind": kind, **data})
+            log_event(
+                category="ghost",
+                event=f"ghost.{kind}",
+                status="done" if not data.get("error") else "failed",
+                level="error" if data.get("error") else "info",
+                message=_describe_event(kind, data),
+                metadata={"trace_id": trace_id, **{k: v for k, v in data.items() if _serializable(v)}},
+            )
         except Exception:
-            logger.exception("on_event callback raised; ignoring")
+            logger.exception("ghost log_event failed (ignored)")
+
+    log_event(
+        category="ghost",
+        event="ghost.question",
+        status="start",
+        message=question[:200],
+        metadata={"trace_id": trace_id, "conv_id": conv_id, "scope_hint": scope_hint},
+    )
 
     # Triage.
     t = triage_question(question, scope_hint=scope_hint)  # type: ignore[arg-type]
@@ -207,6 +234,48 @@ def _summarize_args(name: str, args: dict[str, Any]) -> dict[str, Any]:
         if scope.get("project_ids"):
             out["projects"] = len(scope["project_ids"])
     return out
+
+
+def _describe_event(kind: str, data: dict[str, Any]) -> str:
+    """One-line human-readable summary for the /logs UI message column."""
+    if kind == "triage":
+        return f"triage intent={data.get('intent')} scope={data.get('scope')} spawn={data.get('can_spawn_subagents')}"
+    if kind == "tool.start":
+        name = data.get("name", "?")
+        args = data.get("arguments") or {}
+        bits = [f"{k}={v}" for k, v in args.items()][:4]
+        return f"tool→{name} {' '.join(bits)}".strip()
+    if kind == "tool.done":
+        name = data.get("name", "?")
+        summary = data.get("summary") or ""
+        if data.get("error"):
+            return f"tool✗ {name}: {summary}"
+        return f"tool✓ {name}{(' — ' + summary) if summary else ''}"
+    if kind == "subagent.spawning":
+        return f"spawning {data.get('task_count', 0)} sub-agent(s)"
+    if kind == "subagent.started":
+        return f"subagent→ {data.get('question', '')[:80]}"
+    if kind == "subagent.done":
+        return f"subagent✓ {data.get('question', '')[:80]}"
+    if kind == "final":
+        cost = data.get("cost_usd")
+        lat = data.get("latency_ms")
+        return f"final answer (cost=${cost:.4f}, {(lat or 0) / 1000:.1f}s)" if cost is not None else "final answer"
+    if kind == "error":
+        return f"error: {data.get('message', '')}"
+    return kind
+
+
+def _serializable(v: Any) -> bool:
+    """Filter metadata fields to JSON-serializable types so log_event's
+    json.dumps doesn't throw on tool-call result blobs."""
+    if v is None or isinstance(v, (str, int, float, bool)):
+        return True
+    if isinstance(v, (list, tuple)):
+        return all(_serializable(x) for x in v)
+    if isinstance(v, dict):
+        return all(isinstance(k, str) and _serializable(val) for k, val in v.items())
+    return False
 
 
 def _summarize_result(name: str, result: Any) -> str:

@@ -37,6 +37,9 @@ const CATEGORIES = [
   "extraction",
   "document",
   "bot",
+  "streaming",
+  "entitize",
+  "ghost",
 ]
 
 const ACTIVE_BOT_EVENTS = new Set([
