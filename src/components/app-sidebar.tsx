@@ -12,12 +12,13 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { Home, Mic, CheckSquare, FileText, ScrollText, Settings } from "lucide-react"
+import { Home, Mic, CheckSquare, FileText, ScrollText, Settings, Sparkles } from "lucide-react"
 import Link from "next/link"
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Recordings", url: "/recordings", icon: Mic },
+  { title: "Ghost", url: "/ghost", icon: Sparkles },
   { title: "Logs", url: "/meetings", icon: ScrollText },
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
   { title: "Documents", url: "/documents", icon: FileText },
@@ -55,7 +56,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="Settings"
-              render={<Link href="#" />}
+              render={<Link href="/settings" />}
             >
               <Settings />
               <span>Settings</span>
