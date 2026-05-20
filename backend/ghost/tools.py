@@ -82,9 +82,16 @@ def list_recent_activity(
     return {"items": items, "count": len(items)}
 
 
-def search_transcripts(query: str, scope: Optional[dict] = None, k: int = 8) -> dict[str, Any]:
+def search_transcripts(
+    query: str,
+    scope: Optional[dict] = None,
+    k: int = 8,
+    speaker: Optional[str] = None,
+) -> dict[str, Any]:
     h = HybridRetriever()
-    items = h.search_transcripts(query, scope=_scope_from_args({"scope": scope}), k=k)
+    items = h.search_transcripts(
+        query, scope=_scope_from_args({"scope": scope}), k=k, speaker=speaker,
+    )
     return {"items": items, "count": len(items)}
 
 
@@ -137,7 +144,8 @@ TOOL_HANDLERS = {
         a["entity_id"], a.get("source_types"), int(a.get("limit", 10)), a.get("since_iso")
     ),
     "search_transcripts": lambda a: search_transcripts(
-        a.get("query", ""), a.get("scope"), int(a.get("k", 8))
+        a.get("query", ""), a.get("scope"), int(a.get("k", 8)),
+        speaker=a.get("speaker") or None,
     ),
     "search_attachments": lambda a: search_attachments(
         a.get("query", ""), a.get("scope"), int(a.get("k", 5))
@@ -204,13 +212,22 @@ CORE_TOOLS: list[dict[str, Any]] = [
     },
     {
         "name": "search_transcripts",
-        "description": "Hybrid (vector + FTS) search over transcript segments. Returns segments with citations.",
+        "description": (
+            "Hybrid (vector + FTS) search over transcript segments. "
+            "Returns segments with citations. Pass `speaker` to restrict "
+            "to one speaker label (e.g. 'Jason' or 'Speaker 1'). Speaker "
+            "names are also matched implicitly even without this filter."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
                 "query": {"type": "string"},
                 "scope": SCOPE_SCHEMA,
                 "k": {"type": "integer", "minimum": 1, "maximum": 25, "default": 8},
+                "speaker": {
+                    "type": "string",
+                    "description": "Restrict matches to one speaker label.",
+                },
             },
             "required": ["query"],
         },

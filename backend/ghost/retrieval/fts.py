@@ -41,7 +41,12 @@ class FTSRetriever:
     """Search over the three FTS5 virtual tables."""
 
     def search_segments(
-        self, query: str, scope: Optional[Scope] = None, k: int = 10
+        self,
+        query: str,
+        scope: Optional[Scope] = None,
+        k: int = 10,
+        *,
+        speaker: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         match = _escape_fts(query)
         if not match:
@@ -50,18 +55,30 @@ class FTSRetriever:
         where, params = scope.where_clause(recording_col="s.recording_id")
         conn = storage._get_conn()
         conn.row_factory = sqlite3.Row
+        speaker_clause = ""
+        speaker_params: list[Any] = []
+        if speaker:
+            # Match speaker via the segments table column (FTS5's speaker column
+            # is also indexed, but using the joined table keeps the query
+            # straightforward and case-insensitive).
+            speaker_clause = " AND s.speaker = ? COLLATE NOCASE"
+            speaker_params = [speaker]
+        # bm25 column weights: boost speaker matches so a search like
+        # "Jason pricing" surfaces Jason's segments above mentions of Jason.
+        # FTS5 bm25(table, w_col1, w_col2, ...) weights the indexed columns
+        # in declaration order: speaker (col2), text (col3).
         sql = (
             "SELECT s.recording_id, s.segment_index, s.speaker, s.text, s.start_seconds, "
-            "    bm25(segments_fts) AS rank "
+            "    bm25(segments_fts, 0.0, 0.0, 2.0, 1.0, 0.0) AS rank "
             "FROM segments_fts "
             "JOIN segments s ON s.recording_id = segments_fts.recording_id "
             "    AND s.segment_index = segments_fts.segment_index "
             "WHERE segments_fts MATCH ? "
-            f"    AND {where} "
+            f"    AND {where}{speaker_clause} "
             "ORDER BY rank "
             "LIMIT ?"
         )
-        rows = conn.execute(sql, [match, *params, k]).fetchall()
+        rows = conn.execute(sql, [match, *params, *speaker_params, k]).fetchall()
         conn.row_factory = None
         out = []
         for r in rows:

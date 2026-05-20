@@ -63,3 +63,14 @@ export type GhostCost = {
   month_to_date_usd: number
   monthly_cap_usd: number
 }
+
+export type GhostStreamEvent =
+  | { kind: "triage"; intent: string; scope: string; can_spawn_subagents: boolean }
+  | { kind: "tool.start"; name: string; arguments?: Record<string, unknown> }
+  | { kind: "tool.done"; name: string; summary?: string; error?: boolean }
+  | { kind: "subagent.spawning"; task_count: number; questions: string[] }
+  | { kind: "subagent.started"; question: string }
+  | { kind: "subagent.done"; question: string; error?: string }
+  | { kind: "final"; conv_id: string; answer: string; citations: GhostCitation[]; cost_usd: number; latency_ms: number; tokens_in: number; tokens_out: number; tool_calls: Array<{ name: string; arguments: Record<string, unknown> }> }
+  | { kind: "error"; message: string }
+  | { kind: "heartbeat" }

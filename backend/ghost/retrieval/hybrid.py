@@ -61,11 +61,16 @@ class HybridRetriever:
         self.fts = fts or FTSRetriever()
 
     def search_transcripts(
-        self, query: str, scope: Optional[Scope] = None, k: int = 8
+        self,
+        query: str,
+        scope: Optional[Scope] = None,
+        k: int = 8,
+        *,
+        speaker: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         scope = scope or Scope()
-        fts_hits = self.fts.search_segments(query, scope=scope, k=max(k, 10))
-        vec_hits = self.vector.search_segments(query, scope=scope, k=max(k, 10))
+        fts_hits = self.fts.search_segments(query, scope=scope, k=max(k, 10), speaker=speaker)
+        vec_hits = self.vector.search_segments(query, scope=scope, k=max(k, 10), speaker=speaker)
         return reciprocal_rank_fusion(fts_hits, vec_hits, top_k=k)
 
     def search_attachments(

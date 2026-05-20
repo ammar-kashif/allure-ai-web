@@ -622,6 +622,79 @@ async def ghost_ask(request: Request):
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@app.post("/ghost/ask/stream")
+async def ghost_ask_stream(request: Request):
+    """SSE stream of agent activity + final answer.
+
+    Each event payload is JSON; one event per line. Kinds:
+        triage              {intent, scope, can_spawn_subagents}
+        tool.start          {name, arguments}
+        tool.done           {name, summary, error?}
+        subagent.spawning   {task_count, questions}
+        subagent.started    {question}
+        subagent.done       {question, error?}
+        final               {conv_id, answer, citations, cost_usd, ...}
+        error               {message}
+
+    The agent runs in a worker thread; events are pushed onto a
+    thread-safe queue that the SSE generator drains.
+    """
+    import json as _json
+    import queue as _queue
+    import threading
+
+    from fastapi.responses import StreamingResponse
+
+    from ghost.agent import ask as ghost_ask_fn
+
+    body = await request.json()
+    question = (body.get("question") or "").strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="question is required")
+
+    conv_id = body.get("conv_id")
+    project_id = body.get("project_id")
+    scope_hint = body.get("scope_hint") or "cross_project"
+
+    q: "_queue.Queue[dict]" = _queue.Queue()
+    SENTINEL = {"__sentinel__": True}
+
+    def emit(event: dict):
+        q.put(event)
+
+    def runner():
+        try:
+            ghost_ask_fn(
+                question,
+                conv_id=conv_id,
+                project_id=project_id,
+                scope_hint=scope_hint,
+                on_event=emit,
+            )
+        except Exception as exc:
+            emit({"kind": "error", "message": str(exc)})
+        finally:
+            emit(SENTINEL)
+
+    threading.Thread(target=runner, daemon=True).start()
+
+    async def gen():
+        while True:
+            try:
+                event = await asyncio.wait_for(
+                    asyncio.to_thread(q.get, True, 30),
+                    timeout=35,
+                )
+            except (asyncio.TimeoutError, _queue.Empty):
+                yield "data: " + _json.dumps({"kind": "heartbeat"}) + "\n\n"
+                continue
+            if event.get("__sentinel__"):
+                return
+            yield "data: " + _json.dumps(event, default=str) + "\n\n"
+
+    return StreamingResponse(gen(), media_type="text/event-stream")
+
+
 @app.get("/ghost/conversations")
 async def list_ghost_conversations(limit: int = Query(default=50, ge=1, le=200)):
     return ghost_convos.list_conversations(limit=limit)

@@ -62,9 +62,15 @@ def ask(
     project_id: Optional[str] = None,
     scope_hint: str = "cross_project",
     max_iterations: int = 8,
+    on_event: Optional[Any] = None,
 ) -> dict[str, Any]:
     """Top-level Ghost entry point. Returns a dict with answer + citations
-    + telemetry, also persists to ghost_messages."""
+    + telemetry, also persists to ghost_messages.
+
+    `on_event(event: dict)` is invoked synchronously for each tool start /
+    tool done / triage / final event. Used by the streaming endpoint to
+    surface activity to the UI in real time. Callbacks must not block.
+    """
     settings = ghost_settings.get()
     if settings["mode"] != "hosted":
         raise RuntimeError("Local Ghost is not yet available; switch to hosted.")
@@ -89,23 +95,45 @@ def ask(
 
     ghost_convos.append_message(conv_id, "user", question)
 
+    def _emit(kind: str, **data: Any) -> None:
+        if on_event is None:
+            return
+        try:
+            on_event({"kind": kind, **data})
+        except Exception:
+            logger.exception("on_event callback raised; ignoring")
+
     # Triage.
     t = triage_question(question, scope_hint=scope_hint)  # type: ignore[arg-type]
     tools = tools_for_intent(can_spawn_subagents=t.can_spawn_subagents)
+    _emit("triage", intent=t.intent, scope=t.scope, can_spawn_subagents=t.can_spawn_subagents)
 
     llm = ghost_llm.get_llm()
 
-    # Tool handler with sub-agent interception.
+    # Tool handler with sub-agent interception + event emission.
     def handler(name: str, args: dict[str, Any]) -> Any:
-        if name == "spawn_research_subagents":
-            from ghost.subagent import run_subagent_pool
+        _emit("tool.start", name=name, arguments=_summarize_args(name, args))
+        try:
+            if name == "spawn_research_subagents":
+                from ghost.subagent import run_subagent_pool
 
-            tasks = args.get("tasks", []) or []
-            return run_subagent_pool(tasks, llm=llm)
-        fn = TOOL_HANDLERS.get(name)
-        if fn is None:
-            return {"error": f"Unknown tool: {name}"}
-        return fn(args)
+                tasks = args.get("tasks", []) or []
+                _emit("subagent.spawning", task_count=min(len(tasks), 6),
+                      questions=[t.get("question", "")[:120] for t in tasks[:6]])
+                result = run_subagent_pool(tasks, llm=llm, on_event=on_event)
+                _emit("tool.done", name=name,
+                      summary=f"{result.get('count', 0)} sub-agent finding(s)")
+                return result
+            fn = TOOL_HANDLERS.get(name)
+            if fn is None:
+                _emit("tool.done", name=name, summary="unknown tool", error=True)
+                return {"error": f"Unknown tool: {name}"}
+            result = fn(args)
+            _emit("tool.done", name=name, summary=_summarize_result(name, result))
+            return result
+        except Exception as exc:
+            _emit("tool.done", name=name, summary=str(exc), error=True)
+            raise
 
     t0 = time.perf_counter()
     result = llm.run_tool_use_loop(
@@ -131,7 +159,7 @@ def ask(
         latency_ms=latency_ms,
     )
 
-    return {
+    payload = {
         "conv_id": conv_id,
         "answer": result.answer,
         "citations": citations,
@@ -142,6 +170,38 @@ def ask(
         "latency_ms": latency_ms,
         "tool_calls": [_tool_call_to_dict(tc) for tc in result.tool_calls],
     }
+    _emit("final", **payload)
+    return payload
+
+
+def _summarize_args(name: str, args: dict[str, Any]) -> dict[str, Any]:
+    """Produce a small, human-friendly snapshot of tool arguments for the UI."""
+    out: dict[str, Any] = {}
+    for k in ("query", "name", "kind", "entity_id", "recording_id", "speaker", "outcome_type"):
+        if k in args and args[k] not in (None, ""):
+            out[k] = args[k]
+    scope = args.get("scope") or {}
+    if isinstance(scope, dict):
+        if scope.get("recording_ids"):
+            out["recordings"] = len(scope["recording_ids"])
+        if scope.get("project_ids"):
+            out["projects"] = len(scope["project_ids"])
+    return out
+
+
+def _summarize_result(name: str, result: Any) -> str:
+    """One-line summary of a tool result for the activity log."""
+    if not isinstance(result, dict):
+        return ""
+    if "items" in result:
+        return f"{len(result['items'])} hit(s)"
+    if "candidates" in result:
+        return f"{len(result['candidates'])} candidate(s)"
+    if name == "get_recording_summary":
+        return result.get("meeting_title") or result.get("title") or ""
+    if name == "get_transcript_window":
+        return f"{result.get('count', 0)} segment(s)"
+    return ""
 
 
 def _extract_citations_from_tool_calls(tool_calls) -> list[dict[str, Any]]:

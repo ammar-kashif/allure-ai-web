@@ -66,11 +66,16 @@ def _run_one_subagent(llm, task: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def run_subagent_pool(tasks: list[dict[str, Any]], *, llm) -> dict[str, Any]:
+def run_subagent_pool(
+    tasks: list[dict[str, Any]], *, llm, on_event=None
+) -> dict[str, Any]:
     """Run up to MAX_SUBAGENTS sub-agent investigations in parallel.
 
     Returns a dict summarizing each task's distilled answer. Raw retrieval
     evidence is NOT bubbled up -- the orchestrator only sees the findings.
+
+    `on_event` is forwarded to the orchestrator's event stream so each
+    sub-agent's question + completion show up in the live activity log.
     """
     if not tasks:
         return {"findings": [], "count": 0}
@@ -80,8 +85,20 @@ def run_subagent_pool(tasks: list[dict[str, Any]], *, llm) -> dict[str, Any]:
         futures = {ex.submit(_run_one_subagent, llm, t): t for t in tasks}
         for fut in concurrent.futures.as_completed(futures):
             t = futures[fut]
+            if on_event is not None:
+                try:
+                    on_event({"kind": "subagent.started", "question": t.get("question", "")[:120]})
+                except Exception:
+                    pass
             try:
-                findings.append(fut.result())
+                finding = fut.result()
+                findings.append(finding)
+                if on_event is not None:
+                    try:
+                        on_event({"kind": "subagent.done",
+                                  "question": finding.get("question", "")[:120]})
+                    except Exception:
+                        pass
             except Exception as exc:
                 logger.exception("subagent failed")
                 findings.append({
@@ -90,6 +107,13 @@ def run_subagent_pool(tasks: list[dict[str, Any]], *, llm) -> dict[str, Any]:
                     "answer": f"(sub-agent failed: {exc})",
                     "tool_count": 0,
                 })
+                if on_event is not None:
+                    try:
+                        on_event({"kind": "subagent.done",
+                                  "question": t.get("question", "")[:120],
+                                  "error": str(exc)})
+                    except Exception:
+                        pass
     return {
         "findings": findings,
         "count": len(findings),

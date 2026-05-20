@@ -24,7 +24,12 @@ class VectorRetriever:
         return embeddings.vec_search_supported()
 
     def search_segments(
-        self, query: str, scope: Optional[Scope] = None, k: int = 10
+        self,
+        query: str,
+        scope: Optional[Scope] = None,
+        k: int = 10,
+        *,
+        speaker: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         if not self._supported():
             return []
@@ -57,6 +62,8 @@ class VectorRetriever:
                 (mapping["recording_id"], mapping["segment_index"]),
             ).fetchone()
             if not seg:
+                continue
+            if speaker and (seg["speaker"] or "").lower() != speaker.lower():
                 continue
             # Scope filter post-hoc (cheaper than altering the vec query).
             if not _row_passes_scope(scope, conn, mapping["recording_id"]):

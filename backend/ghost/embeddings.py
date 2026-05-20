@@ -257,6 +257,10 @@ def embed_and_index_recording(recording_id: str) -> int:
 
     Returns the number of segments embedded. Idempotent -- prior embeddings
     are wiped first.
+
+    Encoding: "{speaker}: {text}" so vector retrieval picks up speaker
+    semantics (queries like "what did Jason say about X" match the right
+    segments even when 'Jason' never appears in the transcript text).
     """
     from segments_store import list_segments
 
@@ -264,7 +268,11 @@ def embed_and_index_recording(recording_id: str) -> int:
     if not segments:
         return 0
     delete_segment_embeddings(recording_id)
-    texts = [s.get("text", "") for s in segments]
+    texts = []
+    for s in segments:
+        speaker = (s.get("speaker") or "").strip()
+        body = s.get("text", "")
+        texts.append(f"{speaker}: {body}" if speaker else body)
     matrix = embed_texts(texts)
     for s, vec in zip(segments, matrix):
         upsert_segment_embedding(recording_id, s["segment_index"], vec)
