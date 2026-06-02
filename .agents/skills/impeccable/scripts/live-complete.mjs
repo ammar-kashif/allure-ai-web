@@ -73,3 +73,4 @@ const _running = process.argv[1];
 if (_running?.endsWith('live-complete.mjs') || _running?.endsWith('live-complete.mjs/')) {
   completeCli();
 }
+

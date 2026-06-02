@@ -152,3 +152,4 @@ When invoked from live mode, each variant MUST declare a `color-amount` param so
 ```
 
 Layer 1-2 variant-specific params on top: palette selection (`steps` with named options), temperature warmth, or tint vs. true color. See `reference/live.md` for the full params contract.
+

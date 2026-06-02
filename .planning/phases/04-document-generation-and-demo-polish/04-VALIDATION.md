@@ -76,3 +76,4 @@ created: 2026-03-15
 - [ ] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
+

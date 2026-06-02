@@ -181,3 +181,4 @@ Phases with standard, well-documented patterns (skip additional research):
 ---
 *Research completed: 2026-03-18*
 *Ready for roadmap: yes*
+

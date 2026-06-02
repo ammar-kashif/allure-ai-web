@@ -129,3 +129,4 @@ class TestExtractEdgeCases:
         text, error = extract_text(path, "txt")
         assert len(text) == MAX_EXTRACTED_CHARS
         assert error is None or error == ""
+

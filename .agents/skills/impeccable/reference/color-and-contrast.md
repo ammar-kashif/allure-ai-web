@@ -103,3 +103,4 @@ Heavy use of transparency (rgba, hsla) usually means an incomplete palette. Alph
 ---
 
 **Avoid**: Relying on color alone to convey information. Creating palettes without clear roles for each color. Using pure black (#000) for large areas. Skipping color blindness testing (8% of men affected).
+

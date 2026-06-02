@@ -162,3 +162,4 @@ def run_extraction(job_id: str, app_state: object) -> list[dict[str, Any]]:
         outcomes.append(outcome)
 
     return outcomes
+

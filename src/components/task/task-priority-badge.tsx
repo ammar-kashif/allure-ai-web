@@ -22,3 +22,4 @@ export function TaskPriorityBadge({ priority }: { priority: TaskPriority }) {
     </Badge>
   )
 }
+

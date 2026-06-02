@@ -121,3 +121,4 @@ Present the result to the user:
 - Explain design decisions that connect back to the design brief and, when used, the chosen north-star mock. Include any accepted deviations from the mock; do not hide unimplemented mock ingredients.
 - Note any remaining limitations or follow-up risks honestly
 - Ask: "What's working? What isn't?"
+

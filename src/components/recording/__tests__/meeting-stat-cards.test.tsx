@@ -62,3 +62,4 @@ describe("MeetingStatCards", () => {
     expect(screen.getByText("0")).toBeDefined()
   })
 })
+

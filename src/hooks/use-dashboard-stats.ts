@@ -74,3 +74,4 @@ export function useDashboardStats(): DashboardStats {
     allOutcomes,
   }
 }
+

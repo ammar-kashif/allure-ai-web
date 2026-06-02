@@ -64,3 +64,4 @@ async def process_worker(app_state: object) -> None:
                 pass
         finally:
             job_queue.task_done()
+

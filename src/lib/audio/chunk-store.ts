@@ -83,3 +83,4 @@ export async function getIncompleteRecordingIds(): Promise<string[]> {
 export function resetDB(): void {
   dbPromise = null
 }
+

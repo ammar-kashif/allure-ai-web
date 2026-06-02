@@ -98,3 +98,4 @@ None — discussion stayed within phase scope
 
 *Phase: 07-document-attachments*
 *Context gathered: 2026-03-19*
+

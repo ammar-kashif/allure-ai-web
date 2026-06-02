@@ -173,3 +173,4 @@ describe("OutcomeCard", () => {
     expect(screen.getByText(/promoted/i)).toBeInTheDocument()
   })
 })
+

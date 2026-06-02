@@ -173,3 +173,4 @@ Test animations thoroughly:
 - **Adds value**: Makes interface clearer or more delightful
 
 When the motion clarifies state instead of decorating it, hand off to `{{command_prefix}}impeccable polish` for the final pass.
+

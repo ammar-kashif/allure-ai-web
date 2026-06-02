@@ -300,3 +300,4 @@ Test that delight actually delights:
 - **Accessible**: Works with reduced motion, screen readers
 
 When the moments feel earned, hand off to `{{command_prefix}}impeccable polish` for the final pass.
+

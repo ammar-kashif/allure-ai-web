@@ -34,3 +34,4 @@ RUN mkdir -p public/recordings
 EXPOSE 3000
 
 CMD ["node", "server.js"]
+

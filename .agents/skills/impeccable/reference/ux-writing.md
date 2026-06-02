@@ -105,3 +105,4 @@ Show format with placeholders, not instructions. For non-obvious fields, explain
 ---
 
 **Avoid**: Jargon without explanation. Blaming users ("You made an error" → "This field is required"). Vague errors ("Something went wrong"). Varying terminology for variety. Humor for errors.
+

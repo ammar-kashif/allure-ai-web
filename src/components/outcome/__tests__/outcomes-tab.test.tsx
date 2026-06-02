@@ -156,3 +156,4 @@ describe("OutcomesTab", () => {
     expect(screen.getByText(/no outcomes extracted/i)).toBeInTheDocument()
   })
 })
+

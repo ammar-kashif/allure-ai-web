@@ -512,3 +512,4 @@ function SpeakerBadge({ speaker }: { speaker: string }) {
 
 **Research date:** 2026-03-18
 **Valid until:** 2026-04-18 (stable domain, no fast-moving dependencies)
+

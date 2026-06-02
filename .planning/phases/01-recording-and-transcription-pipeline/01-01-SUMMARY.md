@@ -42,3 +42,4 @@ Complete audio recording pipeline with crash recovery and global FAB. Users can 
 ## Self-Check: PASSED
 - Build passes (`npm run build`)
 - All tests pass (12 passed, 26 todo/skeleton)
+

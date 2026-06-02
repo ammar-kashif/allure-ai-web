@@ -212,3 +212,4 @@ if (action === 'pin') {
 } else {
   unpin(command, root);
 }
+

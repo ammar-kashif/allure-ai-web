@@ -468,3 +468,4 @@ def assign_default_roles(stats: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 **Research date:** 2026-03-19
 **Valid until:** 2026-04-19 (stable -- no external dependencies changing)
+

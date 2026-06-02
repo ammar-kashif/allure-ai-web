@@ -181,3 +181,4 @@ export function AudioPlayerBar({ recordingId, utterances }: AudioPlayerBarProps)
 
   return null
 }
+

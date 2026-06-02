@@ -256,3 +256,4 @@ Test that optimizations worked:
 - **User perception**: Does it *feel* faster?
 
 When the user-facing numbers move, hand off to `{{command_prefix}}impeccable polish` for the final pass.
+

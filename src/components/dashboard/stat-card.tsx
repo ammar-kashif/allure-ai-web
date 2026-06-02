@@ -22,3 +22,4 @@ export function StatCard({ title, value, icon: Icon }: StatCardProps) {
     </div>
   )
 }
+

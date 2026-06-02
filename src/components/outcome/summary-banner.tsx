@@ -74,3 +74,4 @@ export function SummaryBanner({ outcomes }: SummaryBannerProps) {
     </div>
   )
 }
+

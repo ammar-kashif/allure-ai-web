@@ -314,3 +314,4 @@ export function TaskDetailPanel({ taskId, open, onOpenChange }: TaskDetailPanelP
     </>
   )
 }
+

@@ -88,3 +88,4 @@ export function countDocuments(): number {
     .get() as { count: number }
   return row.count
 }
+

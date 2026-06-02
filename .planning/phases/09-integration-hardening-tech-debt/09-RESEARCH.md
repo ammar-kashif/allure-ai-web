@@ -267,3 +267,4 @@ No technology changes needed. This is a cleanup phase using existing patterns.
 
 **Research date:** 2026-03-20
 **Valid until:** 2026-04-20 (stable -- no external dependencies changing)
+

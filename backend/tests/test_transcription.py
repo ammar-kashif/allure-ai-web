@@ -256,3 +256,4 @@ def test_run_transcription_includes_processing_time():
         assert "processing_time" in result
         assert isinstance(result["processing_time"], float)
         assert result["processing_time"] >= 0
+

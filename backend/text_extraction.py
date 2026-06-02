@@ -65,3 +65,4 @@ def _extract_txt(file_path: str) -> str:
     """Extract text from a plain text file with UTF-8 fallback."""
     with open(file_path, "r", encoding="utf-8", errors="replace") as f:
         return f.read()
+

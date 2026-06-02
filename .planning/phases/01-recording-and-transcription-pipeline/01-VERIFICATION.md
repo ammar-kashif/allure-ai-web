@@ -214,3 +214,4 @@ All other pipeline stages — recording capture, crash recovery, SQLite storage,
 
 _Verified: 2026-03-12_
 _Verifier: Claude (gsd-verifier)_
+

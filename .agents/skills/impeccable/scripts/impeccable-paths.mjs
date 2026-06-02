@@ -108,3 +108,4 @@ export function getLegacyLiveAnnotationsDir(cwd = process.cwd()) {
 function firstExisting(paths) {
   return paths.find((filePath) => fs.existsSync(filePath)) || null;
 }
+

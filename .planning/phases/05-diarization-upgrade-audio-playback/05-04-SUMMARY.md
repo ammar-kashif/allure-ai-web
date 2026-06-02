@@ -54,3 +54,4 @@ Wired transcript-audio synchronization: the active utterance is highlighted with
 - [x] Click-to-seek works on utterance bubbles
 - [x] Player bar stays at bottom of content area, respects sidebar
 - [x] User verified all behaviors
+

@@ -188,3 +188,4 @@ Test thoroughly across contexts:
 - **Slow connections**: Test on throttled network
 
 When the adaptation feels native to each context, hand off to `{{command_prefix}}impeccable polish` for the final pass.
+

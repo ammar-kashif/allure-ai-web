@@ -80,3 +80,4 @@ export interface RequirementRecord {
   backlink: string
   createdAt: string
 }
+

@@ -754,3 +754,4 @@ toast.error('Microphone access denied', {
 
 **Research date:** 2026-03-12
 **Valid until:** 2026-04-12 (stable domain, 30-day validity)
+

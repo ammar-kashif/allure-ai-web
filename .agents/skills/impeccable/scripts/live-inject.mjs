@@ -444,3 +444,4 @@ if (_running?.endsWith('live-inject.mjs') || _running?.endsWith('live-inject.mjs
 
 export { insertTag, removeTag, validateConfig, buildTagBlock };
 // patchCspMeta + revertCspMeta are exported above where they're defined.
+

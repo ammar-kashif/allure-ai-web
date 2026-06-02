@@ -51,3 +51,4 @@ export interface Transcript {
   duration?: number              // total meeting duration in seconds
   processingTime?: number        // pipeline processing time in seconds
 }
+

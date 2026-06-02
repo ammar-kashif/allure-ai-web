@@ -196,3 +196,4 @@ if (_running?.endsWith('detect-csp.mjs') || _running?.endsWith('detect-csp.mjs/'
   const result = detectCsp(process.cwd());
   console.log(JSON.stringify(result, null, 2));
 }
+

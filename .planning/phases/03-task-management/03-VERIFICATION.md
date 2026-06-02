@@ -200,3 +200,4 @@ The `human_needed` status reflects that the interactive behaviors — drag-and-d
 
 _Verified: 2026-03-14T06:00:00Z_
 _Verifier: Claude (gsd-verifier)_
+

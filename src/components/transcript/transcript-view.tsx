@@ -155,3 +155,4 @@ export function TranscriptView({ transcript }: TranscriptViewProps) {
     </div>
   )
 }
+

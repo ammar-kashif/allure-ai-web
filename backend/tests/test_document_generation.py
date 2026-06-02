@@ -425,3 +425,4 @@ class TestGenerateDiagram:
 
         with pytest.raises(ValueError, match="no transcription or outcomes"):
             generate_diagram("job-1", mock_app)
+

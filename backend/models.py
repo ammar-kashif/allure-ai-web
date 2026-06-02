@@ -118,3 +118,4 @@ class AttachmentTextResponse(BaseModel):
 
     id: str
     extracted_text: str
+

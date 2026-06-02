@@ -293,3 +293,4 @@ Mistakes that cause rewrites or major issues.
 - [AI Mermaid Diagram Generator That Fixes Its Own Mistakes](https://djajafer.medium.com/i-built-an-ai-mermaid-diagram-generator-that-fixes-its-own-mistakes-26552047c37a)
 - [Speaker Diarization textbook -- Aalto University](https://speechprocessingbook.aalto.fi/Recognition/Speaker_Diarization.html)
 - Codebase analysis: `backend/main.py`, `backend/transcription.py`, `backend/document_generation.py`, `backend/extraction.py`, `backend/storage.py`, `src/lib/db/index.ts`, `src/lib/db/recordings.ts`
+

@@ -74,3 +74,4 @@ describe("RecordingFAB", () => {
     expect(screen.getByText("2:05")).toBeInTheDocument()
   })
 })
+

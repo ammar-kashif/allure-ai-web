@@ -210,3 +210,4 @@ async def test_get_attachment_text(client):
     data = text_resp.json()
     assert data["id"] == attachment_id
     assert "Known content for text extraction test." in data["extracted_text"]
+

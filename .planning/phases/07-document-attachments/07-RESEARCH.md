@@ -508,3 +508,4 @@ This doubles the context window. Memory impact is ~32MB additional KV cache on G
 
 **Research date:** 2026-03-19
 **Valid until:** 2026-04-19 (stable domain, no fast-moving dependencies)
+

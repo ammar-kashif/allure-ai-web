@@ -15,3 +15,4 @@ export function DocumentTypeBadge({ type }: { type: "prd" | "user_flow" | "erd" 
     </Badge>
   )
 }
+

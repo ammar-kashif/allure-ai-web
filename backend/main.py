@@ -570,3 +570,4 @@ async def get_attachment_text(job_id: str, attachment_id: str):
         id=record["id"],
         extracted_text=record["extracted_text"],
     )
+

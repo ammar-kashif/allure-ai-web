@@ -62,3 +62,4 @@ describe("TranscriptView", () => {
     expect(screen.getByText("Different speaker.")).toBeInTheDocument()
   })
 })
+

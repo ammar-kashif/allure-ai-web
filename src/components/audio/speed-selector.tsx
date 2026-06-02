@@ -39,3 +39,4 @@ export function SpeedSelector({ value, onChange }: SpeedSelectorProps) {
     </DropdownMenu>
   )
 }
+

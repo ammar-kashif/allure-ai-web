@@ -65,3 +65,4 @@ export function RecentRecordings({ recordings }: RecentRecordingsProps) {
     </Card>
   )
 }
+

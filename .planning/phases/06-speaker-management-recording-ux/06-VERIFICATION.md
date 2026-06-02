@@ -147,3 +147,4 @@ Three behavioral items require human runtime verification: speaker rename propag
 
 _Verified: 2026-03-19_
 _Verifier: Claude (gsd-verifier)_
+

@@ -98,3 +98,4 @@ Create semantic z-index scales (dropdown → sticky → modal-backdrop → modal
 ---
 
 **Avoid**: Arbitrary spacing values outside your scale. Making all spacing equal (variety creates hierarchy). Creating hierarchy through size alone - combine size, weight, color, and space.
+

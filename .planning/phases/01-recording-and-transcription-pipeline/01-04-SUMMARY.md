@@ -45,3 +45,4 @@ Recording detail page at /recordings/[id] with chat-style transcript display. Us
 - Build passes
 - All 44 tests pass
 - Human verification approved
+

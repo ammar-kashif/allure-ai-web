@@ -139,3 +139,4 @@ For variants whose topology genuinely changes (stacked vs. side-by-side, grid vs
 ```
 
 See `reference/live.md` for the full params contract.
+

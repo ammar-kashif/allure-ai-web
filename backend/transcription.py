@@ -564,3 +564,4 @@ def run_transcription(job_id: str, app_state: object) -> dict[str, Any]:
         "segments": filtered_segments,
         "processing_time": processing_time,
     }
+

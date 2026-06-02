@@ -71,3 +71,4 @@ def convert_to_wav(input_path: str, output_path: str) -> str:
         capture_output=True,
     )
     return output_path
+

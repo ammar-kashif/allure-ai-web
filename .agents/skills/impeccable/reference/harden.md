@@ -345,3 +345,4 @@ Test thoroughly with edge cases:
 - **Empty**: Remove all data, test empty states
 
 When edge cases are covered, hand off to `{{command_prefix}}impeccable polish` for the final pass.
+

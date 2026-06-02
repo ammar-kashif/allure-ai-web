@@ -95,3 +95,4 @@ export function MermaidDiagram({ code }: { code: string }) {
 
   return <div ref={containerRef} className="flex justify-center p-4" />
 }
+

@@ -140,3 +140,4 @@ describe("RecordingHub", () => {
     expect(mockPush).toHaveBeenCalledWith("/recordings/rec-1")
   })
 })
+

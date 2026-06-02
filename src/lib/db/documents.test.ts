@@ -166,3 +166,4 @@ describe("documents db module", () => {
     )
   })
 })
+

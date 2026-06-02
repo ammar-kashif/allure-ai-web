@@ -34,3 +34,4 @@ Recording Hub with filterable table, tabs, project assignment, and status badges
 ## Self-Check: PASSED
 - Build passes
 - All 12 recording component tests pass
+

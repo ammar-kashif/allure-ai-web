@@ -57,3 +57,4 @@ export function formatTimecode(seconds: number): string {
   const secs = Math.floor(seconds % 60)
   return `${mins}:${String(secs).padStart(2, "0")}`
 }
+

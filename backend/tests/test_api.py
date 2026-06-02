@@ -379,3 +379,4 @@ async def test_delete_recording_not_found(client):
     """DELETE /recordings/nonexistent returns 404."""
     response = await client.delete("/recordings/nonexistent")
     assert response.status_code == 404
+

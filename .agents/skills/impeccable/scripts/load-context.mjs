@@ -139,3 +139,4 @@ const _running = process.argv[1];
 if (_running?.endsWith('load-context.mjs') || _running?.endsWith('load-context.mjs/')) {
   cli();
 }
+

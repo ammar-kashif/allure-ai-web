@@ -33,3 +33,4 @@ export async function POST(request: NextRequest) {
   const task = createTask(parsed.data)
   return NextResponse.json(task, { status: 201 })
 }
+

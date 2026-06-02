@@ -114,3 +114,4 @@
 1. Run milestone audit before completion — catches integration gaps that per-phase verification misses (v1.0: 3 bugs, v1.1: 3 integration findings)
 2. Test full cross-phase flows, not just individual endpoints (v1.0: promote route, v1.1: document forwarding race)
 3. Keep SUMMARY frontmatter accurate during execution — it's a primary data source for automated audits
+

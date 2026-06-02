@@ -22,3 +22,4 @@ export function SpeakerBadge({ speaker, displayName, className }: SpeakerBadgePr
     </span>
   )
 }
+

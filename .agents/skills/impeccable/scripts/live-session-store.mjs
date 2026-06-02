@@ -252,3 +252,4 @@ function upsertArtifact(artifacts, artifact) {
 function writeSnapshot(snapshotPath, snapshot) {
   fs.writeFileSync(snapshotPath, JSON.stringify(snapshot, null, 2) + '\n');
 }
+

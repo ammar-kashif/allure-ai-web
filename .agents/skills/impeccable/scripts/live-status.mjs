@@ -45,3 +45,4 @@ const _running = process.argv[1];
 if (_running?.endsWith('live-status.mjs') || _running?.endsWith('live-status.mjs/')) {
   statusCli();
 }
+

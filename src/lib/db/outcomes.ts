@@ -82,3 +82,4 @@ export function updateOutcomePromotion(outcomeId: string, promotedId: string): v
     "UPDATE outcomes SET promoted = 1, promoted_id = ? WHERE id = ?"
   ).run(promotedId, outcomeId)
 }
+

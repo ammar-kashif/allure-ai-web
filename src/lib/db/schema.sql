@@ -75,3 +75,4 @@ CREATE TABLE IF NOT EXISTS documents (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (source_recording_id) REFERENCES recordings(id)
 );
+

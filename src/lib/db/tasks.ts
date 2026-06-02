@@ -266,3 +266,4 @@ export function deleteTask(id: string): boolean {
   const result = db.prepare("DELETE FROM tasks WHERE id = ?").run(id)
   return result.changes > 0
 }
+

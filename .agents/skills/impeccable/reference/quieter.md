@@ -97,3 +97,4 @@ Ensure refinement maintains quality:
 - **Restrained, not absent**: Does the POV survive the cuts?
 
 When the result feels right, hand off to `{{command_prefix}}impeccable polish` for the final pass.
+

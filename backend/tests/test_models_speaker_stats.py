@@ -63,3 +63,4 @@ def test_transcript_response_with_speaker_fields():
     assert response.speakers[0].role == "Host"
     assert response.speakers[1].custom_label == ""
     assert response.speakers[1].role == "Participant"
+

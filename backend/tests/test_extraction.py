@@ -263,3 +263,4 @@ def test_extraction_schema_has_required_fields():
     assert "detail" in items_props
     assert "confidence" in items_props
     assert "evidence_refs" in items_props
+

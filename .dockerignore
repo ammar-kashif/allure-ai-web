@@ -8,3 +8,4 @@ backend/uploads
 public/recordings
 *.env
 *.env.local
+

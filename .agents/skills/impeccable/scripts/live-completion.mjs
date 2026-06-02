@@ -16,3 +16,4 @@ export function completionAckForAcceptResult(eventId, completionType, acceptResu
   }
   return ack;
 }
+

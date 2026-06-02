@@ -148,3 +148,4 @@ Recording a meeting and getting a reviewable, structured project plan out of it 
 
 ---
 *Last updated: 2026-03-26 after v1.2 milestone start*
+

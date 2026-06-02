@@ -78,3 +78,4 @@ Render PRD content as formatted text instead of raw markdown syntax. Replace the
 
 *Phase: 11-prd-markdown-rendering*
 *Context gathered: 2026-03-26*
+

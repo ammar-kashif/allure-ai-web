@@ -224,3 +224,4 @@ function main(argv) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   main(process.argv.slice(2));
 }
+

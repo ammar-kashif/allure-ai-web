@@ -275,3 +275,4 @@ Layered ambient. The system uses compound shadows (`shadow-card`) on cards, with
 - **Don't** uppercase UI labels. Plain prose-case throughout.
 - **Don't** animate layout properties (`width`, `height`, `top`, `left`). Animate `transform` and `opacity` only.
 - **Don't** introduce a second accent color. Allure has one voice, and it's indigo.
+

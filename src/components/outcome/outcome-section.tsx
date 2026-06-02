@@ -55,3 +55,4 @@ export function OutcomeSection({ type, count, children }: OutcomeSectionProps) {
     </div>
   )
 }
+

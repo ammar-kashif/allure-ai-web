@@ -21,3 +21,4 @@ export async function POST(request: NextRequest) {
   const project = createProject(name.trim())
   return NextResponse.json(project, { status: 201 })
 }
+

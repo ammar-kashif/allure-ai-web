@@ -53,3 +53,4 @@ export async function discardRecovery(recordingId: string): Promise<void> {
     store.reset()
   }
 }
+

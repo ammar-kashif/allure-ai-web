@@ -33,3 +33,4 @@ Calm, precise, professional. Voice: factual, low-noise, no hype. Tone: confident
 ## Accessibility & Inclusion
 
 Target WCAG 2.2 AA. Keyboard-navigable across sidebar, lists, and transcript player. Respect `prefers-reduced-motion` (skip fade/scale entrance animations). Color is never the sole signal for state (pair with text/icon). Sufficient contrast in both light and dark themes — verify muted-foreground on muted backgrounds.
+

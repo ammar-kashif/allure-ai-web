@@ -57,3 +57,4 @@ export const useAudioPlayback = create<
   enableAutoScroll: () => set({ autoScrollEnabled: true }),
   reset: () => set(initialState),
 }))
+

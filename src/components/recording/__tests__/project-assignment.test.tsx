@@ -100,3 +100,4 @@ describe("ProjectAssignment", () => {
     expect(optionTexts).toContain("+ Create new project")
   })
 })
+

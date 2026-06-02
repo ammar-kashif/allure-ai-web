@@ -37,3 +37,4 @@ export function createProject(name: string): Project {
     .get(id) as ProjectRow
   return rowToProject(row)
 }
+

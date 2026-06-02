@@ -524,3 +524,4 @@ export function countDocuments(): number {
 
 **Research date:** 2026-03-15
 **Valid until:** 2026-04-15 (stable domain, no fast-moving dependencies)
+

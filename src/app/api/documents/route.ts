@@ -8,3 +8,4 @@ export async function GET(request: NextRequest) {
   const documents = listDocuments({ type, sourceRecordingId })
   return NextResponse.json(documents)
 }
+

@@ -235,3 +235,4 @@ python-docx>=1.1
 - [2025 Python PDF Extractor Comparison](https://dev.to/onlyoneaman/i-tested-7-python-pdf-extractors-so-you-dont-have-to-2025-edition-akm) -- PyMuPDF performance benchmarks
 - [2026 Python PDF Library Evaluation](https://unstract.com/blog/evaluating-python-pdf-to-text-libraries/) -- current landscape
 - [Codepunker: Sync Audio with Text](https://www.codepunker.com/blog/sync-audio-with-text-using-javascript) -- HTML5 audio timeupdate patterns
+

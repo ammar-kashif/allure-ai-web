@@ -120,3 +120,4 @@ export async function GET(
     return NextResponse.json({ status: recording.status, extraction_status: "none" })
   }
 }
+

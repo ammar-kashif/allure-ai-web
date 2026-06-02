@@ -472,3 +472,4 @@ Phase 5: Depends on Phase 4 for context data
 - HTML5 Audio API (timeupdate, currentTime, seek): Web standard -- HIGH confidence
 - Phi-4-mini context window: confirmed `n_ctx=4096` in main.py line 80, model supports up to 16K per Hugging Face model card -- HIGH confidence
 - Zustand store pattern: proven in existing codebase (evidence-highlight.ts, recording-store.ts) -- HIGH confidence
+

@@ -144,3 +144,4 @@ export function TaskKanbanView({ onTaskClick, onCreateClick }: TaskKanbanViewPro
     </div>
   )
 }
+

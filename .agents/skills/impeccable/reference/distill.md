@@ -109,3 +109,4 @@ If you removed features or options:
 - Note any user feedback to monitor
 
 When the cuts feel right, hand off to `{{command_prefix}}impeccable polish` for the final pass. As Antoine de Saint-Exupéry put it: "Perfection is achieved not when there is nothing more to add, but when there is nothing left to take away."
+

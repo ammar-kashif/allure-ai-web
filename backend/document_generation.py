@@ -267,3 +267,4 @@ def generate_diagram(job_id: str, app_state: object, document_context: str = "")
 
     diagram_type = _detect_diagram_type(code)
     return code, diagram_type
+

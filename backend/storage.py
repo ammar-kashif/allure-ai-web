@@ -192,3 +192,4 @@ def delete_attachment(attachment_id: str) -> bool:
     cursor = conn.execute("DELETE FROM attachments WHERE id = ?", (attachment_id,))
     conn.commit()
     return cursor.rowcount > 0
+

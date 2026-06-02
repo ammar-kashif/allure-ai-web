@@ -90,3 +90,4 @@ Users can record audio in the browser via a global record button, manage recordi
 
 *Phase: 01-recording-and-transcription-pipeline*
 *Context gathered: 2026-03-12*
+

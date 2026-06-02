@@ -66,3 +66,4 @@ export function AppSidebar() {
     </Sidebar>
   )
 }
+

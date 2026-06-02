@@ -54,3 +54,4 @@ export function getDb(): Database.Database {
 }
 
 export default getDb
+

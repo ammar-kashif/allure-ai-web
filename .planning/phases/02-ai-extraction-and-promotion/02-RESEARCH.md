@@ -653,3 +653,4 @@ CREATE TABLE IF NOT EXISTS requirement_records (
 
 **Research date:** 2026-03-12
 **Valid until:** 2026-04-12 (stable domain; llama-cpp-python releases frequently but API is stable)
+

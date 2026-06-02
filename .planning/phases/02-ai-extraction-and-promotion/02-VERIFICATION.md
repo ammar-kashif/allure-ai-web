@@ -176,3 +176,4 @@ The `storage.jobs` dict anti-pattern in `test_extraction.py` is gone. The unused
 _Verified: 2026-03-15T17:10:00Z_
 _Verifier: Claude (gsd-verifier)_
 _Re-verification: Yes — after Plan 02-04 gap closure_
+

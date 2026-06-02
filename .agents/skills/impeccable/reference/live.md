@@ -620,3 +620,4 @@ Reference outputs:
 If a user says "no" to the CSP patch at setup time and later complains that live doesn't work: their dev CSP blocks `http://localhost:8400`. Fix: delete `cspChecked` from `.impeccable/live/config.json` and re-run `live.mjs`: setup will ask again.
 
 Then re-run `live.mjs`.
+

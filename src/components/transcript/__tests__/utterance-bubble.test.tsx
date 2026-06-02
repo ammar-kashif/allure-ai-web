@@ -80,3 +80,4 @@ describe("UtteranceBubble", () => {
     expect(screen.getByText("0:32")).toBeInTheDocument()
   })
 })
+

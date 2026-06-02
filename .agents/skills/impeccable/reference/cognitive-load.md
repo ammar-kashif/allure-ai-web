@@ -104,3 +104,4 @@ At any decision point, count the number of distinct options, actions, or pieces 
 ### 8. The Context Switch
 **Problem**: User must jump between screens/tabs/modals to gather info for a single decision.
 **Fix**: Co-locate the information needed for each decision. Reduce back-and-forth.
+

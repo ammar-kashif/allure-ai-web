@@ -98,3 +98,4 @@ None — discussion stayed within phase scope
 
 *Phase: 06-speaker-management-recording-ux*
 *Context gathered: 2026-03-19*
+

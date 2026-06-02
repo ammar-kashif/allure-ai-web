@@ -457,3 +457,4 @@ Based on research, here are recommendations for areas left to Claude's discretio
 
 **Research date:** 2026-03-14
 **Valid until:** 2026-04-14 (stable libraries, no fast-moving concerns)
+

@@ -93,3 +93,4 @@ None — discussion stayed within phase scope
 
 *Phase: 05-diarization-upgrade-audio-playback*
 *Context gathered: 2026-03-18*
+

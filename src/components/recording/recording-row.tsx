@@ -38,3 +38,4 @@ export function RecordingRow({ recording, onAssignProject }: RecordingRowProps) 
     </TableRow>
   )
 }
+
